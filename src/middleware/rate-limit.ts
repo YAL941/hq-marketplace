@@ -1,4 +1,4 @@
-import rateLimit, { type Options } from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, type Options } from 'express-rate-limit';
 import type { Request, RequestHandler, Response } from 'express';
 import { config } from '../config.js';
 
@@ -42,7 +42,13 @@ function effectiveLimits(profile: RateLimitProfile): { max: number; windowMs: nu
 const sharedOptions: Partial<Options> = {
     // Count the client address, not the identity behind the token: the login
     // limiter has to work before anyone is authenticated.
-    keyGenerator: (req: Request) => req.ip ?? req.socket.remoteAddress ?? 'unknown',
+    //
+    // ipKeyGenerator, not req.ip, because a single residential IPv6 customer
+    // is routinely handed a /64: keying on the raw address would let one person
+    // rotate through billions of them and never hit the ceiling. The helper
+    // folds the address down to its /56 subnet, which is the real granularity
+    // a rate limit can count on.
+    keyGenerator: (req: Request) => ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? 'unknown'),
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     // A rejected request must not fall through to the error handler, or the

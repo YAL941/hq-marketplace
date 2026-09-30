@@ -6,7 +6,8 @@ import type { TenantContext } from '../db/tenant.js';
 
 export interface AuthenticatedUser {
     id: number;
-    email: string;
+    /** Null for an account that registered with a phone number only. */
+    email: string | null;
     isPlatformAdmin: boolean;
 }
 
@@ -23,7 +24,8 @@ declare global {
 
 interface TokenPayload {
     sub: string;
-    email: string;
+    /** Null for a phone-only account; the token still identifies the user by sub. */
+    email: string | null;
     pa: boolean;
 }
 

@@ -1,44 +1,100 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import type { PoolClient } from 'pg';
 import { z } from 'zod';
-import { conflict, unauthorized } from '../../db/errors.js';
-import { withTenant } from '../../db/tenant.js';
+import { badRequest, conflict, unauthorized } from '../../db/errors.js';
+import { ANONYMOUS, withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor, signAccessToken } from '../../middleware/auth.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
+import { isEmailLike, normalisePhone, PhoneValidationError } from './phone.js';
 
+/**
+ * Identity at signup: an email, a phone, or both.
+ *
+ * Exactly one of the two is required, because a caller who supplies neither has
+ * no way back into the account, and one who supplies both is almost always
+ * copying a form twice. `password` and `fullName` stay mandatory.
+ */
 const registerSchema = z.object({
-    email: z.string().email(),
+    email: z.string().email().optional(),
+    phone: z.string().optional(),
     password: z.string().min(8).max(128),
     fullName: z.string().min(2).max(200),
-    phone: z
-        .string()
-        .regex(/^\+?[0-9]{7,15}$/)
-        .optional(),
+    /**
+     * Where the account starts. `customer` is the default and the only safe
+     * one; `business_owner` additionally creates a business, which is a bigger
+     * promise than a signup form can make on its own, so it goes through the
+     * same path as the dedicated business onboarding endpoint.
+     */
+    role: z.enum(['customer', 'business_owner']).default('customer'),
+    /** Required when `role` is `business_owner`: the owner's own business. */
+    businessName: z.string().min(2).max(200).optional(),
+}).refine((v) => v.email !== undefined || v.phone !== undefined, {
+    message: 'Provide an email address, a phone number, or both',
+    path: ['email'],
 });
 
+/**
+ * Login takes one field that is either an email or a phone number. Normalising
+ * it here rather than in the route body means the caller can type the number
+ * any way they like and still reach the right account.
+ *
+ * `email` is accepted as an alias for `identifier` so clients written against
+ * the earlier contract keep working; new callers should send `identifier`.
+ */
 const loginSchema = z.object({
-    email: z.string().email(),
+    identifier: z.string().min(1).optional(),
+    email: z.string().min(1).optional(),
     password: z.string().min(1),
+}).refine((v) => v.identifier !== undefined || v.email !== undefined, {
+    message: 'Provide an identifier: an email address or a phone number',
+    path: ['identifier'],
 });
+
+/** Runs a normaliser, turning its validation error into a 400. */
+function asBadRequest<T>(run: () => T): T {
+    try {
+        return run();
+    } catch (error) {
+        if (error instanceof PhoneValidationError) {
+            throw badRequest(error.message, { field: 'phone', reason: error.reason });
+        }
+        throw error;
+    }
+}
 
 const authLimiter = rateLimiter('auth');
 
 export const authRoutes: Router = Router();
 
-/** Registration always starts as a customer; business roles come later. */
+/** Registration starts as a customer unless the caller asked to own a business. */
 authRoutes.post('/auth/register', authLimiter, async (req, res, next) => {
     try {
         const input = registerSchema.parse(req.body);
+
+        // Normalise before anything touches the database, so a bad number is a
+        // 400 with a readable reason rather than a constraint violation.
+        const phone = input.phone === undefined ? null : asBadRequest(() => normalisePhone(input.phone!));
+        const email = input.email === undefined ? null : input.email.toLowerCase();
+
+        if (input.role === 'business_owner' && !input.businessName) {
+            next(badRequest('businessName is required when role is business_owner', { field: 'businessName' }));
+            return;
+        }
+
         const passwordHash = await bcrypt.hash(input.password, 12);
 
-        const result = await withTenant(contextFor(req), async (client) => {
-            // lets the row created below be read back in this transaction
-            await client.query('SELECT set_config($1, $2, true)', ['app.registering_email', input.email]);
-            const { rows } = await client.query<{ user_id: string; email: string; full_name: string }>(
-                `INSERT INTO users (email, password_hash, full_name, phone, status)
+        const result = await withTenant(ANONYMOUS, async (client) => {
+            // The RLS policies read these two settings back when the row being
+            // created is fetched again by RETURNING.
+            await client.query('SELECT set_config($1, $2, true)', ['app.registering_email', email ?? '']);
+            await client.query('SELECT set_config($1, $2, true)', ['app.registering_phone', phone ?? '']);
+
+            const { rows } = await client.query<{ user_id: string; email: string | null; full_name: string; phone: string | null }>(
+                `INSERT INTO users (email, phone, password_hash, full_name, status)
                  VALUES ($1, $2, $3, $4, 'active')
-                 RETURNING user_id, email, full_name`,
-                [input.email, passwordHash, input.fullName, input.phone ?? null],
+                 RETURNING user_id, email, phone, full_name`,
+                [email, phone, passwordHash, input.fullName],
             );
             const user = rows[0]!;
             const { rows: roleRows } = await client.query<{ role_id: string }>(
@@ -50,16 +106,54 @@ authRoutes.post('/auth/register', authLimiter, async (req, res, next) => {
                     roleRows[0].role_id,
                 ]);
             }
-            return user;
+
+            // An owner is also a member of the business they just created. The
+            // 004 onboarding policy checks `app_user_id()`, and this
+            // transaction is still running as an anonymous visitor because the
+            // account did not exist when it started. The context is therefore
+            // re-pointed at the new user, in the same transaction, before the
+            // business row is written.
+            //
+            // This is safe to do after the user insert: the registration-read
+            // policy is keyed on app.registering_email / app.registering_phone
+            // rather than on app.user_id, so the row is still readable.
+            const business = input.role === 'business_owner'
+                ? await (async () => {
+                    await client.query('SELECT set_config($1, $2, true)', [
+                        'app.user_id',
+                        String(user.user_id),
+                    ]);
+                    return createBusinessWithOwner(client, {
+                        userId: Number(user.user_id),
+                        businessName: input.businessName!,
+                        contactEmail: user.email,
+                        contactPhone: user.phone,
+                    });
+                })()
+                : null;
+
+            return { user, business };
         });
 
         const token = signAccessToken({
-            id: Number(result.user_id),
-            email: result.email,
+            id: Number(result.user.user_id),
+            email: result.user.email,
             isPlatformAdmin: false,
         });
-        res.status(201).json({ data: { user: result, token } });
+        res.status(201).json({ data: { user: result.user, business: result.business, token } });
     } catch (error) {
+        // 23505 is a unique violation: the email or the phone is taken.
+        if ((error as { code?: string }).code === '23505') {
+            const constraint = (error as { constraint?: string }).constraint ?? '';
+            const field = constraint.includes('phone') ? 'phone' : 'email';
+            next(conflict(
+                field === 'phone'
+                    ? 'This phone number is already registered'
+                    : 'An account with this email address already exists',
+                { field },
+            ));
+            return;
+        }
         next(error);
     }
 });
@@ -67,15 +161,25 @@ authRoutes.post('/auth/register', authLimiter, async (req, res, next) => {
 authRoutes.post('/auth/login', authLimiter, async (req, res, next) => {
     try {
         const input = loginSchema.parse(req.body);
+        // A caller may type the number in any form, so it is normalised to the
+        // same E.164 value the account was stored with. A malformed number is
+        // reported as a bad request rather than as a wrong password: telling
+        // someone their number is malformed is what they need, and it reveals
+        // nothing, because it happens before any account is looked up.
+        const rawIdentifier = input.identifier ?? input.email!;
+        const identifier = isEmailLike(rawIdentifier)
+            ? rawIdentifier.toLowerCase()
+            : asBadRequest(() => normalisePhone(rawIdentifier));
+
         const { rows } = await withTenant(contextFor(req), async (client) =>
             client.query<{
                 user_id: string;
-                email: string;
+                email: string | null;
                 password_hash: string;
                 status: string;
                 full_name: string;
                 is_platform_admin: boolean;
-            }>('SELECT * FROM app_user_for_login($1)', [input.email]),
+            }>('SELECT * FROM app_user_for_login($1)', [identifier]),
         );
 
         const user = rows[0];
@@ -134,6 +238,68 @@ authRoutes.get('/auth/me', authenticate, async (req, res, next) => {
     }
 });
 
+/**
+ * Creates a business and makes its owner the first member.
+ *
+ * Shared by `POST /businesses/register` and by the `business_owner` branch of
+ * `POST /auth/register`, so onboarding has exactly one implementation. Both
+ * callers already run inside a transaction whose tenant context points at the
+ * owner, which is what the 004 onboarding policy checks.
+ */
+async function createBusinessWithOwner(
+    client: PoolClient,
+    input: {
+        userId: number;
+        businessName: string;
+        businessCategoryId?: number | null;
+        description?: string | null;
+        address?: string | null;
+        city?: string | null;
+        district?: string | null;
+        contactPhone?: string | null;
+        contactEmail?: string | null;
+    },
+): Promise<{ business_id: string; business_name: string; business_slug: string; status: string }> {
+    const slugBase = input.businessName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60);
+    const slug = `${slugBase || 'business'}-${Date.now().toString(36)}`;
+
+    const { rows } = await client.query<{ business_id: string; business_name: string; business_slug: string; status: string }>(
+        `INSERT INTO businesses
+            (business_name, business_slug, business_description, business_category_id, phone, email,
+             address, city, district, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING business_id, business_name, business_slug, status`,
+        [
+            input.businessName,
+            slug,
+            input.description ?? null,
+            input.businessCategoryId ?? null,
+            input.contactPhone ?? null,
+            input.contactEmail ?? null,
+            input.address ?? null,
+            input.city ?? null,
+            input.district ?? null,
+            input.userId,
+        ],
+    );
+    const business = rows[0]!;
+
+    const { rows: roleRows } = await client.query<{ role_id: string }>(
+        `SELECT role_id FROM roles WHERE role_key = 'business_owner' AND scope = 'business'`,
+    );
+    await client.query(
+        `INSERT INTO business_users (business_id, user_id, role_id, status, joined_at)
+         VALUES ($1, $2, $3, 'active', now())`,
+        [business.business_id, input.userId, roleRows[0]!.role_id],
+    );
+
+    return business;
+}
+
 /** Business onboarding: creates the business and its first (owning) member. */
 authRoutes.post('/businesses/register', authenticate, async (req, res, next) => {
     try {
@@ -151,46 +317,21 @@ authRoutes.post('/businesses/register', authenticate, async (req, res, next) => 
             })
             .parse(req.body);
 
-        const slugBase = input.businessName
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '')
-            .slice(0, 60);
-        const slug = `${slugBase || 'business'}-${Date.now().toString(36)}`;
-
-        const result = await withTenant(contextFor(req), async (client) => {
-            const { rows } = await client.query<{ business_id: string; business_name: string; business_slug: string; status: string }>(
-                `INSERT INTO businesses
-                    (business_name, business_slug, business_description, business_category_id, phone, email,
-                     address, city, district, created_by)
-                 VALUES ($1, $2, $3, $4, COALESCE($5, $6), $6, $7, $8, $9, $10)
-                 RETURNING business_id, business_name, business_slug, status`,
-                [
-                    input.businessName,
-                    slug,
-                    input.description ?? null,
-                    input.businessCategoryId ?? null,
-                    input.phone ?? null,
-                    input.email ?? req.user!.email,
-                    input.address ?? null,
-                    input.city ?? null,
-                    input.district ?? null,
-                    userId,
-                ],
-            );
-            const business = rows[0]!;
-
-            const { rows: roleRows } = await client.query<{ role_id: string }>(
-                `SELECT role_id FROM roles WHERE role_key = 'business_owner' AND scope = 'business'`,
-            );
-            await client.query(
-                `INSERT INTO business_users (business_id, user_id, role_id, status, joined_at)
-                 VALUES ($1, $2, $3, 'active', now())`,
-                [business.business_id, userId, roleRows[0]!.role_id],
-            );
-
-            return business;
-        });
+        const result = await withTenant(contextFor(req), (client) =>
+            createBusinessWithOwner(client, {
+                userId,
+                businessName: input.businessName,
+                businessCategoryId: input.businessCategoryId,
+                description: input.description,
+                address: input.address,
+                city: input.city,
+                district: input.district,
+                contactPhone: input.phone,
+                // An account registered by phone has no email, so the owner's
+                // phone is the only contact detail available here.
+                contactEmail: input.email ?? req.user!.email,
+            }),
+        );
 
         res.status(201).json({ data: result });
     } catch (error) {
