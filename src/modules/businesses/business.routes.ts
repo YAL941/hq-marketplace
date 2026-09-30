@@ -4,6 +4,21 @@ import { forbidden, notFound, unauthorized } from '../../db/errors.js';
 import { withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
+import { rateLimiter } from '../../middleware/rate-limit.js';
+import {
+    getOpeningHours,
+    getPublicBusinessProfile,
+    listCategories,
+    listCities,
+    listPublicBusinesses,
+    listPublicReviews,
+} from './business.repository.js';
+import {
+    businessIdParamSchema,
+    directoryQuerySchema,
+    pageMeta,
+    reviewsQuerySchema,
+} from './public-query.js';
 
 export interface BusinessRow {
     business_id: string;
@@ -46,83 +61,111 @@ const updateSchema = z
 
 export const businessRoutes: Router = Router();
 
-const directoryQuerySchema = z.object({
-    categoryId: z.coerce.number().int().positive().optional(),
-    city: z.string().max(120).optional(),
-    search: z.string().max(120).optional(),
-    verifiedOnly: z
-        .enum(['true', 'false'])
-        .optional()
-        .transform((v) => (v === undefined ? undefined : v === 'true')),
-    limit: z.coerce.number().int().positive().max(100).optional(),
-    offset: z.coerce.number().int().min(0).optional(),
-});
+/**
+ * Public directory listing. No authentication: this is the storefront.
+ *
+ * The limiter sits on the public read profile rather than being left off,
+ * because an unauthenticated endpoint is exactly the one a scraper will find
+ * first.
+ */
+const publicReadLimiter = rateLimiter('public');
 
-/** Public directory. RLS limits the result to active, non-deleted businesses. */
-businessRoutes.get('/businesses', async (req, res, next) => {
+businessRoutes.get('/businesses', publicReadLimiter, async (req, res, next) => {
     try {
         const q = directoryQuerySchema.parse(req.query);
-        const conditions: string[] = ['b.deleted_at IS NULL'];
-        const params: unknown[] = [];
+        const { items, total } = await withTenant(contextFor(req), (client) =>
+            listPublicBusinesses(client, {
+                city: q.city,
+                categoryId: q.categoryId,
+                categorySlug: q.category,
+                q: q.q,
+                sort: q.sort,
+                featured: q.featured,
+                page: q.page,
+                limit: q.limit,
+            }),
+        );
 
-        if (q.categoryId !== undefined) {
-            params.push(q.categoryId);
-            conditions.push(`b.business_category_id = $${params.length}`);
-        }
-        if (q.city) {
-            params.push(q.city);
-            conditions.push(`b.city = $${params.length}`);
-        }
-        if (q.search) {
-            params.push(`%${q.search.toLowerCase()}%`);
-            conditions.push(`lower(b.business_name) LIKE $${params.length}`);
-        }
-        if (q.verifiedOnly) {
-            conditions.push('b.verification_status = \'verified\'');
-        }
-        params.push(Math.min(q.limit ?? 50, 100));
-        const limitIdx = params.length;
-        params.push(Math.max(q.offset ?? 0, 0));
-        const offsetIdx = params.length;
-
-        const businesses = await withTenant(contextFor(req), async (client) => {
-            const { rows } = await client.query<BusinessRow & { category_name: string | null }>(
-                `SELECT b.*, c.category_name
-                   FROM businesses b
-                   LEFT JOIN business_categories c ON c.category_id = b.business_category_id
-                  WHERE ${conditions.join(' AND ')}
-                  ORDER BY b.is_verified DESC, b.created_at DESC
-                  LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-                params,
-            );
-            return rows;
-        });
-
-        res.json({ data: businesses, meta: { count: businesses.length } });
+        res.json({ data: items, meta: pageMeta(total, q.page, q.limit) });
     } catch (error) {
         next(error);
     }
 });
 
-businessRoutes.get('/businesses/:businessId', async (req, res, next) => {
+/** The public profile of one business. 404 for anything not publicly visible. */
+businessRoutes.get('/businesses/:businessId', publicReadLimiter, async (req, res, next) => {
     try {
-        const businessId = Number(req.params['businessId']);
-        const business = await withTenant(contextFor(req), async (client) => {
-            const { rows } = await client.query<BusinessRow & { category_name: string | null }>(
-                `SELECT b.*, c.category_name
-                   FROM businesses b
-                   LEFT JOIN business_categories c ON c.category_id = b.business_category_id
-                  WHERE b.business_id = $1 AND b.deleted_at IS NULL`,
-                [businessId],
-            );
-            if (!rows[0]) throw notFound('Business not found');
-            return rows[0];
+        const businessId = businessIdParamSchema.parse(req.params['businessId']);
+
+        const { profile, openingHours } = await withTenant(contextFor(req), async (client) => {
+            const profile = await getPublicBusinessProfile(client, businessId);
+            if (!profile) throw notFound('Business not found');
+            const openingHours = await getOpeningHours(client, businessId);
+            return { profile, openingHours };
         });
-        res.json({ data: business });
+
+        res.json({ data: { ...profile, opening_hours: openingHours } });
     } catch (error) {
         next(error);
     }
 });
+
+/** Published reviews of a public business, newest first. */
+businessRoutes.get('/businesses/:businessId/reviews', publicReadLimiter, async (req, res, next) => {
+    try {
+        const businessId = businessIdParamSchema.parse(req.params['businessId']);
+        const q = reviewsQuerySchema.parse(req.query);
+
+        const { items, total } = await withTenant(contextFor(req), (client) =>
+            listPublicReviews(client, businessId, q.page, q.limit),
+        );
+
+        if (total === 0 && !(await publicBusinessExists(contextFor(req), businessId))) {
+            // A business that exists but is not public must be indistinguishable
+            // from one that does not exist, or the endpoint becomes a way to
+            // probe which ids are real.
+            throw notFound('Business not found');
+        }
+
+        res.json({ data: items, meta: pageMeta(total, q.page, q.limit) });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/** Categories with the number of public businesses in each. */
+businessRoutes.get('/categories', publicReadLimiter, async (req, res, next) => {
+    try {
+        const categories = await withTenant(contextFor(req), (client) => listCategories(client));
+        res.json({ data: categories, meta: { count: categories.length } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/** Cities that have at least one public business, with their counts. */
+businessRoutes.get('/cities', publicReadLimiter, async (req, res, next) => {
+    try {
+        const cities = await withTenant(contextFor(req), (client) => listCities(client));
+        res.json({ data: cities, meta: { count: cities.length } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/** Exists and is publicly visible. Used to keep a 404 from leaking an id. */
+async function publicBusinessExists(
+    ctx: ReturnType<typeof contextFor>,
+    businessId: number,
+): Promise<boolean> {
+    return withTenant(ctx, async (client) => {
+        const { rows } = await client.query<{ exists: boolean }>(
+            'SELECT EXISTS (SELECT 1 FROM businesses b WHERE b.business_id = $1) AS exists',
+            [businessId],
+        );
+        return rows[0]?.exists === true;
+    });
+}
 
 /**
  * Business profile update.

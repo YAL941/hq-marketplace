@@ -14,7 +14,7 @@ import { config } from '../config.js';
  * already over the budget.
  */
 
-export type RateLimitProfile = 'auth' | 'write';
+export type RateLimitProfile = 'auth' | 'write' | 'public';
 
 const PROFILES: Record<RateLimitProfile, { max: number; windowMs: number }> = {
     // 10 attempts per 15 minutes is the usual baseline against credential
@@ -24,6 +24,11 @@ const PROFILES: Record<RateLimitProfile, { max: number; windowMs: number }> = {
     // Order and review creation is authenticated but carries no reputation
     // score, so it gets a looser budget: 30 per minute.
     write: { max: 30, windowMs: 60 * 1000 },
+    // The directory is read-only, unauthenticated and cheap per row, but a
+    // catalogue crawl or a scraper is still a denial-of-service in slow motion.
+    // 120/minute leaves an interactive client and its asset prefetch well under
+    // the ceiling while stopping an unbounded loop.
+    public: { max: 120, windowMs: 60 * 1000 },
 };
 
 /**
