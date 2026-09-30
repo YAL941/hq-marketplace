@@ -1,0 +1,10 @@
+node_modules/
+venv/
+.kilo/
+.env
+.env.*
+!.env.example
+test-output.txt
+*.log
+coverage/
+.DS_Store
