@@ -32,7 +32,7 @@ export function BusinessHeader({ business, currentBusinessId, isOwner, onEdit, o
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-navy-900/60 via-transparent to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-6">
+        <div className="absolute bottom-0 start-0 end-0 p-6">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div className="flex items-start gap-4">
               {business.logo_url ? (
@@ -51,7 +51,7 @@ export function BusinessHeader({ business, currentBusinessId, isOwner, onEdit, o
                   <h1 className="text-2xl sm:text-3xl font-bold text-white">{business.business_name}</h1>
                   {business.is_verified && (
                     <Badge variant="verified" className="shadow-lg">
-                      <CheckCircle className="w-4 h-4 mr-1.5" />
+                      <CheckCircle className="w-4 h-4 me-1.5" />
                       Verified
                     </Badge>
                   )}
@@ -84,7 +84,7 @@ export function BusinessHeader({ business, currentBusinessId, isOwner, onEdit, o
               >
                 {isOpen ? (
                   <>
-                    <CheckCircle className="w-4 h-4 mr-1.5" />
+                    <CheckCircle className="w-4 h-4 me-1.5" />
                     Open Now
                   </>
                 ) : (

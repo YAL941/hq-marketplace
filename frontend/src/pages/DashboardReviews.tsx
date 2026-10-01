@@ -143,7 +143,7 @@ export function DashboardReviewsPage() {
                       <p className="text-navy-700 mb-3">{review.review_text}</p>
                     )}
                     {review.business_response && (
-                      <div className="mb-3 p-3 bg-primary-50 rounded-lg border border-primary-100">
+                      <div className="mb-3 p-3 bg-primary-50 rounded-sg border border-primary-100">
                         <div className="flex items-center gap-1.5 text-sm text-primary-700 mb-1">
                           <MessageSquare className="w-4 h-4" />
                           <span className="font-medium">Your Response:</span>
@@ -179,7 +179,7 @@ export function DashboardReviewsPage() {
                             onClick={() => setRespondingTo(review.review_id)}
                             className="px-3 py-1.5 bg-primary-500 text-white text-sm rounded-button hover:bg-primary-600 transition-colors"
                           >
-                            <MessageSquare className="w-4 h-4 inline mr-1.5" />
+                            <MessageSquare className="w-4 h-4 inline me-1.5" />
                             Respond
                           </button>
                         )}
@@ -189,7 +189,7 @@ export function DashboardReviewsPage() {
                     {review.status === 'published' && review.business_response && (
                       <div className="mt-3 pt-3 border-t border-navy-100 flex gap-2">
                         <Button variant="ghost" size="sm" onClick={() => handleModerate(review.review_id, 'hidden')}>
-                          <X className="w-4 h-4 inline mr-1.5 text-warning-600" />
+                          <X className="w-4 h-4 inline me-1.5 text-warning-600" />
                           Hide
                         </Button>
                       </div>
@@ -198,7 +198,7 @@ export function DashboardReviewsPage() {
                     {review.status === 'hidden' && (
                       <div className="mt-3 pt-3 border-t border-navy-100 flex gap-2">
                         <Button variant="ghost" size="sm" onClick={() => handleModerate(review.review_id, 'published')}>
-                          <CheckCircle className="w-4 h-4 inline mr-1.5 text-success-600" />
+                          <CheckCircle className="w-4 h-4 inline me-1.5 text-success-600" />
                           Publish
                         </Button>
                       </div>

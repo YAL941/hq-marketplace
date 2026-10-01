@@ -9,6 +9,19 @@ export interface ApiResponse<T> {
   };
 }
 
+/**
+ * Pager returned by every paginated public directory response.
+ * `total` is the count across all pages, not the length of `data`.
+ */
+export interface PageMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   meta: {
@@ -57,6 +70,107 @@ export interface LoginResponse {
   token: string;
 }
 
+// ---------------------------------------------------------------------------
+// Public directory
+//
+// These mirror what the public routes actually return. Two things to keep in
+// mind when reading them:
+//
+//   * `business_id` is a **string** on every public route. The ids are bigints
+//     and are serialised as strings so a large id cannot lose precision in
+//     JSON. Do not type it as number here, or `Number(business_id)` will
+//     silently corrupt it.
+//   * There is no `verified` field anywhere. The directory does not publish
+//     verification state, and nothing in the UI may imply that a business is
+//     checked. `is_featured` is editorial and is not a trust signal.
+// ---------------------------------------------------------------------------
+
+/** The list projection: what a card needs. */
+export interface PublicBusinessCard {
+  business_id: string;
+  business_name: string;
+  business_slug: string;
+  category_name: string | null;
+  category_slug: string | null;
+  city: string | null;
+  district: string | null;
+  logo_url: string | null;
+  cover_image_url: string | null;
+  business_description: string | null;
+  is_featured: boolean;
+  created_at: string;
+  /** Decimal string, null when the business has no reviews yet. */
+  average_rating: string | null;
+  review_count: number;
+  is_open_now?: boolean;
+}
+
+/** One weekday. The server always returns all seven, closed days included. */
+export interface OpeningHour {
+  /** 0 = Sunday through 6 = Saturday, matching Postgres `day_of_week`. */
+  day_of_week: number;
+  /** "HH:MM", or null on a closed day. */
+  opens_at: string | null;
+  closes_at: string | null;
+  is_closed: boolean;
+}
+
+export type RatingDistribution = Record<'1' | '2' | '3' | '4' | '5', number>;
+
+/** The full profile behind GET /businesses/:businessId. */
+export interface PublicBusinessProfile extends PublicBusinessCard {
+  business_description: string | null;
+  address: string | null;
+  phone: string | null;
+  /** Digits only, optionally with a leading +. Null when not published. */
+  whatsapp_number: string | null;
+  website: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  rating_distribution: RatingDistribution;
+  opening_hours: OpeningHour[];
+}
+
+/** A published review. The reviewer's account is never published. */
+export interface PublicReview {
+  review_id: string;
+  rating: number;
+  review_text: string | null;
+  business_response: string | null;
+  responded_at: string | null;
+  created_at: string;
+  author_name: string;
+}
+
+export interface PublicCategory {
+  category_id: string;
+  category_name: string;
+  category_slug: string;
+  description: string | null;
+  business_count: number;
+}
+
+export interface PublicCity {
+  city: string;
+  business_count: number;
+}
+
+export type DirectorySort = 'newest' | 'rating' | 'featured';
+
+export interface PublicDirectoryQuery {
+  /** Free-text name search. */
+  q?: string;
+  /** Slug, which is what a public URL carries. */
+  category?: string;
+  categoryId?: number;
+  city?: string;
+  sort?: DirectorySort;
+  featured?: boolean;
+  page?: number;
+  /** The server caps this at 50 and rejects anything higher. */
+  limit?: number;
+}
+
 // Business
 export interface Business {
   business_id: number;
@@ -81,18 +195,14 @@ export interface Business {
   updated_at: string;
   deleted_at?: string;
   category_name?: string;
-  /** Rating rollup joined in by the public directory query, absent on staff routes. */
+  /**
+   * Rating rollup joined in by the public directory query, absent on staff
+   * routes. Use the Public* types above for anything the directory serves.
+   */
   average_rating?: string | null;
   review_count?: number;
-}
-
-export interface BusinessDirectoryQuery {
-  categoryId?: number;
-  city?: string;
-  search?: string;
-  verifiedOnly?: boolean;
-  limit?: number;
-  offset?: number;
+  whatsapp_number?: string | null;
+  is_featured?: boolean;
 }
 
 export interface BusinessStatistics {
@@ -119,23 +229,15 @@ export interface BusinessCategory {
   icon?: string;
   sort_order: number;
   is_active: boolean;
-  /** Count returned by GET /categories, not by the admin CRUD routes. */
-  business_count?: number;
   created_at: string;
   updated_at: string;
 }
 
 /**
- * The slice of a category the public UI actually renders. Admin CRUD routes
- * carry sort_order/created_at, the public directory does not, so cards take
- * this rather than the whole admin record.
+ * What a category card renders. The public /categories route returns exactly
+ * this and nothing more, so cards take it rather than the admin record.
  */
-export type CategorySummary = Pick<
-  BusinessCategory,
-  'category_id' | 'category_name' | 'category_slug'
-> & {
-  business_count?: number;
-};
+export type CategorySummary = PublicCategory;
 
 export interface Product {
   product_id: number;
@@ -329,6 +431,10 @@ export interface Location {
   phone?: string;
   is_primary: boolean;
   is_active: boolean;
+  /**
+   * Staff-managed branch hours. Public opening hours live on the business as
+   * `OpeningHour[]` and are served with the business profile instead.
+   */
   working_hours?: Record<string, string[]>;
   created_at: string;
   updated_at: string;

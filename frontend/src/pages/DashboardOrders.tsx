@@ -101,7 +101,7 @@ export function DashboardOrdersPage() {
             {[...Array(5)].map((_, i) => (
               <div key={i} className="animate-pulse flex items-center justify-between p-3 bg-navy-50 rounded-button">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-navy-200" />
+                  <div className="w-10 h-10 rounded-sg bg-navy-200" />
                   <div className="space-y-1">
                     <div className="h-4 bg-navy-200 rounded w-32" />
                     <div className="h-3 bg-navy-200 rounded w-24" />
@@ -116,14 +116,14 @@ export function DashboardOrdersPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="text-left text-sm text-navy-500 border-b border-navy-200">
+                <tr className="text-start text-sm text-navy-500 border-b border-navy-200">
                   <th className="pb-3 font-medium text-navy-700">Order</th>
                   <th className="pb-3 font-medium text-navy-700">Customer</th>
                   <th className="pb-3 font-medium text-navy-700">Items</th>
                   <th className="pb-3 font-medium text-navy-700">Total</th>
                   <th className="pb-3 font-medium text-navy-700">Status</th>
                   <th className="pb-3 font-medium text-navy-700">Date</th>
-                  <th className="pb-3 font-medium text-navy-700 text-right">Actions</th>
+                  <th className="pb-3 font-medium text-navy-700 text-end">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-100">
@@ -139,7 +139,7 @@ export function DashboardOrdersPage() {
                       <div className="flex items-center gap-1">
                         {order.items?.map((item: any) => (
                           <Badge key={item.order_item_id} variant="default" size="sm" className="text-xs">
-                            {item.item_type === 'product' ? <Package className="w-3 h-3 mr-1" /> : <Truck className="w-3 h-3 mr-1" />}
+                            {item.item_type === 'product' ? <Package className="w-3 h-3 me-1" /> : <Truck className="w-3 h-3 me-1" />}
                             {item.item_name}
                           </Badge>
                         ))}
@@ -152,7 +152,7 @@ export function DashboardOrdersPage() {
                       </Badge>
                     </td>
                     <td className="py-4 text-navy-500 text-sm">{formatRelativeTime(order.created_at)}</td>
-                    <td className="py-4 text-right">
+                    <td className="py-4 text-end">
                       <Link
                         to={`/dashboard/orders/${order.order_id}`}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"

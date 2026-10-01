@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
 import { Button } from '../components/common/Button';
@@ -8,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { ShoppingBag } from 'lucide-react';
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
@@ -24,7 +26,9 @@ export function LoginPage() {
       await login(email, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Invalid email or password');
+      // The server's message is shown when it sends one, because it knows
+      // whether the account exists or the password was simply wrong.
+      setError(err.response?.data?.error?.message || t('auth.invalidCredentials'));
     } finally {
       setLoading(false);
     }
@@ -38,10 +42,10 @@ export function LoginPage() {
             <div className="w-10 h-10 rounded-xl bg-primary-600 flex items-center justify-center">
               <ShoppingBag className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-bold text-navy-900">HQ Marketplace</span>
+            <span className="text-2xl font-bold text-navy-900">{t('brand.name')}</span>
           </Link>
-          <h2 className="text-3xl font-bold text-navy-900">Welcome back</h2>
-          <p className="mt-2 text-navy-500">Sign in to your account</p>
+          <h2 className="text-3xl font-bold text-navy-900">{t('auth.signInTitle')}</h2>
+          <p className="mt-2 text-navy-500">{t('auth.signInSubtitle')}</p>
         </div>
 
         <Card className="p-6">
@@ -54,7 +58,7 @@ export function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <Input
-              label="Email"
+              label={t('auth.email')}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -66,7 +70,7 @@ export function LoginPage() {
 
             <div className="relative">
               <Input
-                label="Password"
+                label={t('auth.password')}
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -78,8 +82,8 @@ export function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-[38px] text-navy-400 hover:text-navy-600"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute end-4 top-[38px] text-navy-400 hover:text-navy-600"
+                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -88,22 +92,22 @@ export function LoginPage() {
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 text-primary-600 border-navy-300 rounded focus:ring-primary-500" />
-                <span className="text-sm text-navy-600">Remember me</span>
+                <span className="text-sm text-navy-600">{t('auth.rememberMe')}</span>
               </label>
               <Link to="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700">
-                Forgot password?
+                {t('auth.forgotPassword')}
               </Link>
             </div>
 
             <Button type="submit" className="w-full" size="lg" loading={loading}>
-              Sign In
+              {t('nav.signIn')}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm text-navy-600">
-            Don't have an account?{' '}
+            {t('auth.noAccount')}{' '}
             <Link to="/register" className="text-primary-600 hover:text-primary-700 font-medium">
-              Sign up
+              {t('auth.signUp')}
             </Link>
           </div>
         </Card>

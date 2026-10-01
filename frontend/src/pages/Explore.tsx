@@ -1,97 +1,140 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Filter, X, MapPin, Shield, Building2 } from 'lucide-react';
+import { Filter, X, MapPin, Building2 } from 'lucide-react';
 import { BusinessCard } from '../components/business/BusinessCard';
 import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { Button } from '../components/common/Button';
 import { SearchBar } from '../components/common/SearchBar';
 import { Badge } from '../components/common/Badge';
-import { businessApi } from '../services/api';
-import type { Business } from '../types';
+import { ErrorState } from '../components/common/ErrorState';
+import { businessApi, directoryApi } from '../services/api';
+import type {
+  DirectorySort,
+  PublicBusinessCard,
+  PublicCategory,
+  PublicCity,
+} from '../types';
 import { cn } from '../lib/utils';
 
-const cities = ['Mogadishu', 'Hargeisa', 'Bosaso', 'Kismayo', 'Marka', 'Baidoa', 'Galkayo', 'Berbera'];
+const PAGE_SIZE = 12;
+
+/** Options the server actually supports. Anything else is not a sort it can do. */
+const SORT_OPTIONS: Array<{ value: DirectorySort; labelKey: string }> = [
+  { value: 'newest', labelKey: 'explore.sortNewest' },
+  { value: 'rating', labelKey: 'explore.sortRating' },
+  { value: 'featured', labelKey: 'explore.sortFeatured' },
+];
 
 export function ExplorePage() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [businesses, setBusinesses] = useState<Business[]>([]);
+
+  const [businesses, setBusinesses] = useState<PublicBusinessCard[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [categories, setCategories] = useState<PublicCategory[]>([]);
+  const [cities, setCities] = useState<PublicCity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [sortBy, setSortBy] = useState('recommended');
 
-  const search = searchParams.get('search') || '';
-  const categoryId = searchParams.get('categoryId');
-  const city = searchParams.get('city') || '';
-  const verifiedOnly = searchParams.get('verifiedOnly') === 'true';
-  const page = parseInt(searchParams.get('page') || '1');
-  const limit = 12;
-
-  const filters = {
-    search,
-    categoryId: categoryId ? parseInt(categoryId) : undefined,
-    city,
-    verifiedOnly,
-    limit,
-    offset: (page - 1) * limit,
-  };
+  // URL is the single source of truth, so a filtered view can be shared as a
+  // link and the back button behaves the way people expect.
+  const q = searchParams.get('q') ?? '';
+  const category = searchParams.get('category') ?? '';
+  const city = searchParams.get('city') ?? '';
+  const featuredOnly = searchParams.get('featured') === 'true';
+  const sort = (searchParams.get('sort') as DirectorySort | null) ?? 'newest';
+  const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
 
   useEffect(() => {
-    const fetchBusinesses = async () => {
-      setLoading(true);
-      try {
-        const response = await businessApi.list(filters);
-        setBusinesses(response.data.data);
-        setTotalCount(Number(response.data.meta?.total ?? response.data.data.length));
-      } catch (error) {
-        console.error('Failed to fetch businesses:', error);
-      } finally {
-        setLoading(false);
-      }
+    let cancelled = false;
+    Promise.all([directoryApi.categories(), directoryApi.cities()])
+      .then(([catRes, cityRes]) => {
+        if (cancelled) return;
+        setCategories(catRes.data.data.filter((c) => c.business_count > 0));
+        setCities(cityRes.data.data);
+      })
+      .catch(() => {
+        // The filter lists are a convenience; if they fail the results grid is
+        // still worth showing, so this is swallowed rather than surfaced.
+      });
+    return () => {
+      cancelled = true;
     };
-    fetchBusinesses();
-  }, [search, categoryId, city, verifiedOnly, page, sortBy]);
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await businessApi.listPublic({
+        q: q || undefined,
+        category: category || undefined,
+        city: city || undefined,
+        featured: featuredOnly || undefined,
+        sort,
+        page,
+        limit: PAGE_SIZE,
+      });
+      setBusinesses(res.data.data);
+      setTotalCount(Number(res.data.meta?.total ?? res.data.data.length));
+      setTotalPages(Number(res.data.meta?.totalPages ?? 1));
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [q, category, city, featuredOnly, sort, page]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const updateFilter = (key: string, value: string | boolean | null) => {
     const params = new URLSearchParams(searchParams);
-    if (value === '' || value === false || value === null) {
-      params.delete(key);
-    } else {
-      params.set(key, String(value));
-    }
+    if (value === '' || value === false || value === null) params.delete(key);
+    else params.set(key, String(value));
+    // Any filter change invalidates the current page number.
     params.set('page', '1');
     setSearchParams(params);
   };
 
-  const clearFilters = () => {
-    setSearchParams({});
+  const goToPage = (next: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', String(Math.max(1, Math.min(next, totalPages))));
+    setSearchParams(params);
   };
 
-  const hasActiveFilters = categoryId || city || verifiedOnly;
+  const activeCategory = categories.find((c) => c.category_slug === category);
+  const activeFilterCount = [category, city, featuredOnly].filter(Boolean).length;
+  const hasActiveFilters = activeFilterCount > 0;
 
   return (
     <div className="min-h-screen bg-navy-50">
-      {/* Page Header */}
       <div className="bg-white border-b border-navy-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-navy-900">Explore Businesses</h1>
+              <h1 className="text-2xl font-bold text-navy-900">{t('explore.title')}</h1>
               <p className="text-navy-500 mt-1">
-                {totalCount} {totalCount === 1 ? 'business' : 'businesses'} found
-                {search && ` for "${search}"`}
+                {loading
+                  ? t('common.loading')
+                  : `${t('explore.results', { count: totalCount })}${q ? ` · "${q}"` : ''}`}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <SearchBar
-                value={search}
-                onChange={(v) => updateFilter('search', v)}
-                onSearch={(v) => updateFilter('search', v)}
-                placeholder="Search businesses..."
+                value={q}
+                onChange={(v) => updateFilter('q', v)}
+                onSearch={(v) => updateFilter('q', v)}
+                placeholder={t('explore.searchPlaceholder')}
                 className="flex-1"
               />
               <button
-                onClick={() => setFiltersOpen(!filtersOpen)}
+                onClick={() => setFiltersOpen((v) => !v)}
+                aria-expanded={filtersOpen}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2 rounded-button border transition-colors',
                   hasActiveFilters
@@ -100,37 +143,32 @@ export function ExplorePage() {
                 )}
               >
                 <Filter className="w-4 h-4" />
-                <span className="hidden sm:inline">Filters</span>
-                {hasActiveFilters && (
-                  <Badge variant="info" size="sm">
-                    {Object.keys({ categoryId, city, verifiedOnly: verifiedOnly ? 'true' : '' }).filter(k => k).length}
-                  </Badge>
+                <span className="hidden sm:inline">{t('explore.filters')}</span>
+                {activeFilterCount > 0 && (
+                  <Badge variant="info" size="sm">{activeFilterCount}</Badge>
                 )}
               </button>
-              <button
-                onClick={clearFilters}
-                disabled={!hasActiveFilters}
-                className="px-4 py-2 text-sm text-navy-600 hover:text-navy-900 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Clear
-              </button>
+              <Button onClick={() => setSearchParams({})} variant="ghost" disabled={!hasActiveFilters}>
+                {t('explore.clearFilters')}
+              </Button>
             </div>
           </div>
 
-          {/* Active Filters Chips */}
-          {(categoryId || city || verifiedOnly) && (
+          {hasActiveFilters && (
             <div className="mt-4 flex flex-wrap gap-2">
-              {categoryId && (
-                <Badge variant="info" onRemove={() => updateFilter('categoryId', null)}>Category</Badge>
+              {activeCategory && (
+                <Badge variant="info" onRemove={() => updateFilter('category', null)}>
+                  {activeCategory.category_name}
+                </Badge>
               )}
               {city && (
                 <Badge variant="info" onRemove={() => updateFilter('city', null)}>
-                  <MapPin className="w-3 h-3 mr-1" /> {city}
+                  <MapPin className="w-3 h-3 me-1" /> {city}
                 </Badge>
               )}
-              {verifiedOnly && (
-                <Badge variant="success" onRemove={() => updateFilter('verifiedOnly', false)}>
-                  <Shield className="w-3 h-3 mr-1" /> Verified Only
+              {featuredOnly && (
+                <Badge variant="success" onRemove={() => updateFilter('featured', false)}>
+                  {t('business.featured')}
                 </Badge>
               )}
             </div>
@@ -138,143 +176,142 @@ export function ExplorePage() {
         </div>
       </div>
 
-      {/* Filters Sidebar / Mobile */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex gap-8">
-          {/* Sidebar Filters */}
           <aside className={cn('w-full lg:w-64 flex-shrink-0', filtersOpen ? 'block' : 'hidden lg:block')}>
             <div className="bg-white rounded-card border border-navy-200 p-4 sticky top-24">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-navy-900">Filters</h3>
+                <h3 className="font-semibold text-navy-900">{t('explore.filters')}</h3>
                 <button
                   onClick={() => setFiltersOpen(false)}
                   className="lg:hidden text-navy-500 hover:text-navy-700"
+                  aria-label={t('common.close')}
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="space-y-6">
-                {/* Category Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-navy-700 mb-2">Category</label>
+                  <label htmlFor="filter-category" className="block text-sm font-medium text-navy-700 mb-2">
+                    {t('explore.category')}
+                  </label>
                   <select
-                    value={categoryId || ''}
-                    onChange={(e) => updateFilter('categoryId', e.target.value || null)}
+                    id="filter-category"
+                    value={category}
+                    onChange={(e) => updateFilter('category', e.target.value || null)}
                     className="w-full px-3 py-2 border border-navy-300 rounded-button text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   >
-                    <option value="">All Categories</option>
-                    <option value="1">Healthcare</option>
-                    <option value="2">Restaurants</option>
-                    <option value="3">Grocery & Retail</option>
-                    <option value="4">Hotels</option>
-                    <option value="5">Events & Venues</option>
-                    <option value="6">Agriculture</option>
-                    <option value="7">Education</option>
-                    <option value="8">Transportation</option>
-                    <option value="9">Professional Services</option>
-                    <option value="10">Technology</option>
-                    <option value="11">Beauty & Wellness</option>
-                    <option value="12">Local Products</option>
-                    <option value="13">Other</option>
-                  </select>
-                </div>
-
-                {/* City Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-navy-700 mb-2">City</label>
-                  <select
-                    value={city}
-                    onChange={(e) => updateFilter('city', e.target.value || null)}
-                    className="w-full px-3 py-2 border border-navy-300 rounded-button text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value="">All Cities</option>
-                    {cities.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                    <option value="">{t('explore.allCategories')}</option>
+                    {categories.map((c) => (
+                      <option key={c.category_id} value={c.category_slug}>
+                        {c.category_name} ({c.business_count})
+                      </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Verified Only */}
                 <div>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label htmlFor="filter-city" className="block text-sm font-medium text-navy-700 mb-2">
+                    {t('explore.city')}
+                  </label>
+                  <select
+                    id="filter-city"
+                    value={city}
+                    onChange={(e) => updateFilter('city', e.target.value || null)}
+                    className="w-full px-3 py-2 border border-navy-300 rounded-button text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="">{t('explore.allCities')}</option>
+                    {cities.map((c) => (
+                      <option key={c.city} value={c.city}>
+                        {c.city} ({c.business_count})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="filter-featured" className="flex items-center gap-2 cursor-pointer">
                     <input
+                      id="filter-featured"
                       type="checkbox"
-                      checked={verifiedOnly}
-                      onChange={(e) => updateFilter('verifiedOnly', e.target.checked)}
+                      checked={featuredOnly}
+                      onChange={(e) => updateFilter('featured', e.target.checked)}
                       className="w-4 h-4 text-primary-600 border-navy-300 rounded focus:ring-primary-500"
                     />
-                    <span className="text-sm text-navy-700">Verified businesses only</span>
+                    <span className="text-sm text-navy-700">{t('business.sections.featured')}</span>
                   </label>
                 </div>
               </div>
             </div>
           </aside>
 
-          {/* Results */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <label htmlFor="sort" className="text-sm text-navy-500">Sort by:</label>
-                <select
-                  id="sort"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="px-3 py-1.5 border border-navy-300 rounded-button text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="recommended">Recommended</option>
-                  <option value="highest_rated">Highest Rated</option>
-                  <option value="most_reviewed">Most Reviewed</option>
-                  <option value="newest">Newest</option>
-                </select>
-              </div>
+            <div className="flex items-center gap-2 mb-4">
+              <label htmlFor="sort" className="text-sm text-navy-500">{t('explore.sort')}:</label>
+              <select
+                id="sort"
+                value={sort}
+                onChange={(e) => updateFilter('sort', e.target.value)}
+                className="px-3 py-1.5 border border-navy-300 rounded-button text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {t(option.labelKey)}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {loading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[...Array(6)].map((_, i) => <BusinessCardSkeleton key={i} />)}
               </div>
+            ) : error ? (
+              <ErrorState onRetry={() => void load()} />
             ) : businesses.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {businesses.map((business) => (
-                    <BusinessCard
-                      key={business.business_id}
-                      business={business}
-                      onClick={() => window.location.href = `/business/${business.business_id}`}
-                    />
+                    <BusinessCard key={business.business_id} business={business} />
                   ))}
                 </div>
 
-                {/* Pagination */}
-                {totalCount > limit && (
-                  <div className="mt-8 flex items-center justify-center gap-2">
-                    <button
-                      onClick={() => setSearchParams({ ...Object.fromEntries(searchParams), page: String(page - 1) })}
+                {totalPages > 1 && (
+                  <nav
+                    className="mt-8 flex items-center justify-center gap-2"
+                    aria-label={t('common.pagination')}
+                  >
+                    <Button
+                      onClick={() => goToPage(page - 1)}
+                      variant="outline"
                       disabled={page === 1}
-                      className="px-4 py-2 border border-navy-300 rounded-button text-sm hover:bg-navy-50 disabled:opacity-50"
                     >
-                      Previous
-                    </button>
+                      {t('common.previous')}
+                    </Button>
                     <span className="px-4 text-sm text-navy-600">
-                      Page {page} of {Math.ceil(totalCount / limit)}
+                      {t('common.pageOf', { page, totalPages })}
                     </span>
-                    <button
-                      onClick={() => setSearchParams({ ...Object.fromEntries(searchParams), page: String(page + 1) })}
-                      disabled={page * limit >= totalCount}
-                      className="px-4 py-2 border border-navy-300 rounded-button text-sm hover:bg-navy-50 disabled:opacity-50"
+                    <Button
+                      onClick={() => goToPage(page + 1)}
+                      variant="outline"
+                      disabled={page >= totalPages}
                     >
-                      Next
-                    </button>
-                  </div>
+                      {t('common.next')}
+                    </Button>
+                  </nav>
                 )}
               </>
             ) : (
               <div className="text-center py-16">
                 <Building2 className="w-16 h-16 text-navy-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-navy-900 mb-2">No businesses found</h3>
-                <p className="text-navy-500 mb-6">Try adjusting your search or filters</p>
-                <Button onClick={clearFilters} variant="outline">Clear Filters</Button>
+                <h3 className="text-lg font-medium text-navy-900 mb-2">
+                  {t('explore.emptyTitle')}
+                </h3>
+                <p className="text-navy-500 mb-6">{t('explore.emptyDescription')}</p>
+                <Button onClick={() => setSearchParams({})} variant="outline">
+                  {t('explore.clearFilters')}
+                </Button>
               </div>
             )}
           </div>

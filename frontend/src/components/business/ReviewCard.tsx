@@ -48,7 +48,7 @@ export function ReviewCard({ review, onRespond, onModerate, isBusinessView = fal
       )}
 
       {review.business_response && (
-        <div className="mt-4 p-3 bg-primary-50 rounded-lg border border-primary-100">
+        <div className="mt-4 p-3 bg-primary-50 rounded-sg border border-primary-100">
           <div className="flex items-center gap-1.5 text-sm text-primary-700 mb-1">
             <MessageSquare className="w-4 h-4" />
             <span className="font-medium">Business Response:</span>

@@ -1,13 +1,16 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, ShoppingBag } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { useAuth } from '../context/AuthContext';
-import { ShoppingBag } from 'lucide-react';
+
+const MIN_PASSWORD_LENGTH = 8;
 
 export function RegisterPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { register } = useAuth();
   const [formData, setFormData] = useState({
@@ -30,12 +33,12 @@ export function RegisterPage() {
     setError('');
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth.passwordsDoNotMatch'));
       return;
     }
 
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (formData.password.length < MIN_PASSWORD_LENGTH) {
+      setError(t('auth.passwordTooShort', { count: MIN_PASSWORD_LENGTH }));
       return;
     }
 
@@ -49,7 +52,7 @@ export function RegisterPage() {
       });
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Registration failed');
+      setError(err.response?.data?.error?.message || t('auth.registrationFailed'));
     } finally {
       setLoading(false);
     }
@@ -63,10 +66,10 @@ export function RegisterPage() {
             <div className="w-10 h-10 rounded-xl bg-primary-600 flex items-center justify-center">
               <ShoppingBag className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-bold text-navy-900">HQ Marketplace</span>
+            <span className="text-2xl font-bold text-navy-900">{t('brand.name')}</span>
           </Link>
-          <h2 className="text-3xl font-bold text-navy-900">Create your account</h2>
-          <p className="mt-2 text-navy-500">Join thousands of businesses and customers</p>
+          <h2 className="text-3xl font-bold text-navy-900">{t('auth.registerTitle')}</h2>
+          <p className="mt-2 text-navy-500">{t('auth.registerSubtitle')}</p>
         </div>
 
         <Card className="p-6">
@@ -79,18 +82,17 @@ export function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <Input
-              label="Full Name"
+              label={t('auth.fullName')}
               name="fullName"
               value={formData.fullName}
               onChange={handleChange}
-              placeholder="John Doe"
-              required
               autoComplete="name"
+              required
               leftIcon={<User className="w-5 h-5 text-navy-400" />}
             />
 
             <Input
-              label="Email"
+              label={t('auth.email')}
               name="email"
               type="email"
               value={formData.email}
@@ -102,7 +104,7 @@ export function RegisterPage() {
             />
 
             <Input
-              label="Phone (optional)"
+              label={`${t('auth.phone')} (${t('common.optional')})`}
               name="phone"
               type="tel"
               value={formData.phone}
@@ -114,34 +116,32 @@ export function RegisterPage() {
 
             <div className="relative">
               <Input
-                label="Password"
+                label={t('auth.password')}
                 name="password"
                 type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={handleChange}
-                placeholder="••••••••"
                 required
                 autoComplete="new-password"
                 leftIcon={<Lock className="w-5 h-5 text-navy-400" />}
-                helperText="At least 8 characters"
+                helperText={t('auth.passwordHint')}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-[38px] text-navy-400 hover:text-navy-600"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute end-4 top-[38px] text-navy-400 hover:text-navy-600"
+                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
 
             <Input
-              label="Confirm Password"
+              label={t('auth.confirmPassword')}
               name="confirmPassword"
               type={showPassword ? 'text' : 'password'}
               value={formData.confirmPassword}
               onChange={handleChange}
-              placeholder="••••••••"
               required
               autoComplete="new-password"
               leftIcon={<Lock className="w-5 h-5 text-navy-400" />}
@@ -155,19 +155,26 @@ export function RegisterPage() {
                 className="mt-1 w-4 h-4 text-primary-600 border-navy-300 rounded focus:ring-primary-500"
               />
               <label htmlFor="terms" className="text-navy-600">
-                I agree to the <Link to="/terms" className="text-primary-600 hover:text-primary-700">Terms of Service</Link> and <Link to="/privacy" className="text-primary-600 hover:text-primary-700">Privacy Policy</Link>
+                {t('auth.agreeToPrefix')}{' '}
+                <Link to="/terms" className="text-primary-600 hover:text-primary-700">
+                  {t('footer.termsOfService')}
+                </Link>{' '}
+                {t('auth.andWord')}{' '}
+                <Link to="/privacy" className="text-primary-600 hover:text-primary-700">
+                  {t('footer.privacyPolicy')}
+                </Link>
               </label>
             </div>
 
             <Button type="submit" className="w-full" size="lg" loading={loading}>
-              Create Account
+              {t('auth.signUp')}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm text-navy-600">
-            Already have an account?{' '}
+            {t('auth.haveAccount')}{' '}
             <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
-              Sign in
+              {t('nav.signIn')}
             </Link>
           </div>
         </Card>

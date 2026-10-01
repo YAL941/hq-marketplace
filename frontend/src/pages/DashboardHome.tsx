@@ -151,7 +151,7 @@ export function DashboardHomePage() {
               {recentOrders.map((order) => (
                 <div key={order.order_id} className="flex items-center justify-between p-3 bg-navy-50 rounded-button">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-sg bg-primary-100 flex items-center justify-center">
                       <ShoppingBag className="w-5 h-5 text-primary-600" />
                     </div>
                     <div>
@@ -159,7 +159,7 @@ export function DashboardHomePage() {
                       <p className="text-xs text-navy-500">{formatRelativeTime(order.created_at)}</p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-end">
                     <p className="font-semibold text-navy-900">{formatCurrency(order.total_amount, order.currency)}</p>
                     <Badge
                       variant={
@@ -196,9 +196,9 @@ export function DashboardHomePage() {
               <div key={product.product_id} className="flex items-center justify-between p-3 bg-navy-50 rounded-button">
                 <div className="flex items-center gap-3">
                   {product.image_url ? (
-                    <img src={product.image_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                    <img src={product.image_url} alt="" className="w-10 h-10 rounded-sg object-cover" />
                   ) : (
-                    <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-sg bg-primary-100 flex items-center justify-center">
                       <PackageIcon className="w-5 h-5 text-primary-600" />
                     </div>
                   )}
@@ -233,7 +233,7 @@ export function DashboardHomePage() {
             {recentServices.slice(0, 5).map((service) => (
               <div key={service.service_id} className="flex items-center justify-between p-3 bg-navy-50 rounded-button">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-success-100 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-sg bg-success-100 flex items-center justify-center">
                     <TruckIcon className="w-5 h-5 text-success-600" />
                   </div>
                   <div>

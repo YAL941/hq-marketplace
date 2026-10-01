@@ -66,7 +66,7 @@ export function DashboardProductsPage() {
         </div>
         <Link to="/dashboard/products/create">
           <Button>
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 me-2" />
             Add Product
           </Button>
         </Link>
@@ -106,7 +106,7 @@ export function DashboardProductsPage() {
                   product={product}
                   showBusiness={false}
                 />
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                <div className="absolute top-2 end-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                   <button
                     onClick={() => window.location.href = `/dashboard/products/${product.product_id}/edit`}
                     className="p-2 bg-white rounded-button shadow-card hover:bg-navy-50 transition-colors"
@@ -132,7 +132,7 @@ export function DashboardProductsPage() {
             <p className="text-navy-500 mb-6">Start adding products to your catalog</p>
             <Link to="/dashboard/products/create">
               <Button>
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-4 h-4 me-2" />
                 Add Your First Product
               </Button>
             </Link>

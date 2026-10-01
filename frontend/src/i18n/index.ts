@@ -87,7 +87,10 @@ i18n
       escapeValue: false,
     },
     detection: {
-      order: ['localStorage', 'navigator', 'htmlTag'],
+      // localStorage only. `navigator` is deliberately absent: the site must
+      // open in English unless the visitor explicitly picked a language, so a
+      // browser set to Somali does not silently switch the whole UI.
+      order: ['localStorage', 'htmlTag'],
       lookupLocalStorage: 'hq_language',
       caches: ['localStorage'],
     },

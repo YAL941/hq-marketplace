@@ -83,7 +83,7 @@ export function LocationCard({ location, onClick, showBusiness, businessName }: 
         <span className="text-xs text-navy-400">
           {location.latitude && location.longitude && (
             <>
-              <MapPin className="w-3 h-3 inline mr-1" />
+              <MapPin className="w-3 h-3 inline me-1" />
               {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
             </>
           )}

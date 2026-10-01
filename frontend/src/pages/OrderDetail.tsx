@@ -89,7 +89,7 @@ export function OrderDetailPage() {
               {items.map((item: any) => (
                 <div key={item.order_item_id} className="flex items-center justify-between p-3 bg-navy-50 rounded-button">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-sg bg-primary-100 flex items-center justify-center">
                       {item.item_type === 'product' ? <Package className="w-5 h-5 text-primary-600" /> : <Truck className="w-5 h-5 text-success-600" />}
                     </div>
                     <div>

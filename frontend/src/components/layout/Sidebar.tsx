@@ -73,7 +73,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                 {t('sidebar.currentBusiness')}
               </p>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-sg bg-primary-100 flex items-center justify-center flex-shrink-0">
                   <ShoppingBag className="w-4 h-4 text-primary-600" />
                 </div>
                 <div className="flex-1 min-w-0">

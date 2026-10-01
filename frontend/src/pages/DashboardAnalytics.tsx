@@ -113,7 +113,7 @@ export function DashboardAnalyticsPage() {
                   </span>
                   <span className="font-medium text-navy-900">{item.name}</span>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <p className="font-semibold text-navy-900">{formatCurrency(item.revenue)}</p>
                   <p className="text-xs text-navy-500">{item.orders} orders</p>
                 </div>
@@ -139,7 +139,7 @@ export function DashboardAnalyticsPage() {
                   <div className="w-32 h-4 bg-primary-100 rounded-full overflow-hidden">
                     <div className="h-full bg-primary-600 rounded-full" style={{ width: `${(item.customers / 290) * 100}%` }} />
                   </div>
-                  <span className="font-medium text-navy-900 w-16 text-right">{item.customers}</span>
+                  <span className="font-medium text-navy-900 w-16 text-end">{item.customers}</span>
                 </div>
               </div>
             ))}

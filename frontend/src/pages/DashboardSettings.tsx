@@ -31,10 +31,32 @@ export function DashboardSettingsPage() {
   useEffect(() => {
     if (!currentBusiness) return;
     let cancelled = false;
+    // The public profile endpoint is the only read of a full business record
+    // that an owner is allowed to use, so the form is prefilled from it.
     businessApi
-      .get(currentBusiness.business_id)
+      .getPublic(String(currentBusiness.business_id))
       .then((res) => {
-        if (!cancelled) setBusiness(res.data.data as Business);
+        if (cancelled) return;
+        const record = res.data.data;
+        setBusiness({
+          business_id: Number(record.business_id),
+          business_name: record.business_name,
+          business_slug: record.business_slug,
+          business_description: record.business_description ?? undefined,
+          phone: record.phone ?? undefined,
+          website: record.website ?? undefined,
+          address: record.address ?? undefined,
+          city: record.city ?? undefined,
+          district: record.district ?? undefined,
+          logo_url: record.logo_url ?? undefined,
+          whatsapp_number: record.whatsapp_number,
+          is_featured: record.is_featured,
+          status: 'active',
+          is_verified: false,
+          verification_status: 'pending',
+          created_at: record.created_at,
+          updated_at: record.created_at,
+        });
       })
       .catch(() => {
         if (!cancelled) setBusiness(null);
@@ -114,7 +136,7 @@ export function DashboardSettingsPage() {
                           : 'text-navy-600 hover:bg-navy-50 hover:text-navy-900'
                       )}
                     >
-                      <div className="w-7 h-7 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
+                      <div className="w-7 h-7 rounded-sg bg-primary-100 flex items-center justify-center flex-shrink-0">
                         <Building2 className="w-4 h-4 text-primary-600" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -139,7 +161,7 @@ export function DashboardSettingsPage() {
               <div className="p-6 border-b border-navy-200 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-navy-900">Business Profile</h2>
                 <Button onClick={handleSave} loading={saving}>
-                  <Save className="w-4 h-4 mr-2" />
+                  <Save className="w-4 h-4 me-2" />
                   Save Changes
                 </Button>
               </div>
@@ -153,7 +175,7 @@ export function DashboardSettingsPage() {
                         <Building2 className="w-12 h-12 text-primary-400" />
                       )}
                     </div>
-                    <label className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center cursor-pointer hover:bg-primary-700">
+                    <label className="absolute bottom-0 end-0 w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center cursor-pointer hover:bg-primary-700">
                       <Camera className="w-4 h-4" />
                       <input type="file" className="sr-only" accept="image/*" />
                     </label>
@@ -255,7 +277,7 @@ export function DashboardSettingsPage() {
               <div className="p-6 border-b border-navy-200 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-navy-900">Team Members</h2>
                 <Button>
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-4 h-4 me-2" />
                   Invite Member
                 </Button>
               </div>
@@ -263,12 +285,12 @@ export function DashboardSettingsPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="text-left text-sm text-navy-500 border-b border-navy-200">
+                      <tr className="text-start text-sm text-navy-500 border-b border-navy-200">
                         <th className="pb-3 font-medium text-navy-700">Member</th>
                         <th className="pb-3 font-medium text-navy-700">Role</th>
                         <th className="pb-3 font-medium text-navy-700">Status</th>
                         <th className="pb-3 font-medium text-navy-700">Joined</th>
-                        <th className="pb-3 font-medium text-navy-700 text-right">Actions</th>
+                        <th className="pb-3 font-medium text-navy-700 text-end">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-navy-100">
@@ -289,7 +311,7 @@ export function DashboardSettingsPage() {
                           <Badge variant="success">Active</Badge>
                         </td>
                         <td className="py-4 text-navy-500">Just now</td>
-                        <td className="py-4 text-right">
+                        <td className="py-4 text-end">
                           <Button variant="ghost" size="sm">Edit</Button>
                         </td>
                       </tr>

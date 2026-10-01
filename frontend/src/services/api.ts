@@ -1,5 +1,15 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import type { ApiResponse, LoginResponse } from '../types';
+import type {
+  ApiResponse,
+  Location,
+  LoginResponse,
+  PublicBusinessCard,
+  PublicBusinessProfile,
+  PublicCategory,
+  PublicCity,
+  PublicDirectoryQuery,
+  PublicReview,
+} from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
@@ -64,22 +74,63 @@ export const authApi = {
   }) => api.post<ApiResponse<any>>('/businesses/register', data),
 };
 
-// Public Business API
-export const businessApi = {
-  // `category` takes the slug a public URL carries; `categoryId` stays for
-  // callers that already hold a numeric id. Sending both is the server's call.
-  list: (params?: {
-    category?: string;
-    categoryId?: number;
-    city?: string;
-    q?: string;
-    verifiedOnly?: boolean;
-    page?: number;
-    limit?: number;
-  }) => api.get<ApiResponse<any[]>>('/businesses', { params }),
+/**
+ * Public directory.
+ *
+ * `MAX_PAGE_SIZE` mirrors the server cap in public-query.ts. Sending more than
+ * that is a 400, so clamping here turns a mistake into a shorter page instead
+ * of a failed request.
+ */
+const MAX_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 20;
 
-  get: (businessId: number) =>
-    api.get<ApiResponse<any>>(`/businesses/${businessId}`),
+function pageParams(page?: number, limit?: number) {
+  return {
+    page: page ?? 1,
+    limit: Math.min(limit ?? DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
+  };
+}
+
+export const businessApi = {
+  /**
+   * GET /businesses — the public storefront listing.
+   *
+   * `category` is the slug a public URL carries. `q` is the free-text name
+   * search. `sort` is newest | rating | featured, and `featured` is a separate
+   * boolean filter that can be combined with any sort.
+   */
+  listPublic: (query: PublicDirectoryQuery = {}) =>
+    api.get<ApiResponse<PublicBusinessCard[]>>('/businesses', {
+      params: {
+        q: query.q,
+        category: query.category,
+        categoryId: query.categoryId,
+        city: query.city,
+        sort: query.sort,
+        featured: query.featured,
+        ...pageParams(query.page, query.limit),
+      },
+    }),
+
+  /** GET /businesses/:businessId — full public profile with hours and ratings. */
+  getPublic: (businessId: string) =>
+    api.get<ApiResponse<PublicBusinessProfile>>(`/businesses/${businessId}`),
+
+  /** GET /businesses/:businessId/reviews — published reviews, newest first. */
+  listPublicReviews: (businessId: string, page?: number, limit?: number) =>
+    api.get<ApiResponse<PublicReview[]>>(`/businesses/${businessId}/reviews`, {
+      params: pageParams(page, limit),
+    }),
+
+  /** GET /businesses/:businessId/locations — active branches, anonymous. */
+  listPublicLocations: (businessId: string) =>
+    api.get<ApiResponse<Location[]>>(`/businesses/${businessId}/locations`),
+
+  /**
+   * @deprecated Kept so pages not migrated yet still compile. New code must use
+   * `listPublic`, whose parameter names match the server.
+   */
+  list: (query: PublicDirectoryQuery = {}) => businessApi.listPublic(query),
 
   getStatistics: (businessId: number) =>
     api.get<ApiResponse<any>>(`/business/${businessId}/statistics`),
@@ -94,16 +145,13 @@ export const businessApi = {
     api.patch<ApiResponse<any>>(`/business/${businessId}`, data),
 };
 
-// Public directory reference data
+/** Reference data for the public directory. No authentication. */
 export const directoryApi = {
-  categories: () =>
-    api.get<ApiResponse<any[]>>('/categories'),
+  /** GET /categories — includes `business_count` for each category. */
+  categories: () => api.get<ApiResponse<PublicCategory[]>>('/categories'),
 
-  cities: () =>
-    api.get<ApiResponse<any[]>>('/cities'),
-
-  reviews: (businessId: number, params?: { page?: number; limit?: number }) =>
-    api.get<ApiResponse<any[]>>(`/businesses/${businessId}/reviews`, { params }),
+  /** GET /cities — only cities that have at least one public business. */
+  cities: () => api.get<ApiResponse<PublicCity[]>>('/cities'),
 };
 
 // Products API

@@ -35,7 +35,7 @@ export function ProductCard({ product, onClick, showBusiness, businessName }: Pr
             <Tag className="w-12 h-12 text-primary-400" />
           </div>
         )}
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2 end-2">
           <Badge
             variant={product.status === 'active' ? 'success' : 'default'}
             size="sm"
@@ -45,7 +45,7 @@ export function ProductCard({ product, onClick, showBusiness, businessName }: Pr
           </Badge>
         </div>
         {product.stock_quantity !== undefined && product.stock_quantity < 10 && product.stock_quantity > 0 && (
-          <div className="absolute bottom-2 left-2">
+          <div className="absolute bottom-2 start-2">
             <Badge variant="warning" size="sm" className="shadow-soft">
               Only {product.stock_quantity} left
             </Badge>
