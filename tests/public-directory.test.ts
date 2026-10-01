@@ -626,6 +626,107 @@ describe('GET /api/businesses/:businessId: the public profile', () => {
     });
 });
 
+describe('GET /api/businesses/slug/:businessSlug: the public profile by slug', () => {
+    /**
+     * The whole point of the endpoint is that a URL holding a slug resolves
+     * without the caller first having to find the numeric id. So the
+     * assertions are about parity with the by-id route, not just about a
+     * 200: if the two routes ever drift, a client that switched over would
+     * quietly start rendering a different payload.
+     */
+    it('returns the same profile as the by-id route for the same business', async () => {
+        const bySlug = await request(app).get('/api/businesses/slug/bright-smile-clinic');
+        const byId = await request(app).get(`/api/businesses/${clinic.id}`);
+
+        assert.equal(bySlug.status, 200, JSON.stringify(bySlug.body));
+        assert.equal(byId.status, 200, JSON.stringify(byId.body));
+        assert.deepEqual(bySlug.body, byId.body, 'the slug route is a different address, not a different payload');
+    });
+
+    it('resolves a slug to a verified active business without authentication', async () => {
+        const res = await request(app).get('/api/businesses/slug/quick-fix-garage');
+
+        assert.equal(res.status, 200);
+        assert.equal(res.body.data.business_name, 'Quick Fix Garage');
+        assert.equal(res.body.data.business_slug, 'quick-fix-garage');
+        assert.equal(String(res.body.data.business_id), String(garage.id), 'it found the same row');
+    });
+
+    it('includes opening hours and the rating aggregates', async () => {
+        const res = await request(app).get('/api/businesses/slug/bright-smile-clinic');
+
+        assert.equal(res.body.data.opening_hours.length, 7);
+        assert.equal(res.body.data.opening_hours[1].opens_at, '08:00:00');
+        assert.equal(Number(res.body.data.average_rating), 3);
+        assert.equal(res.body.data.review_count, 1);
+        assert.deepEqual(Object.keys(res.body.data.rating_distribution).sort(), ['1', '2', '3', '4', '5']);
+    });
+
+    it('carries no private field', async () => {
+        const res = await request(app).get('/api/businesses/slug/bright-smile-clinic');
+        const raw = JSON.stringify(res.body);
+
+        for (const key of FORBIDDEN_KEYS) {
+            assert.ok(!(key in res.body.data), `the profile leaked ${key}`);
+        }
+        assert.ok(!raw.includes('directory-owner@hq.test'));
+    });
+
+    it('exposes the rate limit, so the public limiter is provably in the path', async () => {
+        const res = await request(app).get('/api/businesses/slug/bright-smile-clinic');
+        const policy = res.headers['ratelimit-policy'] ?? res.headers['x-ratelimit-policy'];
+
+        assert.equal(res.status, 200);
+        assert.equal(typeof policy, 'string', 'a rate limit policy header means the limiter ran');
+    });
+
+    it('returns 404 for a slug that does not exist', async () => {
+        const res = await request(app).get('/api/businesses/slug/no-such-business');
+        assert.equal(res.status, 404);
+    });
+
+    it('returns 404 for a suspended business', async () => {
+        const res = await request(app).get('/api/businesses/slug/suspended-shop');
+        assert.equal(res.status, 404);
+    });
+
+    it('returns 404 for an active but unverified business', async () => {
+        // RLS alone would let this through, exactly as in the listing.
+        const res = await request(app).get('/api/businesses/slug/unverified-clinic');
+        assert.equal(res.status, 404);
+    });
+
+    it('returns 404 for a soft-deleted business', async () => {
+        const res = await request(app).get('/api/businesses/slug/removed-shop');
+        assert.equal(res.status, 404);
+    });
+
+    it('does not distinguish "not public" from "does not exist"', async () => {
+        const hidden = await request(app).get('/api/businesses/slug/unverified-clinic');
+        const missing = await request(app).get('/api/businesses/slug/no-such-business');
+
+        assert.equal(hidden.status, missing.status);
+        assert.deepEqual(hidden.body.error, missing.body.error, 'the responses are identical');
+    });
+
+    it('rejects a slug the database could never have stored', async () => {
+        // These all violate businesses_slug_format, so answering 400 keeps the
+        // constraint check out of the query and states the rule to the caller.
+        for (const bad of ['Bright-Smile', 'bright--smile', '-bright', 'bright-', 'bright_smile', 'a'.repeat(121)]) {
+            const res = await request(app).get(`/api/businesses/slug/${encodeURIComponent(bad)}`);
+            assert.equal(res.status, 400, `"${bad}" is not a slug and must not reach the database`);
+        }
+    });
+
+    it('does not shadow the by-id route', async () => {
+        // `slug` is two segments in, so /businesses/:businessId still owns the
+        // one-segment path and a numeric id is not read as a slug.
+        const res = await request(app).get(`/api/businesses/${clinic.id}`);
+        assert.equal(res.status, 200);
+        assert.equal(res.body.data.business_slug, 'bright-smile-clinic');
+    });
+});
+
 describe('GET /api/categories and /api/cities', () => {
     it('lists categories with their public business counts', async () => {
         const res = await request(app).get('/api/categories');

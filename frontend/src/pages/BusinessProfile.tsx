@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
+import axios from 'axios';
 import {
   MapPin, Phone, Globe, Clock, Star, MessageCircle, Tag, Building2, ArrowLeft, ExternalLink,
 } from 'lucide-react';
@@ -54,27 +55,13 @@ export function BusinessProfilePage() {
   const [error, setError] = useState(false);
 
   /**
-   * The only public detail endpoint takes a numeric id, but the URL carries a
-   * slug because that is what should be shared and bookmarked. So the slug is
-   * resolved to an id by paging the directory and matching exactly, and the
-   * profile itself is then fetched from GET /businesses/:businessId.
+   * The profile comes straight from GET /businesses/slug/:businessSlug, and the
+   * numeric id it returns is what the reviews and locations endpoints take.
    *
-   * This is a workaround for a missing server route. The right fix is a
-   * GET /businesses/slug/:businessSlug endpoint, which would replace the scan
-   * below with a single indexed lookup.
+   * A 404 here means either "no such slug" or "not publicly visible", and the
+   * server answers both with the same body on purpose, so the page shows one
+   * not-found state for both. Any other failure is a real error.
    */
-  const resolveBusinessId = useCallback(async (slug: string): Promise<string | null> => {
-    const PAGE = 50;
-    for (let page = 1; page <= 20; page += 1) {
-      const res = await businessApi.listPublic({ sort: 'newest', page, limit: PAGE });
-      const items = res.data.data;
-      const match = items.find((b) => b.business_slug === slug);
-      if (match) return match.business_id;
-      if (items.length < PAGE) break;
-    }
-    return null;
-  }, []);
-
   const load = useCallback(async () => {
     if (!businessSlug) {
       setLoading(false);
@@ -84,27 +71,27 @@ export function BusinessProfilePage() {
     setNotFound(false);
     setError(false);
     try {
-      const businessId = await resolveBusinessId(businessSlug);
-      if (!businessId) {
-        setNotFound(true);
-        return;
-      }
+      const profileRes = await businessApi.getPublicBySlug(businessSlug);
+      const profile = profileRes.data.data;
 
-      const [profileRes, reviewsRes, locationsRes] = await Promise.all([
-        businessApi.getPublic(businessId),
-        businessApi.listPublicReviews(businessId, 1, 5),
-        businessApi.listPublicLocations(businessId),
+      const [reviewsRes, locationsRes] = await Promise.all([
+        businessApi.listPublicReviews(profile.business_id, 1, 5),
+        businessApi.listPublicLocations(profile.business_id),
       ]);
 
-      setBusiness(profileRes.data.data);
+      setBusiness(profile);
       setReviews(reviewsRes.data.data);
       setLocations(locationsRes.data.data);
-    } catch {
-      setError(true);
+    } catch (caught) {
+      if (axios.isAxiosError(caught) && caught.response?.status === 404) {
+        setNotFound(true);
+      } else {
+        setError(true);
+      }
     } finally {
       setLoading(false);
     }
-  }, [businessSlug, resolveBusinessId]);
+  }, [businessSlug]);
 
   useEffect(() => {
     void load();

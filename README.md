@@ -1,4 +1,4 @@
-# HQ Marketplace — Phase 1
+# OmniHQ — Phase 1
 
 Database architecture and multi-business data isolation.
 No UI, no marketplace redesign: this phase is the data foundation only.

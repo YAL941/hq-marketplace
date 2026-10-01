@@ -1,9 +1,11 @@
 {
   "brand": {
-    "name": "Suuq HQ",
+    "name": "OmniHQ",
+    "wordmarkBase": "Omni",
+    "wordmarkAccent": "HQ",
     "tagline": "دليل أعمال الصومال",
-    "homeLabel": "الصفحة الرئيسية لـ Suuq HQ",
-    "dashboardLabel": "لوحة تحكم Suuq HQ"
+    "homeLabel": "الصفحة الرئيسية لـ OmniHQ",
+    "dashboardLabel": "لوحة تحكم OmniHQ"
   },
   "nav": {
     "explore": "استكشف",
@@ -40,7 +42,7 @@
     "signInTitle": "مرحباً بعودتك",
     "signInSubtitle": "سجّل الدخول إلى حسابك",
     "registerTitle": "أنشئ حسابك",
-    "registerSubtitle": "انضم إلى Suuq HQ لتدرج منشأتك أو تتصفح الدليل",
+    "registerSubtitle": "انضم إلى OmniHQ لتدرج منشأتك أو تتصفح الدليل",
     "noAccount": "ليس لديك حساب؟",
     "haveAccount": "لديك حساب بالفعل؟",
     "signUp": "إنشاء حساب",
@@ -92,7 +94,7 @@
     "privacyPolicy": "سياسة الخصوصية",
     "termsOfService": "شروط الخدمة",
     "cookiePolicy": "سياسة ملفات تعريف الارتباط",
-    "rightsReserved": "© {{year}} Suuq HQ. جميع الحقوق محفوظة.",
+    "rightsReserved": "© {{year}} OmniHQ. جميع الحقوق محفوظة.",
     "facebook": "فيسبوك",
     "twitter": "تويتر",
     "instagram": "إنستغرام",
@@ -194,7 +196,7 @@
     "notFoundDescription": "هذه المنشأة غير مدرجة، أو لم تعد متاحة للعموم.",
     "sections": {
       "featured": "منشآت مميّزة",
-      "featuredSubtitle": "اختارها فريق Suuq HQ",
+      "featuredSubtitle": "اختارها فريق OmniHQ",
       "categories": "تصفّح حسب القسم",
       "categoriesSubtitle": "كل قسم يحتوي منشآت مدرجة",
       "categoriesEmpty": "لا توجد أقسام فيها منشآت بعد.",

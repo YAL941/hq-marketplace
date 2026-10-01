@@ -8,6 +8,7 @@ import { rateLimiter } from '../../middleware/rate-limit.js';
 import {
     getOpeningHours,
     getPublicBusinessProfile,
+    getPublicBusinessProfileBySlug,
     listCategories,
     listCities,
     listPublicBusinesses,
@@ -15,6 +16,7 @@ import {
 } from './business.repository.js';
 import {
     businessIdParamSchema,
+    businessSlugParamSchema,
     directoryQuerySchema,
     pageMeta,
     reviewsQuerySchema,
@@ -101,6 +103,37 @@ businessRoutes.get('/businesses/:businessId', publicReadLimiter, async (req, res
             const profile = await getPublicBusinessProfile(client, businessId);
             if (!profile) throw notFound('Business not found');
             const openingHours = await getOpeningHours(client, businessId);
+            return { profile, openingHours };
+        });
+
+        res.json({ data: { ...profile, opening_hours: openingHours } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * The public profile addressed by slug.
+ *
+ * This is the same response as `GET /businesses/:businessId` under the same
+ * visibility rule and the same 404, because it calls the same repository
+ * function through the same `PUBLIC_BUSINESS_PREDICATE`. A slug in a URL is
+ * the handle a visitor actually holds, so it has to resolve without first
+ * finding the numeric id.
+ *
+ * Two segments deep, so it never collides with `/businesses/:businessId`.
+ */
+businessRoutes.get('/businesses/slug/:businessSlug', publicReadLimiter, async (req, res, next) => {
+    try {
+        const businessSlug = businessSlugParamSchema.parse(req.params['businessSlug']);
+
+        const { profile, openingHours } = await withTenant(contextFor(req), async (client) => {
+            const profile = await getPublicBusinessProfileBySlug(client, businessSlug);
+            // Same body as the by-id lookup, for a missing slug and for a slug
+            // that exists but is not public. Distinguishing the two would turn
+            // this into a way to discover which businesses are suspended.
+            if (!profile) throw notFound('Business not found');
+            const openingHours = await getOpeningHours(client, Number(profile.business_id));
             return { profile, openingHours };
         });
 

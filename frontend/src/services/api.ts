@@ -116,6 +116,16 @@ export const businessApi = {
   getPublic: (businessId: string) =>
     api.get<ApiResponse<PublicBusinessProfile>>(`/businesses/${businessId}`),
 
+  /**
+   * GET /businesses/slug/:businessSlug — the same profile, addressed by slug.
+   *
+   * This is the lookup a public URL needs: the profile is reached in one
+   * indexed query and the numeric id falls out of the response, so the
+   * reviews and locations calls that need an id do not have to guess one.
+   */
+  getPublicBySlug: (businessSlug: string) =>
+    api.get<ApiResponse<PublicBusinessProfile>>(`/businesses/slug/${encodeURIComponent(businessSlug)}`),
+
   /** GET /businesses/:businessId/reviews — published reviews, newest first. */
   listPublicReviews: (businessId: string, page?: number, limit?: number) =>
     api.get<ApiResponse<PublicReview[]>>(`/businesses/${businessId}/reviews`, {

@@ -2,7 +2,8 @@ import { HTMLAttributes, forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
+import { Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
+import { BrandMark } from '../branding/BrandMark';
 
 interface FooterProps extends HTMLAttributes<HTMLElement> {}
 
@@ -45,12 +46,7 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
             <div className="lg:col-span-2">
-              <Link to="/" className="flex items-center gap-2 mb-4" aria-label={t('brand.homeLabel')}>
-                <div className="w-10 h-10 rounded-xl bg-primary-500 flex items-center justify-center">
-                  <ShoppingBag className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-2xl font-bold">{t('brand.name')}</span>
-              </Link>
+              <BrandMark to="/" ariaLabel={t('brand.homeLabel')} variant="dark" size="md" className="mb-4" />
               <p className="text-navy-300 max-w-sm mb-6">{t('footer.about')}</p>
               <div className="flex gap-4">
                 {socials.map(({ href, Icon, label }) => (

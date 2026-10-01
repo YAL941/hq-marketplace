@@ -207,6 +207,35 @@ export async function getPublicBusinessProfile(
     client: PoolClient,
     businessId: number,
 ): Promise<PublicBusinessProfile | null> {
+    return getPublicBusinessProfileWhere(client, 'b.business_id = $1', [businessId]);
+}
+
+/**
+ * The same profile, addressed by the slug a public URL carries.
+ *
+ * This deliberately goes through `getPublicBusinessProfileWhere` rather than
+ * repeating the statement. The column list *is* the privacy boundary here, so a
+ * second copy of the query is a second chance to forget that `created_by`,
+ * `verified_by` and the internal `status` are not on it.
+ */
+export async function getPublicBusinessProfileBySlug(
+    client: PoolClient,
+    businessSlug: string,
+): Promise<PublicBusinessProfile | null> {
+    return getPublicBusinessProfileWhere(client, 'b.business_slug = $1', [businessSlug]);
+}
+
+/**
+ * One visibility rule and one column list, whatever identifies the business.
+ *
+ * @param locator a SQL predicate over the `businesses` alias `b`, with one
+ * positional placeholder for the parameter
+ */
+async function getPublicBusinessProfileWhere(
+    client: PoolClient,
+    locator: string,
+    params: unknown[],
+): Promise<PublicBusinessProfile | null> {
     const { rows } = await client.query<PublicBusinessProfile>(
         `SELECT ${DIRECTORY_COLUMNS},
                 b.business_description,
@@ -222,13 +251,18 @@ export async function getPublicBusinessProfile(
            LEFT JOIN business_categories c ON c.category_id = b.business_category_id
            ${REVIEW_AGGREGATE}
           WHERE ${PUBLIC_BUSINESS_PREDICATE}
-            AND b.business_id = $1`,
-        [businessId],
+            AND ${locator}`,
+        params,
     );
     const profile = rows[0];
     if (!profile) return null;
 
-    return { ...profile, rating_distribution: await getRatingDistribution(client, businessId) };
+    // Resolved from the row rather than the locator parameter, so the rating
+    // counts are read with the same id the profile was selected by.
+    return {
+        ...profile,
+        rating_distribution: await getRatingDistribution(client, Number(profile.business_id)),
+    };
 }
 
 /** Counts of 1..5 stars over published reviews. Always five keys, never sparse. */

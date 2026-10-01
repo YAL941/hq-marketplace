@@ -46,6 +46,21 @@ export const directoryQuerySchema = z.object({
 
 export const businessIdParamSchema = z.coerce.number().int().positive();
 
+/**
+ * A public business slug.
+ *
+ * The pattern mirrors the `businesses_slug_format` CHECK constraint in migration
+ * 002 exactly. Validating to the same shape means a slug that could never exist
+ * is rejected as a bad request instead of being sent to the database to fail the
+ * constraint, and it keeps the two definitions from drifting apart.
+ */
+export const businessSlugParamSchema = z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'businessSlug must be a lowercase slug');
+
 export const reviewsQuerySchema = z.object({
     page: pageSchema,
     limit: limitSchema,

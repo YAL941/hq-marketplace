@@ -1,9 +1,11 @@
 {
   "brand": {
-    "name": "Suuq HQ",
+    "name": "OmniHQ",
+    "wordmarkBase": "Omni",
+    "wordmarkAccent": "HQ",
     "tagline": "Buugga ganacsiga Soomaaliya",
-    "homeLabel": "Bogga hore ee Suuq HQ",
-    "dashboardLabel": "Kontorada maamula ee Suuq HQ"
+    "homeLabel": "Bogga hore ee OmniHQ",
+    "dashboardLabel": "Kontorada maamula ee OmniHQ"
   },
   "nav": {
     "explore": "Baar",
@@ -40,7 +42,7 @@
     "signInTitle": "Ku soo dhowdey",
     "signInSubtitle": "Soo gal xisaabtaada",
     "registerTitle": "Samee xisaabtaada",
-    "registerSubtitle": "Ku qobsoo Suuq HQ si aad u diiwaangeliso ganacsigaada ama aad u baaro buugga",
+    "registerSubtitle": "Ku qobsoo OmniHQ si aad u diiwaangeliso ganacsigaada ama aad u baaro buugga",
     "noAccount": "Ma laha xisaab?",
     "haveAccount": "Xisaabtaad ma jirtaa?",
     "signUp": "Xisaab samee",
@@ -92,7 +94,7 @@
     "privacyPolicy": "Siyaasadda sirta",
     "termsOfService": "Shuruudaha adeegga",
     "cookiePolicy": "Siyaasadda cookies",
-    "rightsReserved": "© {{year}} Suuq HQ. Xoriyada xadbeen.",
+    "rightsReserved": "© {{year}} OmniHQ. Xoriyada xadbeen.",
     "facebook": "Facebook",
     "twitter": "Twitter",
     "instagram": "Instagram",
@@ -188,7 +190,7 @@
     "notFoundDescription": "Ganacsigan kuma diiwaan gelin, ama ma noqon karo dadweynaha.",
     "sections": {
       "featured": "Ganacsiyada la doorashay",
-      "featuredSubtitle": "Kooxda Suuq HQ ayaa doorashay",
+      "featuredSubtitle": "Kooxda OmniHQ ayaa doorashay",
       "categories": "Qaybaha eeg",
       "categoriesSubtitle": "Qayb kasta oo ganacsiyo lagu shaqeeyay",
       "categoriesEmpty": "Weli qaybo ganacsiyo ma jiraan.",

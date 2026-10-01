@@ -30,6 +30,7 @@ export function createApp(): Express {
             public: [
                 'GET  /api/businesses',
                 'GET  /api/businesses/:businessId',
+                'GET  /api/businesses/slug/:businessSlug',
                 'GET  /api/businesses/:businessId/locations',
                 'GET  /api/products',
                 'GET  /api/services',
@@ -66,7 +67,7 @@ export function createApp(): Express {
 
     app.get('/', (_req, res) => {
         res.json({
-            service: 'HQ Marketplace API',
+            service: 'OmniHQ API',
             phase: 1,
             health: '/health',
             index: '/api',

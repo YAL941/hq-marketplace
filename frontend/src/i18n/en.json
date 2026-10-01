@@ -1,9 +1,11 @@
 {
   "brand": {
-    "name": "Suuq HQ",
+    "name": "OmniHQ",
+    "wordmarkBase": "Omni",
+    "wordmarkAccent": "HQ",
     "tagline": "Somalia's business directory",
-    "homeLabel": "Suuq HQ home",
-    "dashboardLabel": "Suuq HQ dashboard"
+    "homeLabel": "OmniHQ home",
+    "dashboardLabel": "OmniHQ dashboard"
   },
   "nav": {
     "explore": "Explore",
@@ -40,7 +42,7 @@
     "signInTitle": "Welcome back",
     "signInSubtitle": "Sign in to your account",
     "registerTitle": "Create your account",
-    "registerSubtitle": "Join Suuq HQ to list your business or browse the directory",
+    "registerSubtitle": "Join OmniHQ to list your business or browse the directory",
     "noAccount": "Don't have an account?",
     "haveAccount": "Already have an account?",
     "signUp": "Sign up",
@@ -92,7 +94,7 @@
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
     "cookiePolicy": "Cookie Policy",
-    "rightsReserved": "© {{year}} Suuq HQ. All rights reserved.",
+    "rightsReserved": "© {{year}} OmniHQ. All rights reserved.",
     "facebook": "Facebook",
     "twitter": "Twitter",
     "instagram": "Instagram",
@@ -188,7 +190,7 @@
     "notFoundDescription": "This business is not listed, or it is no longer public.",
     "sections": {
       "featured": "Featured businesses",
-      "featuredSubtitle": "Hand-picked by the Suuq HQ team",
+      "featuredSubtitle": "Hand-picked by the OmniHQ team",
       "categories": "Browse by category",
       "categoriesSubtitle": "Every category with businesses listed in it",
       "categoriesEmpty": "No categories have businesses yet.",

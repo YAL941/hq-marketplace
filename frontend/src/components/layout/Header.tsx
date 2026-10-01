@@ -4,6 +4,7 @@ import { cn } from '../../lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Menu, X, User, ShoppingBag, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { BrandMark } from '../branding/BrandMark';
 import { Button } from '../common/Button';
 import { SearchBar } from '../common/SearchBar';
 import { Avatar } from './Avatar';
@@ -44,14 +45,12 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <Link to="/" className="flex items-center gap-2" aria-label={t('brand.homeLabel')}>
-                <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center">
-                  <ShoppingBag className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-bold text-navy-900 hidden sm:block">
-                  {t('brand.name')}
-                </span>
-              </Link>
+              <div className="hidden sm:block">
+                <BrandMark to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="sm" />
+              </div>
+              <div className="sm:hidden">
+                <BrandMark to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="sm" className="[&>span:last-child]:hidden" />
+              </div>
 
               {isPublic && (
                 <nav className="hidden md:flex items-center gap-6" aria-label={t('nav.mainNavigation')}>

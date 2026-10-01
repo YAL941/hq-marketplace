@@ -8,3 +8,4 @@ test-output.txt
 *.log
 coverage/
 .DS_Store
+frontend/dist/

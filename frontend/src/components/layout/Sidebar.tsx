@@ -1,10 +1,11 @@
 import { HTMLAttributes, forwardRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
-import { Link, useLocation, NavLink } from 'react-router-dom';
+import { useLocation, NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, Users, Package, Truck, Star, BarChart3, Settings, ChevronRight, LogOut,
 } from 'lucide-react';
+import { BrandMark } from '../branding/BrandMark';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from './Avatar';
 
@@ -44,12 +45,13 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
       >
         <div className="flex flex-col h-full">
           <div className={cn('flex items-center justify-between h-16 px-4 border-b border-navy-200', collapsed && 'justify-center')}>
-            <Link to="/dashboard" className="flex items-center gap-2" aria-label={t('brand.dashboardLabel')}>
-              <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center flex-shrink-0">
-                <ShoppingBag className="w-5 h-5 text-white" />
-              </div>
-              {!collapsed && <span className="text-xl font-bold text-navy-900">{t('brand.name')}</span>}
-            </Link>
+            <BrandMark
+                to="/dashboard"
+                ariaLabel={t('brand.dashboardLabel')}
+                variant="light"
+                size="sm"
+                className={cn('min-w-0', collapsed && '[&>span:last-child]:hidden')}
+              />
             <button
               onClick={() => setCollapsed(!collapsed)}
               className={cn('p-1.5 rounded-button hover:bg-navy-100 transition-colors', collapsed && 'ms-auto')}
