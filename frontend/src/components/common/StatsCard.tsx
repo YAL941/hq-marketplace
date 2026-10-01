@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Card } from '../common/Card';
 import { TrendingUp, TrendingDown } from 'lucide-react';
@@ -13,6 +14,8 @@ interface StatsCardProps {
 }
 
 export function StatsCard({ label, value, trend, trendUp = true, icon, color, className }: StatsCardProps) {
+  const { t } = useTranslation();
+
   return (
     <Card className={cn('p-5', className)}>
       <div className="flex items-center justify-between">
@@ -28,7 +31,7 @@ export function StatsCard({ label, value, trend, trendUp = true, icon, color, cl
         <div className="mt-2 flex items-center gap-1">
           {trendUp ? <TrendingUp className="w-3 h-3 text-success-600" /> : <TrendingDown className="w-3 h-3 text-error-600" />}
           <span className={cn('text-xs font-medium', trendUp ? 'text-success-600' : 'text-error-600')}>
-            {trend} vs last period
+              {t('common.vsLastPeriod', { value: trend })}
           </span>
         </div>
       )}

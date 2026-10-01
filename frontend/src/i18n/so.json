@@ -1,0 +1,143 @@
+{
+  "brand": {
+    "name": "Suuq HQ",
+    "tagline": "Buugga ganacsiga Soomaaliya",
+    "homeLabel": "Bogga hore ee Suuq HQ",
+    "dashboardLabel": "Kontorada maamula ee Suuq HQ"
+  },
+  "nav": {
+    "explore": "Baar",
+    "categories": "Qaybaha",
+    "favorites": "Kuwa la jeclado",
+    "dashboard": "Kontorad",
+    "signIn": "Soo gal",
+    "getStarted": "Bilow",
+    "signOut": "Bax",
+    "profile": "Xisaabtaada",
+    "mainNavigation": "Navigation-ka ugu weyn",
+    "dashboardNavigation": "Navigation-ka kontorada",
+    "toggleMenu": "Furi ama xiri menu-ka"
+  },
+  "language": {
+    "label": "Luqad",
+    "change": "Beddel luqadda",
+    "current": "Luqadda hadda: {{language}}",
+    "en": "English",
+    "ar": "العربية",
+    "so": "Soomaali"
+  },
+  "search": {
+    "label": "Raadi",
+    "placeholder": "Raadi ganacsiyada, adeegyada, alaabta...",
+    "clear": "Tirix",
+    "noResults": "Natiibo la waabideed"
+  },
+  "auth": {
+    "email": "Iimayl",
+    "password": "Furaha sirta ah",
+    "fullName": "Magaca oo dhan",
+    "phone": "Taleefan",
+    "signInTitle": "Ku soo dhowdey",
+    "registerTitle": "Samee xisaabtaada",
+    "noAccount": "Ma laha xisaab?",
+    "haveAccount": "Xisaabtaad ma jirtaa?",
+    "signOutFailed": "Kama baxsan karin. Mar kale isku day."
+  },
+  "sidebar": {
+    "overview": "Guud-mari",
+    "products": "Alaabaha",
+    "services": "Adeegyada",
+    "orders": "Dalabka",
+    "customers": " macaamiilka",
+    "reviews": "Qiimeynta",
+    "analytics": "Xog-xogda",
+    "settings": "Dejinta",
+    "currentBusiness": "Ganacsiga hadda",
+    "switchBusiness": "Beddel ganacsiga",
+    "expand": "Balleeey tiirka",
+    "collapse": "Xiri tiirka"
+  },
+  "footer": {
+    "about": "Ka badan tahay suuq. Ogaado ganacsiyada. Isku xir. Kordo.",
+    "exploreTitle": "Baar",
+    "categoriesTitle": "Qaybaha",
+    "supportTitle": "Taageero",
+    "allBusinesses": "Dhammaan ganacsiyada",
+    "topRated": "Kuwa ugu sarreeya",
+    "newBusinesses": "Ganacsiyada cusub",
+    "healthcare": "Tibda",
+    "restaurants": "Restoorka",
+    "hotels": "Hotellada",
+    "beautyWellness": "Quruxda iyo caafimaadka",
+    "helpCenter": "Xogta caawinta",
+    "contactUs": "Naga soo hadal",
+    "faq": "Su'aalaha badana la iska weydiiyo",
+    "safetyGuidelines": "Tilmaamaha badbaadada",
+    "privacyPolicy": "Siyaasadda sirta",
+    "termsOfService": "Shuruudaha adeegga",
+    "cookiePolicy": "Siyaasadda cookies",
+    "rightsReserved": "© {{year}} Suuq HQ. Xoriyada xadbeen.",
+    "facebook": "Facebook",
+    "twitter": "Twitter",
+    "instagram": "Instagram",
+    "linkedin": "LinkedIn"
+  },
+  "common": {
+    "loading": "Waa la soo rarayaa",
+    "save": "Kaydi",
+    "saving": "Waa la kaydinayaa...",
+    "cancel": "Jooji",
+    "edit": "Wax ka beddel",
+    "delete": "Tir",
+    "back": "Dib",
+    "next": "Xiga",
+    "previous": "Hore",
+    "close": "Xiri",
+    "retry": "Mar kale isku day",
+    "required": "Lagab maqan yahay",
+    "optional": "Ikhtiyaari",
+    "vsLastPeriod": "{{value}} marka loo eego muddada hore",
+    "noResultsTitle": "Weli wax lama helin",
+    "errorTitle": "Khalad",
+    "starsLabel_one": "Hal xiddin",
+    "starsLabel_other": "{{count}} xiddin",
+    "starsSummary": "{{rating}} {{maxRating}}"
+  },
+  "status": {
+    "active": "Filo",
+    "pending": "Sugaya",
+    "suspended": "La istaagay",
+    "closed": "La xiray",
+    "rejected": "La diiday",
+    "verified": "La xaqiijiyay",
+    "draft": "Qoraal",
+    "inactive": "Ma fir fir",
+    "archived": "La keydiyay",
+    "completed": "Dhammaatay",
+    "cancelled": "Joojjiyay",
+    "confirmed": "La xaqiijiyay",
+    "inProgress": "Waa socda",
+    "ready": "Diyaar",
+    "outForDelivery": "Waa safka",
+    "refunded": "Lacag la celiyay",
+    "published": "Daabacay",
+    "hidden": "Qarsoon"
+  },
+  "errors": {
+    "generic": "Wax qaldan ayaa dhacay",
+    "notFound": "Lama helin",
+    "network": "Server-ka lama gaari karin. Xiriiriadda hubi.",
+    "unknown": "Khalad aan la aqoon ayaa dhacay"
+  },
+  "relativeTime": {
+    "justNow": "Hadda",
+    "minutes": "{{count}}m ka dib",
+    "hours": "{{count}}h ka dib",
+    "days": "{{count}}d ka dib"
+  },
+  "branches": {
+    "title": "Laammooyinka",
+    "notWiredTitle": "Ma shaqeynayo maamulka laammooyinka",
+    "notWiredDescription": "Adeegyada wuxuu jiraa server-ka, laakiin boggani hadda wuu wacay."
+  }
+}

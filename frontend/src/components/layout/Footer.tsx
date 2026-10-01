@@ -1,4 +1,5 @@
 import { HTMLAttributes, forwardRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
@@ -7,6 +8,34 @@ interface FooterProps extends HTMLAttributes<HTMLElement> {}
 
 export const Footer = forwardRef<HTMLElement, FooterProps>(
   ({ className, ...props }, ref) => {
+    const { t } = useTranslation();
+    // Category names are server data and stay untranslated, so only the
+    // section headings and the surrounding chrome are translated here.
+    const exploreLinks = [
+      { to: '/explore', label: t('footer.allBusinesses') },
+      { to: '/categories', label: t('nav.categories') },
+      { to: '#', label: t('footer.topRated') },
+      { to: '#', label: t('footer.newBusinesses') },
+    ];
+    const categoryLinks = [
+      { to: '/categories/healthcare', label: t('footer.healthcare') },
+      { to: '/categories/restaurants', label: t('footer.restaurants') },
+      { to: '/categories/hotels', label: t('footer.hotels') },
+      { to: '/categories/beauty-wellness', label: t('footer.beautyWellness') },
+    ];
+    const supportLinks = [
+      { to: '#', label: t('footer.helpCenter') },
+      { to: '#', label: t('footer.contactUs') },
+      { to: '#', label: t('footer.faq') },
+      { to: '#', label: t('footer.safetyGuidelines') },
+    ];
+    const socials = [
+      { href: '#', Icon: Facebook, label: t('footer.facebook') },
+      { href: '#', Icon: Twitter, label: t('footer.twitter') },
+      { href: '#', Icon: Instagram, label: t('footer.instagram') },
+      { href: '#', Icon: Linkedin, label: t('footer.linkedin') },
+    ];
+
     return (
       <footer
         ref={ref}
@@ -16,70 +45,40 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
             <div className="lg:col-span-2">
-              <Link to="/" className="flex items-center gap-2 mb-4" aria-label="HQ Marketplace Home">
+              <Link to="/" className="flex items-center gap-2 mb-4" aria-label={t('brand.homeLabel')}>
                 <div className="w-10 h-10 rounded-xl bg-primary-500 flex items-center justify-center">
                   <ShoppingBag className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-2xl font-bold">HQ Marketplace</span>
+                <span className="text-2xl font-bold">{t('brand.name')}</span>
               </Link>
-              <p className="text-navy-300 max-w-sm mb-6">
-                More Than a Marketplace. Discover Businesses. Connect. Grow.
-              </p>
+              <p className="text-navy-300 max-w-sm mb-6">{t('footer.about')}</p>
               <div className="flex gap-4">
-                <a href="#" className="text-navy-400 hover:text-white transition-colors" aria-label="Facebook">
-                  <Facebook className="w-5 h-5" />
-                </a>
-                <a href="#" className="text-navy-400 hover:text-white transition-colors" aria-label="Twitter">
-                  <Twitter className="w-5 h-5" />
-                </a>
-                <a href="#" className="text-navy-400 hover:text-white transition-colors" aria-label="Instagram">
-                  <Instagram className="w-5 h-5" />
-                </a>
-                <a href="#" className="text-navy-400 hover:text-white transition-colors" aria-label="LinkedIn">
-                  <Linkedin className="w-5 h-5" />
-                </a>
+                {socials.map(({ href, Icon, label }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    className="text-navy-400 hover:text-white transition-colors"
+                    aria-label={label}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </a>
+                ))}
               </div>
             </div>
 
-            <div>
-              <h4 className="font-semibold mb-4">Explore</h4>
-              <ul className="space-y-2 text-navy-300">
-                <li><Link to="/explore" className="hover:text-white transition-colors">All Businesses</Link></li>
-                <li><Link to="/categories" className="hover:text-white transition-colors">Categories</Link></li>
-                <li><Link to="#" className="hover:text-white transition-colors">Top Rated</Link></li>
-                <li><Link to="#" className="hover:text-white transition-colors">New Businesses</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Categories</h4>
-              <ul className="space-y-2 text-navy-300">
-                <li><Link to="/categories/healthcare" className="hover:text-white transition-colors">Healthcare</Link></li>
-                <li><Link to="/categories/restaurants" className="hover:text-white transition-colors">Restaurants</Link></li>
-                <li><Link to="/categories/hotels" className="hover:text-white transition-colors">Hotels</Link></li>
-                <li><Link to="/categories/beauty-wellness" className="hover:text-white transition-colors">Beauty & Wellness</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Support</h4>
-              <ul className="space-y-2 text-navy-300">
-                <li><Link to="#" className="hover:text-white transition-colors">Help Center</Link></li>
-                <li><Link to="#" className="hover:text-white transition-colors">Contact Us</Link></li>
-                <li><Link to="#" className="hover:text-white transition-colors">FAQ</Link></li>
-                <li><Link to="#" className="hover:text-white transition-colors">Safety Guidelines</Link></li>
-              </ul>
-            </div>
+            <FooterColumn title={t('footer.exploreTitle')} links={exploreLinks} />
+            <FooterColumn title={t('footer.categoriesTitle')} links={categoryLinks} />
+            <FooterColumn title={t('footer.supportTitle')} links={supportLinks} />
           </div>
 
           <div className="mt-12 pt-8 border-t border-navy-800 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-navy-400 text-sm">
-              © 2024 HQ Marketplace. All rights reserved.
+              {t('footer.rightsReserved', { year: new Date().getFullYear() })}
             </p>
             <div className="flex gap-6 text-sm text-navy-400">
-              <Link to="#" className="hover:text-white transition-colors">Privacy Policy</Link>
-              <Link to="#" className="hover:text-white transition-colors">Terms of Service</Link>
-              <Link to="#" className="hover:text-white transition-colors">Cookie Policy</Link>
+              <Link to="#" className="hover:text-white transition-colors">{t('footer.privacyPolicy')}</Link>
+              <Link to="#" className="hover:text-white transition-colors">{t('footer.termsOfService')}</Link>
+              <Link to="#" className="hover:text-white transition-colors">{t('footer.cookiePolicy')}</Link>
             </div>
           </div>
         </div>
@@ -89,3 +88,25 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
 );
 
 Footer.displayName = 'Footer';
+
+interface FooterColumnProps {
+  title: string;
+  links: Array<{ to: string; label: string }>;
+}
+
+function FooterColumn({ title, links }: FooterColumnProps) {
+  return (
+    <div>
+      <h4 className="font-semibold mb-4">{title}</h4>
+      <ul className="space-y-2 text-navy-300">
+        {links.map((link) => (
+          <li key={link.label}>
+            <Link to={link.to} className="hover:text-white transition-colors">
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

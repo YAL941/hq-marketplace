@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 
 interface RatingStarsProps {
@@ -11,6 +12,7 @@ interface RatingStarsProps {
 }
 
 export function RatingStars({ rating, maxRating = 5, size = 'md', showValue = false, interactive = false, onChange, className }: RatingStarsProps) {
+  const { t } = useTranslation();
   const sizes = { sm: 'w-3 h-3', md: 'w-5 h-5', lg: 'w-6 h-6' };
   const starSize = sizes[size];
 
@@ -28,7 +30,7 @@ export function RatingStars({ rating, maxRating = 5, size = 'md', showValue = fa
           onMouseLeave={() => interactive && onChange?.(rating)}
           disabled={!interactive}
           className={cn('flex-shrink-0 transition-transform duration-100', interactive && 'hover:scale-110 cursor-pointer', !interactive && 'cursor-default')}
-          aria-label={`${i} star${i !== 1 ? 's' : ''}`}
+          aria-label={t('common.starsLabel', { count: i })}
         >
           <svg className={starSize} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             {filled ? (
@@ -49,10 +51,10 @@ export function RatingStars({ rating, maxRating = 5, size = 'md', showValue = fa
   };
 
   return (
-    <div className={cn('flex items-center gap-1', className)} role="img" aria-label={`${rating} out of ${maxRating} stars`}>
+    <div className={cn('flex items-center gap-1', className)}       role="img" aria-label={t('common.starsSummary', { rating, maxRating })}>
       {renderStars()}
       {showValue && (
-        <span className="text-navy-600 font-medium ml-1">{rating.toFixed(1)}</span>
+        <span className="text-navy-600 font-medium ms-1">{rating.toFixed(1)}</span>
       )}
     </div>
   );

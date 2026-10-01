@@ -1,0 +1,143 @@
+{
+  "brand": {
+    "name": "Suuq HQ",
+    "tagline": "Somalia's business directory",
+    "homeLabel": "Suuq HQ home",
+    "dashboardLabel": "Suuq HQ dashboard"
+  },
+  "nav": {
+    "explore": "Explore",
+    "categories": "Categories",
+    "favorites": "Favorites",
+    "dashboard": "Dashboard",
+    "signIn": "Sign In",
+    "getStarted": "Get Started",
+    "signOut": "Sign Out",
+    "profile": "Profile",
+    "mainNavigation": "Main navigation",
+    "dashboardNavigation": "Dashboard navigation",
+    "toggleMenu": "Toggle menu"
+  },
+  "language": {
+    "label": "Language",
+    "change": "Change language",
+    "current": "Current language: {{language}}",
+    "en": "English",
+    "ar": "العربية",
+    "so": "Soomaali"
+  },
+  "search": {
+    "label": "Search",
+    "placeholder": "Search businesses, services, products...",
+    "clear": "Clear search",
+    "noResults": "No results found"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full name",
+    "phone": "Phone number",
+    "signInTitle": "Welcome back",
+    "registerTitle": "Create your account",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "signOutFailed": "Could not sign you out. Try again."
+  },
+  "sidebar": {
+    "overview": "Overview",
+    "products": "Products",
+    "services": "Services",
+    "orders": "Orders",
+    "customers": "Customers",
+    "reviews": "Reviews",
+    "analytics": "Analytics",
+    "settings": "Settings",
+    "currentBusiness": "Current Business",
+    "switchBusiness": "Switch Business",
+    "expand": "Expand sidebar",
+    "collapse": "Collapse sidebar"
+  },
+  "footer": {
+    "about": "More Than a Marketplace. Discover Businesses. Connect. Grow.",
+    "exploreTitle": "Explore",
+    "categoriesTitle": "Categories",
+    "supportTitle": "Support",
+    "allBusinesses": "All Businesses",
+    "topRated": "Top Rated",
+    "newBusinesses": "New Businesses",
+    "healthcare": "Healthcare",
+    "restaurants": "Restaurants",
+    "hotels": "Hotels",
+    "beautyWellness": "Beauty & Wellness",
+    "helpCenter": "Help Center",
+    "contactUs": "Contact Us",
+    "faq": "FAQ",
+    "safetyGuidelines": "Safety Guidelines",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "cookiePolicy": "Cookie Policy",
+    "rightsReserved": "© {{year}} Suuq HQ. All rights reserved.",
+    "facebook": "Facebook",
+    "twitter": "Twitter",
+    "instagram": "Instagram",
+    "linkedin": "LinkedIn"
+  },
+  "common": {
+    "loading": "Loading",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "retry": "Try Again",
+    "required": "Required",
+    "optional": "Optional",
+    "vsLastPeriod": "{{value}} vs last period",
+    "noResultsTitle": "Nothing here yet",
+    "errorTitle": "Error",
+    "starsLabel_one": "{{count}} star",
+    "starsLabel_other": "{{count}} stars",
+    "starsSummary": "{{rating}} out of {{maxRating}} stars"
+  },
+  "status": {
+    "active": "Active",
+    "pending": "Pending",
+    "suspended": "Suspended",
+    "closed": "Closed",
+    "rejected": "Rejected",
+    "verified": "Verified",
+    "draft": "Draft",
+    "inactive": "Inactive",
+    "archived": "Archived",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "confirmed": "Confirmed",
+    "inProgress": "In Progress",
+    "ready": "Ready",
+    "outForDelivery": "Out for Delivery",
+    "refunded": "Refunded",
+    "published": "Published",
+    "hidden": "Hidden"
+  },
+  "errors": {
+    "generic": "Something went wrong",
+    "notFound": "Not found",
+    "network": "Could not reach the server. Check your connection.",
+    "unknown": "An unknown error occurred"
+  },
+  "relativeTime": {
+    "justNow": "Just now",
+    "minutes": "{{count}}m ago",
+    "hours": "{{count}}h ago",
+    "days": "{{count}}d ago"
+  },
+  "branches": {
+    "title": "Branches",
+    "notWiredTitle": "Branch management is not wired up yet",
+    "notWiredDescription": "The endpoints exist on the server, but this page does not call them yet."
+  }
+}

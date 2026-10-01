@@ -6,13 +6,31 @@
   html {
     @apply scroll-smooth;
   }
-  
+
   body {
     @apply bg-navy-50 text-navy-900 antialiased;
   }
-  
+
   * {
     @apply border-navy-200;
+  }
+
+  /*
+   * Inter has no Arabic or Latin-Somali coverage worth relying on for Arabic,
+   * so Arabic falls through to the next family on the stack. Tufan is the
+   * classical Naskh face; Noto Naskh is the fallback where Tufan is missing.
+   */
+  html[lang='ar'] body {
+    font-family: 'Tufan', 'Noto Naskh Arabic', 'Segoe UI', system-ui, sans-serif;
+  }
+
+  /*
+   * Latin-script Somali is rendered with Inter like the rest of the UI. Somali
+   * is written left to right, so `dir` stays ltr for it and none of the
+   * logical-property rules below apply.
+   */
+  html[lang='so'] body {
+    font-family: 'Inter', system-ui, sans-serif;
   }
 }
 

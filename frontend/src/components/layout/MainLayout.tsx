@@ -23,7 +23,7 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
           <main
             className={cn(
               'flex-1 transition-all duration-300',
-              showSidebar ? 'lg:ml-64' : ''
+              showSidebar ? 'lg:ms-64' : ''
             )}
             style={{ minHeight: 'calc(100vh - 4rem)' }}
           >

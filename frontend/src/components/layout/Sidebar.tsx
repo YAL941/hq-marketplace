@@ -1,25 +1,31 @@
 import { HTMLAttributes, forwardRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Link, useLocation, NavLink } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Users, Package, Truck, Star, BarChart3, Settings, ChevronRight, LogOut } from 'lucide-react';
+import {
+  LayoutDashboard, ShoppingBag, Users, Package, Truck, Star, BarChart3, Settings, ChevronRight, LogOut,
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from './Avatar';
 
+// Labels are translation keys, not text: they have to resolve in the active
+// language at render time, and a module-level string would be frozen in English.
 const navigation = [
-  { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Products', href: '/dashboard/products', icon: Package },
-  { name: 'Services', href: '/dashboard/services', icon: Truck },
-  { name: 'Orders', href: '/dashboard/orders', icon: ShoppingBag },
-  { name: 'Customers', href: '/dashboard/customers', icon: Users },
-  { name: 'Reviews', href: '/dashboard/reviews', icon: Star },
-  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+  { key: 'sidebar.overview', href: '/dashboard', icon: LayoutDashboard },
+  { key: 'sidebar.products', href: '/dashboard/products', icon: Package },
+  { key: 'sidebar.services', href: '/dashboard/services', icon: Truck },
+  { key: 'sidebar.orders', href: '/dashboard/orders', icon: ShoppingBag },
+  { key: 'sidebar.customers', href: '/dashboard/customers', icon: Users },
+  { key: 'sidebar.reviews', href: '/dashboard/reviews', icon: Star },
+  { key: 'sidebar.analytics', href: '/dashboard/analytics', icon: BarChart3 },
+  { key: 'sidebar.settings', href: '/dashboard/settings', icon: Settings },
 ];
 
 interface SidebarProps extends HTMLAttributes<HTMLElement> {}
 
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
   ({ className, ...props }, ref) => {
+    const { t } = useTranslation();
     const location = useLocation();
     const { user, businesses, currentBusiness, logout } = useAuth();
     const [collapsed, setCollapsed] = useState(false);
@@ -28,7 +34,9 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
       <aside
         ref={ref}
         className={cn(
-          'fixed inset-y-0 left-0 z-40 bg-white border-r border-navy-200 transition-all duration-300',
+          // start-0 and border-e keep the sidebar on the reading edge in both
+          // directions instead of being pinned to the physical left.
+          'fixed inset-y-0 start-0 z-40 bg-white border-e border-navy-200 transition-all duration-300',
           collapsed ? 'w-20' : 'w-64',
           className
         )}
@@ -36,24 +44,34 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
       >
         <div className="flex flex-col h-full">
           <div className={cn('flex items-center justify-between h-16 px-4 border-b border-navy-200', collapsed && 'justify-center')}>
-            <Link to="/dashboard" className="flex items-center gap-2" aria-label="HQ Marketplace Dashboard">
+            <Link to="/dashboard" className="flex items-center gap-2" aria-label={t('brand.dashboardLabel')}>
               <div className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center flex-shrink-0">
                 <ShoppingBag className="w-5 h-5 text-white" />
               </div>
-              {!collapsed && <span className="text-xl font-bold text-navy-900">HQ Business</span>}
+              {!collapsed && <span className="text-xl font-bold text-navy-900">{t('brand.name')}</span>}
             </Link>
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className={cn('p-1.5 rounded-button hover:bg-navy-100 transition-colors', collapsed && 'ml-auto')}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              className={cn('p-1.5 rounded-button hover:bg-navy-100 transition-colors', collapsed && 'ms-auto')}
+              aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+              aria-expanded={!collapsed}
             >
-              <ChevronRight className={cn('w-5 h-5 text-navy-500 transition-transform', collapsed && 'rotate-180')} />
+              <ChevronRight
+                className={cn(
+                  'w-5 h-5 text-navy-500 transition-transform',
+                  // The chevron points at the side the drawer collapses toward,
+                  // which flips with the writing direction.
+                  collapsed ? 'rotate-180' : ''
+                )}
+              />
             </button>
           </div>
 
           {currentBusiness && !collapsed && (
             <div className="px-4 py-3 border-b border-navy-100">
-              <p className="text-xs font-medium text-navy-500 uppercase tracking-wide mb-1">Current Business</p>
+              <p className="text-xs font-medium text-navy-500 uppercase tracking-wide mb-1">
+                {t('sidebar.currentBusiness')}
+              </p>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
                   <ShoppingBag className="w-4 h-4 text-primary-600" />
@@ -66,12 +84,13 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
             </div>
           )}
 
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="Dashboard navigation">
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label={t('nav.dashboardNavigation')}>
             {navigation.map((item) => {
               const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/');
+              const label = t(item.key);
               return (
                 <NavLink
-                  key={item.name}
+                  key={item.key}
                   to={item.href}
                   className={({ isActive: active }) => cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-button text-sm font-medium transition-colors',
@@ -80,11 +99,11 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                       : 'text-navy-600 hover:bg-navy-50 hover:text-navy-900',
                     collapsed && 'justify-center'
                   )}
-                  title={collapsed ? item.name : undefined}
+                  title={collapsed ? label : undefined}
                   aria-current={isActive ? 'page' : undefined}
                 >
                   <item.icon className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
-                  {!collapsed && <span>{item.name}</span>}
+                  {!collapsed && <span>{label}</span>}
                 </NavLink>
               );
             })}
@@ -103,7 +122,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                 {businesses.length > 1 && (
                   <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-navy-600 hover:bg-navy-50 hover:text-navy-900 rounded-button transition-colors">
                     <Users className="w-5 h-5" />
-                    Switch Business
+                    {t('sidebar.switchBusiness')}
                   </button>
                 )}
                 <button
@@ -111,7 +130,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm text-error-600 hover:bg-error-50 rounded-button transition-colors"
                 >
                   <LogOut className="w-5 h-5" />
-                  Sign Out
+                  {t('nav.signOut')}
                 </button>
               </div>
             </div>

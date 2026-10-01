@@ -1,21 +1,45 @@
 import { clsx, type ClassValue } from 'clsx';
+import i18n from '../i18n';
+import { intlLocaleFor } from '../i18n';
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
+/**
+ * Everything below formats for whichever language is active right now.
+ *
+ * The locale is read from i18n on every call rather than captured once, so a
+ * page does not have to remount when the language changes. Somali has no CLDR
+ * locale, so it formats as English while still using Somali wording around it.
+ */
+function locale(): string {
+  return intlLocaleFor(i18n.resolvedLanguage ?? i18n.language);
+}
+
+function toNumber(amount: string | number): number {
+  return typeof amount === 'string' ? parseFloat(amount) : amount;
+}
+
 export function formatCurrency(amount: string | number, currency = 'USD'): string {
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat('en-US', {
+  const value = toNumber(amount);
+  if (Number.isNaN(value)) return '—';
+  return new Intl.NumberFormat(locale(), {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(num);
+  }).format(value);
+}
+
+export function formatNumber(value: string | number): string {
+  const num = toNumber(value);
+  if (Number.isNaN(num)) return '—';
+  return new Intl.NumberFormat(locale()).format(num);
 }
 
 export function formatDate(dateString: string): string {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale(), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -23,7 +47,7 @@ export function formatDate(dateString: string): string {
 }
 
 export function formatDateTime(dateString: string): string {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale(), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -40,10 +64,10 @@ export function formatRelativeTime(dateString: string): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffMins < 1) return i18n.t('relativeTime.justNow');
+  if (diffMins < 60) return i18n.t('relativeTime.minutes', { count: diffMins });
+  if (diffHours < 24) return i18n.t('relativeTime.hours', { count: diffHours });
+  if (diffDays < 7) return i18n.t('relativeTime.days', { count: diffDays });
   return formatDate(dateString);
 }
 
@@ -83,26 +107,32 @@ export function getStatusColor(status: string): string {
   return colors[status] || 'bg-navy-400';
 }
 
+/** DB status values map to camelCase translation keys. */
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  active: 'active',
+  pending: 'pending',
+  suspended: 'suspended',
+  closed: 'closed',
+  rejected: 'rejected',
+  verified: 'verified',
+  draft: 'draft',
+  inactive: 'inactive',
+  archived: 'archived',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  confirmed: 'confirmed',
+  in_progress: 'inProgress',
+  ready: 'ready',
+  out_for_delivery: 'outForDelivery',
+  refunded: 'refunded',
+  published: 'published',
+  hidden: 'hidden',
+};
+
 export function getStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    active: 'Active',
-    pending: 'Pending',
-    suspended: 'Suspended',
-    closed: 'Closed',
-    rejected: 'Rejected',
-    verified: 'Verified',
-    draft: 'Draft',
-    inactive: 'Inactive',
-    archived: 'Archived',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
-    confirmed: 'Confirmed',
-    in_progress: 'In Progress',
-    ready: 'Ready',
-    out_for_delivery: 'Out for Delivery',
-    refunded: 'Refunded',
-    published: 'Published',
-    hidden: 'Hidden',
-  };
-  return labels[status] || status;
+  const key = STATUS_LABEL_KEYS[status];
+  // An unknown status falls through to the raw value rather than to a key
+  // string, so a status the UI has not caught up with is still readable.
+  if (!key) return status;
+  return i18n.t(`status.${key}`);
 }
