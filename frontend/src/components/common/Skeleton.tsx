@@ -1,4 +1,5 @@
-import { cn } from '../lib/utils';
+import { cn } from '../../lib/utils';
+import { Card } from './Card';
 
 export interface SkeletonProps {
   className?: string;
@@ -71,6 +72,20 @@ export function BusinessHeaderSkeleton() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function CategoryCardSkeleton() {
+  return (
+    <Card padding="none" className="overflow-hidden">
+      <div className="p-5 flex items-center gap-4">
+        <Skeleton variant="circular" width={56} height={56} />
+        <div className="flex-1 space-y-2">
+          <Skeleton variant="text" width="50%" />
+          <Skeleton variant="text" width="30%" />
+        </div>
+      </div>
+    </Card>
   );
 }
 

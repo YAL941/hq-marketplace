@@ -66,13 +66,16 @@ export const authApi = {
 
 // Public Business API
 export const businessApi = {
+  // `category` takes the slug a public URL carries; `categoryId` stays for
+  // callers that already hold a numeric id. Sending both is the server's call.
   list: (params?: {
+    category?: string;
     categoryId?: number;
     city?: string;
-    search?: string;
+    q?: string;
     verifiedOnly?: boolean;
+    page?: number;
     limit?: number;
-    offset?: number;
   }) => api.get<ApiResponse<any[]>>('/businesses', { params }),
 
   get: (businessId: number) =>
@@ -89,6 +92,18 @@ export const businessApi = {
 
   update: (businessId: number, data: Record<string, any>) =>
     api.patch<ApiResponse<any>>(`/business/${businessId}`, data),
+};
+
+// Public directory reference data
+export const directoryApi = {
+  categories: () =>
+    api.get<ApiResponse<any[]>>('/categories'),
+
+  cities: () =>
+    api.get<ApiResponse<any[]>>('/cities'),
+
+  reviews: (businessId: number, params?: { page?: number; limit?: number }) =>
+    api.get<ApiResponse<any[]>>(`/businesses/${businessId}/reviews`, { params }),
 };
 
 // Products API

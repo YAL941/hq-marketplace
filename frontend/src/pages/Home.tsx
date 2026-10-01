@@ -1,15 +1,15 @@
 import { Link } from 'react-router-dom';
-import { ShoppingBag, MapPin, Search, Star, Truck, Heart, Shield, ArrowRight, Building2, Store, Utensils, Hotel, HeartPulse, Sparkles, Calendar } from 'lucide-react';
+import { MapPin, Star, Truck, Heart, Shield, ArrowRight, Building2, Store, Utensils, Hotel, HeartPulse, Sparkles, Calendar } from 'lucide-react';
 import { BusinessCard } from '../components/business/BusinessCard';
 import { CategoryCard } from '../components/business/CategoryCard';
 import { Button } from '../components/common/Button';
 import { SearchBar } from '../components/common/SearchBar';
 import { Badge } from '../components/common/Badge';
+import { Card } from '../components/common/Card';
 import { BusinessCardSkeleton, CategoryCardSkeleton } from '../components/common/Skeleton';
 import { useState, useEffect } from 'react';
 import { businessApi } from '../services/api';
 import type { Business, BusinessCategory } from '../types';
-import { cn } from '../lib/utils';
 
 const featuredCategories = [
   { name: 'Healthcare', slug: 'healthcare', icon: HeartPulse, color: 'bg-red-100 text-red-600' },
@@ -155,12 +155,12 @@ export function HomePage() {
                 return (
                   <CategoryCard
                     key={cat.slug}
-                    category={{
-                      category_id: matchedCategory?.category_id || 0,
-                      category_name: cat.name,
-                      category_slug: cat.slug,
-                      business_count: matchedCategory?.business_count || 0,
-                    }}
+category={{
+                        category_id: matchedCategory?.category_id ?? 0,
+                        category_name: cat.name,
+                        category_slug: cat.slug,
+                        business_count: matchedCategory?.business_count ?? 0,
+                      }}
                     onClick={() => window.location.href = `/categories/${cat.slug}`}
                     businessCount={matchedCategory?.business_count}
                   />

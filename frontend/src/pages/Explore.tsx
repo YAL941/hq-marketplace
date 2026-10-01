@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Filter, X, ChevronDown, MapPin, Star, Shield, Building2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Filter, X, MapPin, Shield, Building2 } from 'lucide-react';
 import { BusinessCard } from '../components/business/BusinessCard';
 import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { Button } from '../components/common/Button';
@@ -42,7 +42,7 @@ export function ExplorePage() {
       try {
         const response = await businessApi.list(filters);
         setBusinesses(response.data.data);
-        setTotalCount(response.data.meta?.count || response.data.data.length);
+        setTotalCount(Number(response.data.meta?.total ?? response.data.data.length));
       } catch (error) {
         console.error('Failed to fetch businesses:', error);
       } finally {

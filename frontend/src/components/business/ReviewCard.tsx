@@ -1,7 +1,8 @@
-import { cn, formatRelativeTime } from '../../lib/utils';
+import { formatRelativeTime } from '../../lib/utils';
 import { Card } from '../common/Card';
+import { Badge } from '../common/Badge';
 import { RatingStars } from '../common/RatingStars';
-import { User, Star, MessageSquare, Clock, CheckCircle } from 'lucide-react';
+import { User, MessageSquare, Clock, CheckCircle } from 'lucide-react';
 import type { Review } from '../../types';
 
 interface ReviewCardProps {
@@ -13,7 +14,7 @@ interface ReviewCardProps {
   isBusinessView?: boolean;
 }
 
-export function ReviewCard({ review, showBusiness, businessName, onRespond, onModerate, isBusinessView = false }: ReviewCardProps) {
+export function ReviewCard({ review, onRespond, onModerate, isBusinessView = false }: ReviewCardProps) {
   return (
     <Card padding="md" className="relative">
       <div className="flex items-start gap-3">

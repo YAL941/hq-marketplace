@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { businessApi, productApi, serviceApi, orderApi, reviewApi } from '../../services/api';
+import { useAuth } from '../context/AuthContext';
+import { businessApi, productApi, serviceApi, orderApi } from '../services/api';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Card } from '../components/common/Card';
 import { Skeleton } from '../components/common/Skeleton';
-import { cn, formatCurrency, formatRelativeTime } from '../../lib/utils';
-import { ShoppingBag, Package, Truck, Users, DollarSign, TrendingUp, Star, Clock, AlertCircle, CheckCircle, XCircle, Package as PackageIcon, Truck as TruckIcon } from 'lucide-react';
+import { cn, formatCurrency, formatRelativeTime } from '../lib/utils';
+import { ShoppingBag, Users, DollarSign, TrendingUp, Star, Package as PackageIcon, Truck as TruckIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function DashboardHomePage() {
-  const { currentBusiness, refreshUser } = useAuth();
+  const { currentBusiness } = useAuth();
   const [stats, setStats] = useState<any>(null);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [recentProducts, setRecentProducts] = useState<any[]>([]);

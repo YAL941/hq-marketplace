@@ -1,4 +1,3 @@
-import { cn, formatCurrency, getStatusColor, getStatusLabel } from '../lib/utils';
 import { Badge } from '../common/Badge';
 import { RatingStars } from '../common/RatingStars';
 import { Card } from '../common/Card';
@@ -76,10 +75,10 @@ export function BusinessCard({ business, onClick, showActions = false, compact =
 
         {!compact && (
           <>
-            {business.rating_avg && business.rating_count && (
+            {business.average_rating && business.review_count && (
               <div className="flex items-center gap-2 mb-3">
-                <RatingStars rating={parseFloat(business.rating_avg)} showValue size="sm" />
-                <span className="text-sm text-navy-500">({business.rating_count} reviews)</span>
+                <RatingStars rating={parseFloat(business.average_rating)} showValue size="sm" />
+                <span className="text-sm text-navy-500">({business.review_count} reviews)</span>
               </div>
             )}
 
@@ -118,21 +117,16 @@ export function BusinessCard({ business, onClick, showActions = false, compact =
           </>
         )}
 
-        <div className="mt-auto pt-3 border-t border-navy-100 flex items-center justify-between">
-          <span className="text-sm font-medium text-navy-700">
-            {business.currency && business.price_range
-              ? `${business.currency} ${business.price_range}`
-              : 'Contact for pricing'}
-          </span>
-          {showActions && onClick && (
+        {showActions && onClick && (
+          <div className="mt-auto pt-3 border-t border-navy-100 flex items-center justify-between">
             <button
               onClick={(e) => { e.stopPropagation(); onClick(); }}
               className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
             >
               View Details →
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </Card>
   );

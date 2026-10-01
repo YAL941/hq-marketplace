@@ -1,0 +1,7 @@
+﻿
+> hq-marketplace-frontend@1.0.0 typecheck
+> tsc --noEmit
+
+src/pages/BusinessProfile.tsx(26,50): error TS2353: Object literal may only specify known properties, and 'search' does not exist in type '{ category?: string | undefined; categoryId?: number | undefined; city?: string | undefined; q?: string | undefined; verifiedOnly?: boolean | undefined; page?: number | undefined; limit?: number | undefined; }'.
+src/pages/CategoryPage.tsx(135,28): error TS18048: 'category.business_count' is possibly 'undefined'.
+src/pages/OrderDetail.tsx(9,27): error TS6133: 'useNavigate' is declared but its value is never read.

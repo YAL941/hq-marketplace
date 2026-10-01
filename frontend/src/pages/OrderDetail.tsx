@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { orderApi } from '../../services/api';
-import { Button } from '../components/common/Button';
+import { useAuth } from '../context/AuthContext';
+import { orderApi } from '../services/api';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
+import type { BadgeVariant } from '../components/common/Badge';
 import { ErrorState } from '../components/common/ErrorState';
-import { ArrowLeft, Package, Truck, Clock, User, MapPin, CreditCard } from 'lucide-react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
-import { cn, formatCurrency, formatDate, formatRelativeTime } from '../../lib/utils';
+import { ArrowLeft, Package, Truck, User, MapPin } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
+import { cn, formatCurrency, formatRelativeTime } from '../lib/utils';
 
-const statusColors: Record<string, string> = {
+const statusColors: Record<string, BadgeVariant> = {
   pending: 'warning',
   confirmed: 'info',
   in_progress: 'info',
@@ -24,7 +24,6 @@ const statusColors: Record<string, string> = {
 export function OrderDetailPage() {
   const { currentBusiness } = useAuth();
   const { orderId } = useParams<{ orderId: string }>();
-  const navigate = useNavigate();
   const [orderData, setOrderData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

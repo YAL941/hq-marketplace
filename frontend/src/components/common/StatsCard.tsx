@@ -1,4 +1,4 @@
-import { cn, formatCurrency } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 import { Card } from '../common/Card';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 

@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { reviewApi } from '../../services/api';
+import { useAuth } from '../context/AuthContext';
+import { reviewApi } from '../services/api';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
+import type { BadgeVariant } from '../components/common/Badge';
 import { Card } from '../components/common/Card';
 import { RatingStars } from '../components/common/RatingStars';
-import { cn, formatRelativeTime } from '../../lib/utils';
-import { Star, MessageSquare, CheckCircle, X, AlertCircle, Edit } from 'lucide-react';
+import { formatRelativeTime } from '../lib/utils';
+import { Star, MessageSquare, CheckCircle, X } from 'lucide-react';
 
-const statusColors: Record<string, string> = {
+const statusColors: Record<string, BadgeVariant> = {
   pending: 'warning',
   published: 'success',
   rejected: 'error',

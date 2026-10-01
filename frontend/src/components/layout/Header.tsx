@@ -1,18 +1,18 @@
-import { HeaderHTMLAttributes, forwardRef, useState } from 'react';
-import { cn } from '../lib/utils';
+import { HTMLAttributes, forwardRef, useState } from 'react';
+import { cn } from '../../lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Menu, X, Search, User, ShoppingBag, Heart, MessageSquare, LogIn, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { Menu, X, User, ShoppingBag, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react';
 import { Button } from '../common/Button';
 import { SearchBar } from '../common/SearchBar';
-import { Badge } from '../common/Badge';
 import { Avatar } from './Avatar';
 
-interface HeaderProps extends HeaderHTMLAttributes<HTMLHeaderElement> {}
+interface HeaderProps extends HTMLAttributes<HTMLElement> {}
 
-export const Header = forwardRef<HTMLHeaderElement, HeaderProps>(
+export const Header = forwardRef<HTMLElement, HeaderProps>(
   ({ className, ...props }, ref) => {
     const location = useLocation();
+    const navigate = useNavigate();
     const { user, isAuthenticated, logout, businesses, currentBusiness, setCurrentBusiness } = useAuth();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -191,6 +191,7 @@ export const Header = forwardRef<HTMLHeaderElement, HeaderProps>(
           </div>
         )}
     </header>
+    );
   }
 );
 

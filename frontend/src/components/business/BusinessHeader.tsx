@@ -1,8 +1,5 @@
-import { cn, formatCurrency, formatDate } from '../../lib/utils';
-import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
-import { RatingStars } from '../common/RatingStars';
-import { MapPin, Star, Clock, Tag, User, CheckCircle, Calendar, Phone, Mail, Globe, ExternalLink } from 'lucide-react';
+import { MapPin, Star, Tag, CheckCircle } from 'lucide-react';
 import type { Business } from '../../types';
 
 interface BusinessHeaderProps {
@@ -72,8 +69,8 @@ export function BusinessHeader({ business, currentBusinessId, isOwner, onEdit, o
                   </span>
                   <span className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    {business.rating_avg ? `${parseFloat(business.rating_avg).toFixed(1)}` : '—'}
-                    {business.rating_count && ` (${business.rating_count})`}
+                    {business.average_rating ? `${parseFloat(business.average_rating).toFixed(1)}` : '—'}
+                    {business.review_count && ` (${business.review_count})`}
                   </span>
                 </div>
               </div>

@@ -6,7 +6,6 @@ import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { Button } from '../components/common/Button';
 import { businessApi, productApi, serviceApi, reviewApi, locationApi } from '../services/api';
 import type { Business } from '../types';
-import { cn } from '../lib/utils';
 
 export function BusinessProfilePage() {
   const { businessSlug } = useParams<{ businessSlug: string }>();
@@ -24,7 +23,7 @@ export function BusinessProfilePage() {
       setError(null);
       try {
         // First find business by slug
-        const bizList = await businessApi.list({ search: businessSlug || '', limit: 1 });
+        const bizList = await businessApi.list({ q: businessSlug || '', limit: 1 });
         const found = bizList.data.data.find((b: Business) => b.business_slug === businessSlug);
 
         if (!found) {

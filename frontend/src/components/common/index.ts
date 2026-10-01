@@ -1,13 +1,13 @@
-import { StatsCard } from './components/common/StatsCard';
-import { Button } from './components/common/Button';
-import { Input } from './components/common/Input';
-import { Card } from './components/common/Card';
-import { Badge } from './components/common/Badge';
-import { RatingStars } from './components/common/RatingStars';
-import { SearchBar } from './components/common/SearchBar';
-import { Skeleton } from './components/common/Skeleton';
-import { EmptyState } from './components/common/EmptyState';
-import { ErrorState } from './components/common/ErrorState';
+import { StatsCard } from './StatsCard';
+import { Button } from './Button';
+import { Input } from './Input';
+import { Card } from './Card';
+import { Badge } from './Badge';
+import { RatingStars } from './RatingStars';
+import { SearchBar } from './SearchBar';
+import { Skeleton } from './Skeleton';
+import { EmptyState } from './EmptyState';
+import { ErrorState } from './ErrorState';
 
 export {
   StatsCard,

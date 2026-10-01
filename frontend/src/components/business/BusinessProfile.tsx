@@ -1,8 +1,6 @@
-import { cn, formatCurrency } from '../../lib/utils';
 import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
 import { RatingStars } from '../common/RatingStars';
-import { Star, MapPin, Clock, Tag, User, CheckCircle, Calendar, Phone, Mail, Globe, ExternalLink } from 'lucide-react';
 import type { Business } from '../../types';
 import { BusinessHeader } from './BusinessHeader';
 import { BusinessContact } from './BusinessContact';
@@ -44,9 +42,7 @@ export function BusinessProfile({
   onRespondReview,
   onModerateReview,
 }: BusinessProfileProps) {
-  const isCurrentBusiness = currentBusinessId === business.business_id;
-
-  return (
+    return (
     <div className="min-h-screen bg-navy-50">
       <BusinessHeader
         business={business}
@@ -169,13 +165,13 @@ export function BusinessProfile({
               </dl>
             </Card>
 
-            {business.rating_avg && business.rating_count && (
+            {business.average_rating && business.review_count && (
               <Card>
                 <h3 className="text-lg font-semibold text-navy-900 mb-4">Rating</h3>
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-navy-900 mb-1">{parseFloat(business.rating_avg).toFixed(1)}</div>
-                  <RatingStars rating={parseFloat(business.rating_avg)} size="lg" className="mx-auto mb-2" />
-                  <p className="text-navy-500 text-sm">{business.rating_count} reviews</p>
+                  <div className="text-4xl font-bold text-navy-900 mb-1">{parseFloat(business.average_rating).toFixed(1)}</div>
+                  <RatingStars rating={parseFloat(business.average_rating)} size="lg" className="mx-auto mb-2" />
+                  <p className="text-navy-500 text-sm">{business.review_count} reviews</p>
                 </div>
               </Card>
             )}

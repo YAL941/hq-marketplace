@@ -1,7 +1,6 @@
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/common/Card';
-import { Skeleton } from '../components/common/Skeleton';
-import { cn, formatCurrency } from '../../lib/utils';
+import { cn, formatCurrency } from '../lib/utils';
 import { DollarSign, ShoppingBag, Users, Star, TrendingUp, BarChart3, Activity } from 'lucide-react';
 
 export function DashboardAnalyticsPage() {

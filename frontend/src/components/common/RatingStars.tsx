@@ -1,4 +1,4 @@
-import { cn } from '../lib/utils';
+import { cn } from '../../lib/utils';
 
 interface RatingStarsProps {
   rating: number;
@@ -7,9 +7,10 @@ interface RatingStarsProps {
   showValue?: boolean;
   interactive?: boolean;
   onChange?: (rating: number) => void;
+  className?: string;
 }
 
-export function RatingStars({ rating, maxRating = 5, size = 'md', showValue = false, interactive = false, onChange }: RatingStarsProps) {
+export function RatingStars({ rating, maxRating = 5, size = 'md', showValue = false, interactive = false, onChange, className }: RatingStarsProps) {
   const sizes = { sm: 'w-3 h-3', md: 'w-5 h-5', lg: 'w-6 h-6' };
   const starSize = sizes[size];
 
@@ -48,7 +49,7 @@ export function RatingStars({ rating, maxRating = 5, size = 'md', showValue = fa
   };
 
   return (
-    <div className="flex items-center gap-1" role="img" aria-label={`${rating} out of ${maxRating} stars`}>
+    <div className={cn('flex items-center gap-1', className)} role="img" aria-label={`${rating} out of ${maxRating} stars`}>
       {renderStars()}
       {showValue && (
         <span className="text-navy-600 font-medium ml-1">{rating.toFixed(1)}</span>

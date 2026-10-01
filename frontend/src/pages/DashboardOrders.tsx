@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { orderApi } from '../../services/api';
-import { Button } from '../components/common/Button';
+import { useAuth } from '../context/AuthContext';
+import { orderApi } from '../services/api';
 import { Badge } from '../components/common/Badge';
+import type { BadgeVariant } from '../components/common/Badge';
 import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { Input } from '../components/common/Input';
-import { cn, formatCurrency, formatDate, formatRelativeTime } from '../../lib/utils';
-import { Search, Filter, ChevronLeft, ChevronRight, Eye, Package, Truck, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { formatCurrency, formatRelativeTime } from '../lib/utils';
+import { Search, ChevronLeft, ChevronRight, Eye, Package, Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const statusColors: Record<string, string> = {
+const statusColors: Record<string, BadgeVariant> = {
   pending: 'warning',
   confirmed: 'info',
   in_progress: 'info',
@@ -29,7 +29,6 @@ export function DashboardOrdersPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const limit = 10;
 
   useEffect(() => {

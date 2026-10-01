@@ -1,7 +1,5 @@
-import { cn } from '../../lib/utils';
 import { Card } from '../common/Card';
-import { Badge } from '../common/Badge';
-import { MapPin, Calendar, Clock, Phone, Mail, Globe, ExternalLink } from 'lucide-react';
+import { MapPin, Phone, Mail, Globe, ExternalLink } from 'lucide-react';
 import type { Business } from '../../types';
 
 interface BusinessContactProps {

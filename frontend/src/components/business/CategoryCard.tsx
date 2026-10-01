@@ -1,8 +1,6 @@
-import { cn } from '../../lib/utils';
 import { Card } from '../common/Card';
-import { CategoryCardSkeleton } from '../common/Skeleton';
-import { Tag, Utensils, HeartPulse, ShoppingBag, Hotel, Calendar, GraduationCap, Truck, Briefcase, Monitor, Sparkles, Leaf, MoreHorizontal } from 'lucide-react';
-import type { BusinessCategory } from '../../types';
+import { Utensils, HeartPulse, ShoppingBag, Hotel, Calendar, GraduationCap, Truck, Briefcase, Monitor, Sparkles, Leaf, MoreHorizontal } from 'lucide-react';
+import type { CategorySummary } from '../../types';
 
 const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   'healthcare': HeartPulse,
@@ -21,7 +19,7 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
 };
 
 interface CategoryCardProps {
-  category: BusinessCategory;
+  category: CategorySummary;
   onClick?: () => void;
   businessCount?: number;
 }

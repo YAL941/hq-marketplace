@@ -1,8 +1,7 @@
-import { cn, formatCurrency, formatRelativeTime } from '../../lib/utils';
+import { formatCurrency } from '../../lib/utils';
 import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
-import { RatingStars } from '../common/RatingStars';
-import { MapPin, Star, Clock, Tag, User } from 'lucide-react';
+import { Tag, User } from 'lucide-react';
 import type { Product } from '../../types';
 
 interface ProductCardProps {
@@ -14,7 +13,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onClick, showBusiness, businessName }: ProductCardProps) {
   const hasDiscount = product.discount_price && parseFloat(product.discount_price) < parseFloat(product.price);
-  const displayPrice = hasDiscount ? product.discount_price : product.price;
+  const displayPrice = hasDiscount ? product.discount_price ?? product.price : product.price;
   const originalPrice = hasDiscount ? product.price : null;
 
   return (

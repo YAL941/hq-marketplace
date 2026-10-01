@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { serviceApi } from '../../services/api';
+import { useAuth } from '../context/AuthContext';
+import { serviceApi } from '../services/api';
 import { ServiceCard } from '../components/business/ServiceCard';
 import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
-import { Badge } from '../components/common/Badge';
 import { Card } from '../components/common/Card';
-import { cn, formatCurrency } from '../../lib/utils';
 import { Plus, Search, Edit, Trash2, Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -38,7 +36,7 @@ export function DashboardServicesPage() {
     fetchServices();
   }, [currentBusiness, search, statusFilter]);
 
-  const handleDelete = async (serviceId: number) => {
+  const handleDelete = async (_serviceId: number) => {
     if (!confirm('Are you sure you want to archive this service?')) return;
     try {
       // Note: delete endpoint not implemented in backend yet

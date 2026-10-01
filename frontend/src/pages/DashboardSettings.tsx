@@ -1,13 +1,14 @@
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Badge } from '../components/common/Badge';
 import { Avatar } from '../components/layout/Avatar';
-import { cn, formatCurrency } from '../../lib/utils';
-import { User, Building2, Bell, Shield, Palette, Globe, Save, Camera, Plus } from 'lucide-react';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { cn } from '../lib/utils';
+import { User, Users, Building2, Bell, Shield, Palette, Save, Camera, Plus, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { businessApi } from '../services/api';
+import type { Business } from '../types';
 
 export function DashboardSettingsPage() {
   const { currentBusiness, user, businesses, setCurrentBusiness } = useAuth();
@@ -23,6 +24,25 @@ export function DashboardSettingsPage() {
     district: '',
   });
   const [saving, setSaving] = useState(false);
+  // The membership row from /auth/me carries only id, name, slug, status and
+  // role. Every other field on this form has to come from the business record.
+  const [business, setBusiness] = useState<Business | null>(null);
+
+  useEffect(() => {
+    if (!currentBusiness) return;
+    let cancelled = false;
+    businessApi
+      .get(currentBusiness.business_id)
+      .then((res) => {
+        if (!cancelled) setBusiness(res.data.data as Business);
+      })
+      .catch(() => {
+        if (!cancelled) setBusiness(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentBusiness]);
 
   const tabs = [
     { id: 'profile', label: 'Business Profile', icon: Building2 },
@@ -127,8 +147,8 @@ export function DashboardSettingsPage() {
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <div className="w-24 h-24 rounded-xl bg-primary-100 flex items-center justify-center overflow-hidden">
-                      {currentBusiness.logo_url ? (
-                        <img src={currentBusiness.logo_url} alt="" className="w-full h-full object-cover" />
+                      {business?.logo_url ? (
+                        <img src={business?.logo_url} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <Building2 className="w-12 h-12 text-primary-400" />
                       )}
@@ -154,21 +174,21 @@ export function DashboardSettingsPage() {
                   <Input
                     label="Phone"
                     type="tel"
-                    value={businessData.phone || currentBusiness.phone || ''}
+                    value={businessData.phone || business?.phone || ''}
                     onChange={(e) => setBusinessData(prev => ({ ...prev, phone: e.target.value }))}
                     placeholder="+252 61 234 5678"
                   />
                   <Input
                     label="Email"
                     type="email"
-                    value={businessData.email || currentBusiness.email || ''}
+                    value={businessData.email || business?.email || ''}
                     onChange={(e) => setBusinessData(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="business@example.com"
                   />
                   <Input
                     label="Website"
                     type="url"
-                    value={businessData.website || currentBusiness.website || ''}
+                    value={businessData.website || business?.website || ''}
                     onChange={(e) => setBusinessData(prev => ({ ...prev, website: e.target.value }))}
                     placeholder="https://example.com"
                   />
@@ -176,7 +196,7 @@ export function DashboardSettingsPage() {
 
                 <Input
                   label="Description"
-                  value={businessData.businessDescription || currentBusiness.business_description || ''}
+                  value={businessData.businessDescription || business?.business_description || ''}
                   onChange={(e) => setBusinessData(prev => ({ ...prev, businessDescription: e.target.value }))}
                   placeholder="Describe your business..."
                   className="min-h-[100px]"
@@ -185,20 +205,20 @@ export function DashboardSettingsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   <Input
                     label="Address"
-                    value={businessData.address || currentBusiness.address || ''}
+                    value={businessData.address || business?.address || ''}
                     onChange={(e) => setBusinessData(prev => ({ ...prev, address: e.target.value }))}
                     placeholder="Street address"
                     className="lg:col-span-2"
                   />
                   <Input
                     label="City"
-                    value={businessData.city || currentBusiness.city || ''}
+                    value={businessData.city || business?.city || ''}
                     onChange={(e) => setBusinessData(prev => ({ ...prev, city: e.target.value }))}
                     placeholder="City"
                   />
                   <Input
                     label="District"
-                    value={businessData.district || currentBusiness.district || ''}
+                    value={businessData.district || business?.district || ''}
                     onChange={(e) => setBusinessData(prev => ({ ...prev, district: e.target.value }))}
                     placeholder="District"
                   />

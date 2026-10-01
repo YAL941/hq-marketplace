@@ -1,11 +1,11 @@
-import { FooterHTMLAttributes, forwardRef } from 'react';
-import { cn } from '../lib/utils';
+import { HTMLAttributes, forwardRef } from 'react';
+import { cn } from '../../lib/utils';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
 
-interface FooterProps extends FooterHTMLAttributes<HTMLFooterElement> {}
+interface FooterProps extends HTMLAttributes<HTMLElement> {}
 
-export const Footer = forwardRef<HTMLFooterElement, FooterProps>(
+export const Footer = forwardRef<HTMLElement, FooterProps>(
   ({ className, ...props }, ref) => {
     return (
       <footer

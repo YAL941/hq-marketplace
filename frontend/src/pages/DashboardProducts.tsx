@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { productApi } from '../../services/api';
+import { useAuth } from '../context/AuthContext';
+import { productApi } from '../services/api';
 import { ProductCard } from '../components/business/ProductCard';
 import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
-import { Badge } from '../components/common/Badge';
 import { Card } from '../components/common/Card';
-import { cn, formatCurrency } from '../../lib/utils';
-import { Plus, Search, Filter, Edit, Trash2, Eye, Package } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function DashboardProductsPage() {

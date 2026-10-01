@@ -81,6 +81,9 @@ export interface Business {
   updated_at: string;
   deleted_at?: string;
   category_name?: string;
+  /** Rating rollup joined in by the public directory query, absent on staff routes. */
+  average_rating?: string | null;
+  review_count?: number;
 }
 
 export interface BusinessDirectoryQuery {
@@ -116,11 +119,24 @@ export interface BusinessCategory {
   icon?: string;
   sort_order: number;
   is_active: boolean;
+  /** Count returned by GET /categories, not by the admin CRUD routes. */
+  business_count?: number;
   created_at: string;
   updated_at: string;
 }
 
-// Products
+/**
+ * The slice of a category the public UI actually renders. Admin CRUD routes
+ * carry sort_order/created_at, the public directory does not, so cards take
+ * this rather than the whole admin record.
+ */
+export type CategorySummary = Pick<
+  BusinessCategory,
+  'category_id' | 'category_name' | 'category_slug'
+> & {
+  business_count?: number;
+};
+
 export interface Product {
   product_id: number;
   business_id: number;

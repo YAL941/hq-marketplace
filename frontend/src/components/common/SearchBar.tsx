@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent } from 'react';
-import { cn } from '../lib/utils';
+import { useState, useRef, useEffect, ChangeEvent } from 'react';
+import { cn } from '../../lib/utils';
 import { X, Search, Loader2 } from 'lucide-react';
 
 interface SearchBarProps {

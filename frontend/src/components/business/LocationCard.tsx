@@ -1,7 +1,6 @@
-import { cn, formatRelativeTime } from '../../lib/utils';
 import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
-import { MapPin, Clock, Phone, Globe, Calendar } from 'lucide-react';
+import { MapPin, Phone, Globe } from 'lucide-react';
 import type { Location } from '../../types';
 
 interface LocationCardProps {

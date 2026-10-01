@@ -1,8 +1,7 @@
-import { cn, formatCurrency, formatRelativeTime } from '../../lib/utils';
+import { formatCurrency } from '../../lib/utils';
 import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
-import { RatingStars } from '../common/RatingStars';
-import { MapPin, Clock, User, Calendar, Star } from 'lucide-react';
+import { Clock, User, Calendar } from 'lucide-react';
 import type { Service } from '../../types';
 
 interface ServiceCardProps {

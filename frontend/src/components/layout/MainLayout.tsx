@@ -1,12 +1,12 @@
-import { DivHTMLAttributes, forwardRef } from 'react';
-import { cn } from '../lib/utils';
+import { HTMLAttributes, forwardRef } from 'react';
+import { cn } from '../../lib/utils';
 import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '../../context/AuthContext';
 
-interface MainLayoutProps extends DivHTMLAttributes<HTMLDivElement> {
+interface MainLayoutProps extends HTMLAttributes<HTMLDivElement> {
   withSidebar?: boolean;
 }
 

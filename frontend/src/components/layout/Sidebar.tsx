@@ -1,10 +1,9 @@
-import { AsideHTMLAttributes, forwardRef, useState } from 'react';
-import { cn } from '../lib/utils';
+import { HTMLAttributes, forwardRef, useState } from 'react';
+import { cn } from '../../lib/utils';
 import { Link, useLocation, NavLink } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Users, Package, Truck, Star, MessageSquare, BarChart3, Settings, ChevronRight, LogOut } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Users, Package, Truck, Star, BarChart3, Settings, ChevronRight, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from './Avatar';
-import { Button } from '../common/Button';
 
 const navigation = [
   { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
@@ -17,12 +16,12 @@ const navigation = [
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
-interface SidebarProps extends AsideHTMLAttributes<HTMLAsideElement> {}
+interface SidebarProps extends HTMLAttributes<HTMLElement> {}
 
-export const Sidebar = forwardRef<HTMLAsideElement, SidebarProps>(
+export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
   ({ className, ...props }, ref) => {
     const location = useLocation();
-    const { user, businesses, currentBusiness, setCurrentBusiness, logout } = useAuth();
+    const { user, businesses, currentBusiness, logout } = useAuth();
     const [collapsed, setCollapsed] = useState(false);
 
     return (

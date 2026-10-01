@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { MapPin, Star, Building2, ArrowRight } from 'lucide-react';
+import { Building2, ArrowRight } from 'lucide-react';
 import { BusinessCard } from '../components/business/BusinessCard';
 import { BusinessCardSkeleton, CategoryCardSkeleton } from '../components/common/Skeleton';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
-import { businessApi } from '../services/api';
+import { businessApi, directoryApi } from '../services/api';
 import type { Business, BusinessCategory } from '../types';
-import { cn } from '../lib/utils';
 
 export function CategoryPage() {
   const { category: catSlug } = useParams<{ category: string }>();
@@ -21,40 +20,27 @@ export function CategoryPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Find category ID from slug
-        const categorySlug = catSlug;
-        let catId: number | undefined;
+        if (!catSlug) return;
 
-        // Map slugs to IDs
-        const slugToId: Record<string, number> = {
-          'healthcare': 1,
-          'restaurants': 2,
-          'grocery-retail': 3,
-          'hotels': 4,
-          'events-venues': 5,
-          'agriculture': 6,
-          'education': 7,
-          'transportation': 8,
-          'professional-services': 9,
-          'technology': 10,
-          'beauty-wellness': 11,
-          'local-products': 12,
-          'other': 13,
-        };
-        catId = slugToId[catSlug];
-
-        const [bizRes] = await Promise.all([
-          businessApi.list({ categoryId: catId, limit, offset: (page - 1) * limit, verifiedOnly: true }),
+        // The directory filters by slug, so there is no id to resolve here.
+        // The category record itself comes from /categories.
+        const [bizRes, catRes] = await Promise.all([
+          businessApi.list({ category: catSlug, limit, page, verifiedOnly: true }),
+          directoryApi.categories(),
         ]);
         setBusinesses(bizRes.data.data);
 
-        if (catId) {
+        const matched = (catRes.data.data as BusinessCategory[]).find(
+          (c) => c.category_slug === catSlug
+        );
+
+        if (matched) {
           setCategory({
-            category_id: catId,
-            category_name: catSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-            category_slug: catSlug,
-            business_count: bizRes.data.meta?.count || 0,
+            ...matched,
+            business_count: Number(bizRes.data.meta?.total ?? 0),
           });
+        } else {
+          setCategory(null);
         }
       } catch (error) {
         console.error('Failed to fetch category data:', error);
@@ -146,7 +132,7 @@ export function CategoryPage() {
               </div>
 
               {/* Pagination */}
-              {category && category.business_count > limit && (
+              {category && (category.business_count ?? 0) > limit && (
                 <div className="px-6 py-4 border-t border-navy-200 flex items-center justify-center gap-2">
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
