@@ -1,5 +1,4 @@
 import { useAuth } from '../../context/AuthContext';
-import { StatsCard } from '../components/common/StatsCard';
 import { Card } from '../components/common/Card';
 import { Skeleton } from '../components/common/Skeleton';
 import { cn, formatCurrency } from '../../lib/utils';

@@ -5,7 +5,7 @@ import { Input } from '../components/common/Input';
 import { Badge } from '../components/common/Badge';
 import { Avatar } from '../components/layout/Avatar';
 import { cn, formatCurrency } from '../../lib/utils';
-import { User, Building2, Bell, Shield, Palette, Globe, Save, Camera } from 'lucide-react';
+import { User, Building2, Bell, Shield, Palette, Globe, Save, Camera, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 

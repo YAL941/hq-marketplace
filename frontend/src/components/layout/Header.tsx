@@ -189,8 +189,7 @@ export const Header = forwardRef<HTMLHeaderElement, HeaderProps>(
               )}
             </nav>
           </div>
-        }
-      </div>
+        )}
     </header>
   }
 );

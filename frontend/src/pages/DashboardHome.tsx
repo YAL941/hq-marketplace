@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { businessApi, productApi, serviceApi, orderApi, reviewApi } from '../../services/api';
-import { StatsCard } from '../components/common/StatsCard';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Card } from '../components/common/Card';

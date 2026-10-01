@@ -4,6 +4,7 @@ import { orderApi } from '../../services/api';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Card } from '../components/common/Card';
+import { EmptyState } from '../components/common/EmptyState';
 import { Input } from '../components/common/Input';
 import { cn, formatCurrency, formatDate, formatRelativeTime } from '../../lib/utils';
 import { Search, Filter, ChevronLeft, ChevronRight, Eye, Package, Truck, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
@@ -112,6 +113,7 @@ export function DashboardOrdersPage() {
             ))}
           </div>
         ) : orders.length > 0 ? (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -186,8 +188,15 @@ export function DashboardOrdersPage() {
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
+              </div>
             </div>
-          </div>
+          </>
+        ) : (
+          <EmptyState
+            icon={<Package className="w-8 h-8" />}
+            title="No orders yet"
+            description="Orders placed by customers will appear here."
+          />
         )}
       </Card>
     </div>

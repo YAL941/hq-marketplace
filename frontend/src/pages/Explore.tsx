@@ -152,7 +152,7 @@ export function ExplorePage() {
                 >
                   <X className="w-5 h-5" />
                 </button>
-              </h3>
+              </div>
 
               <div className="space-y-6">
                 {/* Category Filter */}

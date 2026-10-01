@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { MapPin, Star, Building2, ArrowRight } from 'lucide-react';
 import { BusinessCard } from '../components/business/BusinessCard';
-import { CategoryCard } from '../components/business/CategoryCard';
 import { BusinessCardSkeleton, CategoryCardSkeleton } from '../components/common/Skeleton';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';

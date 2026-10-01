@@ -1,47 +1,75 @@
-import bcrypt from 'bcryptjs';
-import { adminPool, closePools } from '../src/db/pool.js';
-
 /**
  * Development seed.
  *
  * Uses the OWNER connection on purpose: seeding is a platform-level
  * operation, and it keeps the fixture data independent from the tenant
- * policies. Never run this against production.
+ * policies. Never run this against production; the script refuses to start if
+ * NODE_ENV is production.
  *
- * Creates three businesses on purpose:
- *   - two of them share the SAME name on purpose (uniqueness test),
- *   - one healthcare business that sells only services,
- *   - one restaurant that sells both products and services.
+ * IDEMPOTENCE
+ * -----------
+ * The whole seed runs in ONE transaction and owns an explicit set of slugs and
+ * email addresses. Running it twice leaves the database in the same state as
+ * running it once, and re-running it after editing this file replaces the rows
+ * it owns instead of duplicating them.
+ *
+ * Ownership is by name, not by a marker column, because the schema has no
+ * `seed` flag to set. That has one deliberate consequence: a row created through
+ * the API with a slug the seed does not know about is never touched. The seed
+ * replaces its own fixture, it does not reset the database.
+ *
+ * Deletion order follows the foreign keys: reviews reference users and
+ * businesses, orders reference businesses, and businesses reference categories.
+ * Children go first, and `businesses` before the users that own them, because
+ * `users` is the parent of almost everything here.
  */
 
-const PASSWORD = 'Password123!';
+import bcrypt from 'bcryptjs';
+import { adminPool, closePools } from '../src/db/pool.js';
+import {
+    LEGACY_BUSINESS_SLUGS,
+    LEGACY_USER_EMAILS,
+    RETIRED_CATEGORY_SLUGS,
+    SEED_ADMIN,
+    SEED_BUSINESSES,
+    SEED_CATEGORIES,
+    SEED_OWNERS,
+    SEED_PASSWORD,
+    SEED_REVIEWERS,
+} from '../db/seed/somali-directory.js';
 
-async function createUser(email: string, fullName: string): Promise<number> {
-    const passwordHash = await bcrypt.hash(PASSWORD, 10);
-    const { rows } = await adminPool.query<{ user_id: string }>(
-        `INSERT INTO users (email, password_hash, full_name, status)
-         VALUES ($1, $2, $3, 'active')
-         ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
-         RETURNING user_id`,
-        [email, passwordHash, fullName],
-    );
-    const userId = Number(rows[0]!.user_id);
-    await adminPool.query(
-        `INSERT INTO user_platform_roles (user_id, role_id)
-         SELECT $1, role_id FROM roles WHERE role_key = 'customer' AND scope = 'platform'
-         ON CONFLICT DO NOTHING`,
-        [userId],
-    );
-    return userId;
-}
+/** Every business slug the seed owns, current and previous. */
+const OWNED_BUSINESS_SLUGS = [
+    ...SEED_BUSINESSES.map((b) => b.slug),
+    ...LEGACY_BUSINESS_SLUGS,
+];
 
-async function roleId(roleKey: string, scope: 'platform' | 'business'): Promise<number> {
-    const { rows } = await adminPool.query<{ role_id: string }>(
-        'SELECT role_id FROM roles WHERE role_key = $1 AND scope = $2',
-        [roleKey, scope],
-    );
-    if (!rows[0]) throw new Error(`role ${roleKey} (${scope}) is missing`);
-    return Number(rows[0].role_id);
+/**
+ * Every user email the seed owns and may delete.
+ *
+ * `admin@hq.test` is deliberately NOT in this list. It is the platform
+ * administrator, and deleting it to re-insert it would hand the account a new
+ * `user_id` on every re-seed: anything a developer has wired to id 1 would
+ * break with no visible cause. The admin is upserted instead, which keeps its
+ * id and its row intact.
+ *
+ * `users` may already be gone if a previous seed was interrupted, so the admin
+ * is upserted rather than assumed to exist.
+ */
+const OWNED_USER_EMAILS = [
+    ...SEED_OWNERS.map((o) => o.email),
+    ...SEED_REVIEWERS.map((r) => r.email),
+    ...LEGACY_USER_EMAILS,
+];
+
+interface Summary {
+    removedBusinesses: number;
+    removedUsers: number;
+    createdBusinesses: number;
+    createdUsers: number;
+    createdReviews: number;
+    createdHours: number;
+    categories: number;
 }
 
 async function main(): Promise<void> {
@@ -49,165 +77,298 @@ async function main(): Promise<void> {
         throw new Error('refusing to seed a production database');
     }
 
-    const platformAdmin = await createUser('admin@hq.test', 'HQ Platform Admin');
-    await adminPool.query(
-        `INSERT INTO user_platform_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-        [platformAdmin, await roleId('platform_admin', 'platform')],
-    );
-
-    const ahmed = await createUser('ahmed@hq.test', 'Ahmed');
-    const mohamed = await createUser('mohamed@hq.test', 'Mohamed');
-    const ali = await createUser('ali@hq.test', 'Ali');
-    const sara = await createUser('sara@hq.test', 'Sara');
-
-    const ownerRole = await roleId('business_owner', 'business');
-    const employeeRole = await roleId('business_employee', 'business');
-
-    const insertBusiness = async (
-        name: string,
-        slug: string,
-        categorySlug: string,
-        status: 'pending' | 'active',
-        extra: Record<string, unknown> = {},
-    ): Promise<number> => {
-        const { rows } = await adminPool.query<{ business_id: string }>(
-            `INSERT INTO businesses
-                (business_name, business_slug, business_description, business_category_id, phone, email,
-                 address, city, district, status, verification_status, is_verified, verified_at)
-             VALUES ($1, $2, $3, (SELECT category_id FROM business_categories WHERE category_slug = $4),
-                     $5, $6, $7, $8, $9, $10::business_status,
-                     CASE WHEN $10::text = 'active' THEN 'verified'::verification_status ELSE 'pending'::verification_status END,
-                     $10::text = 'active', CASE WHEN $10::text = 'active' THEN now() ELSE NULL END)
-             ON CONFLICT (business_slug) DO UPDATE SET business_name = EXCLUDED.business_name
-             RETURNING business_id`,
-            [
-                name,
-                slug,
-                extra['description'] ?? null,
-                categorySlug,
-                extra['phone'] ?? '+9630000001',
-                extra['email'] ?? `${slug}@hq.test`,
-                extra['address'] ?? 'Main street 1',
-                extra['city'] ?? 'Damascus',
-                extra['district'] ?? 'Central',
-                status,
-            ],
-        );
-        return Number(rows[0]!.business_id);
+    const client = await adminPool.connect();
+    const summary: Summary = {
+        removedBusinesses: 0,
+        removedUsers: 0,
+        createdBusinesses: 0,
+        createdUsers: 0,
+        createdReviews: 0,
+        createdHours: 0,
+        categories: 0,
     };
 
-    // Two businesses with the SAME name on purpose (name is not unique).
-    const hospitalA = await insertBusiness('ABC Clinic', 'abc-clinic-damascus', 'healthcare', 'active', {
-        description: 'General hospital, services only',
-    });
-    const restaurantA = await insertBusiness('ABC Clinic', 'abc-clinic-homs', 'restaurants', 'active', {
-        description: 'Same name, different city and owner',
-        city: 'Homs',
-    });
-    const hospitalB = await insertBusiness('City Pharmacy', 'city-pharmacy-1', 'healthcare', 'active');
-    const pendingBusiness = await insertBusiness('New Tech Store', 'new-tech-store', 'technology', 'pending');
+    try {
+        await client.query('BEGIN');
 
-    const memberships: Array<[number, number, number]> = [
-        [hospitalA, ahmed, ownerRole],
-        [hospitalA, mohamed, employeeRole],
-        [restaurantA, ali, ownerRole],
-        [hospitalB, sara, ownerRole],
-        [pendingBusiness, ali, ownerRole],
-    ];
-    for (const [businessId, userId, role] of memberships) {
-        await adminPool.query(
-            `INSERT INTO business_users (business_id, user_id, role_id, status, joined_at)
-             VALUES ($1, $2, $3, 'active', now())
-             ON CONFLICT (business_id, user_id, role_id) DO NOTHING`,
-            [businessId, userId, role],
+        summary.removedBusinesses = await removeOwnedBusinesses(client);
+        summary.removedUsers = await removeOwnedUsers(client);
+        await removeOwnedCategories(client);
+
+        await upsertCategories(client);
+        summary.categories = SEED_CATEGORIES.length;
+
+        const platformAdmin = await upsertUser(client, SEED_ADMIN.email, SEED_ADMIN.fullName);
+        const adminRoleId = await roleId(client, 'platform_admin', 'platform');
+        await client.query(
+            `INSERT INTO user_platform_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+            [platformAdmin, adminRoleId],
+        );
+
+        const customerRoleId = await roleId(client, 'customer', 'platform');
+        const ownerRoleId = await roleId(client, 'business_owner', 'business');
+
+        // One reviewer account each. reviews_business_user_unique allows one
+        // review per (business, user), so a business draws from this pool and
+        // no reviewer ever appears twice against the same business.
+        const reviewerIds: number[] = [];
+        for (const reviewer of SEED_REVIEWERS) {
+            reviewerIds.push(await upsertUser(client, reviewer.email, reviewer.fullName));
+            summary.createdUsers += 1;
+        }
+
+        const ownerIds: number[] = [];
+        for (const owner of SEED_OWNERS) {
+            ownerIds.push(await upsertUser(client, owner.email, owner.fullName));
+            summary.createdUsers += 1;
+        }
+        summary.createdUsers += 1; // the platform admin
+
+        for (const [index, business] of SEED_BUSINESSES.entries()) {
+            const ownerId = ownerIds[index % ownerIds.length]!;
+            const businessId = await insertBusiness(client, business);
+            summary.createdBusinesses += 1;
+
+            await client.query(
+                `INSERT INTO business_users (business_id, user_id, role_id, status, joined_at)
+                 VALUES ($1, $2, $3, 'active', now())
+                 ON CONFLICT (business_id, user_id, role_id) DO NOTHING`,
+                [businessId, ownerId, ownerRoleId],
+            );
+
+            summary.createdHours += await insertOpeningHours(client, businessId, business.hours);
+
+            for (const review of business.reviews) {
+                const { rows } = await client.query(
+                    `INSERT INTO reviews (business_id, user_id, rating, review_text, status)
+                     VALUES ($1, $2, $3, $4, 'published')
+                     ON CONFLICT (business_id, user_id) DO NOTHING
+                     RETURNING review_id`,
+                    [businessId, reviewerIds[review.reviewer]!, review.rating, review.text],
+                );
+                if (rows.length > 0) summary.createdReviews += 1;
+            }
+        }
+
+        // Reviewers are customers of the platform, which is what makes their
+        // review of a business meaningful.
+        for (const reviewerId of reviewerIds) {
+            await client.query(
+                `INSERT INTO user_platform_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+                [reviewerId, customerRoleId],
+            );
+        }
+
+        // Refreshing every business at once is a platform-admin operation:
+        // migration 006 added that check to the function itself, so the seeding
+        // session has to say it is an admin. The setting is transaction-local,
+        // so it cannot leak to the next request on a pooled connection.
+        await client.query(`SELECT set_config('app.is_platform_admin', 'true', true)`);
+        await client.query('SELECT refresh_business_statistics()');
+
+        await client.query('COMMIT');
+
+        const { rows } = await adminPool.query(
+            `SELECT (SELECT count(*) FROM businesses) AS businesses,
+                    (SELECT count(*) FROM users) AS users,
+                    (SELECT count(*) FROM reviews) AS reviews,
+                    (SELECT count(*) FROM business_opening_hours) AS opening_hours`,
+        );
+        console.log('[seed] done', { ...summary, totals: rows[0] });
+        console.log(`[seed] every seeded account has the password: ${SEED_PASSWORD}`);
+    } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+/**
+ * Deletes the businesses the seed owns, children first.
+ *
+ * `business_opening_hours` goes with ON DELETE CASCADE, so it needs no explicit
+ * statement here.
+ *
+ * `deleted_at IS NULL` is deliberately absent: a soft-deleted seeded row is
+ * still a seeded row, and leaving it behind would let the unique slug block
+ * the re-insert on the next run.
+ */
+async function removeOwnedBusinesses(client: import('pg').PoolClient): Promise<number> {
+    const ids = await ownedBusinessIds(client);
+    if (ids.length === 0) return 0;
+
+    // Reviews first, then order_items, then orders.
+    //
+    // The order matters and is not obvious. reviews has
+    // ON DELETE SET NULL on (order_id, business_id), but business_id is NOT
+    // NULL, so that action can never succeed: deleting an order that a review
+    // still points at aborts with a not-null violation. Removing the review
+    // before the order is the only order that works.
+    await client.query('DELETE FROM reviews WHERE business_id = ANY($1::bigint[])', [ids]);
+    await client.query('DELETE FROM order_items WHERE business_id = ANY($1::bigint[])', [ids]);
+    await client.query('DELETE FROM orders WHERE business_id = ANY($1::bigint[])', [ids]);
+    await client.query('DELETE FROM products WHERE business_id = ANY($1::bigint[])', [ids]);
+    await client.query('DELETE FROM services WHERE business_id = ANY($1::bigint[])', [ids]);
+    await client.query('DELETE FROM business_locations WHERE business_id = ANY($1::bigint[])', [ids]);
+    await client.query('DELETE FROM business_users WHERE business_id = ANY($1::bigint[])', [ids]);
+
+    const { rowCount } = await client.query('DELETE FROM businesses WHERE business_id = ANY($1::bigint[])', [ids]);
+    return rowCount ?? 0;
+}
+
+async function ownedBusinessIds(client: import('pg').PoolClient): Promise<number[]> {
+    const { rows } = await client.query<{ business_id: string }>(
+        'SELECT business_id FROM businesses WHERE business_slug = ANY($1::text[])',
+        [OWNED_BUSINESS_SLUGS],
+    );
+    return rows.map((r) => Number(r.business_id));
+}
+
+/**
+ * Deletes the users the seed owns, after their reviews are already gone.
+ *
+ * `user_platform_roles` and `business_users` cascade; the remaining references
+ * that do not cascade are left alone on purpose, because failing loudly beats
+ * deleting somebody's order history to make a re-seed succeed.
+ */
+async function removeOwnedUsers(client: import('pg').PoolClient): Promise<number> {
+    const { rowCount } = await client.query(
+        'DELETE FROM users WHERE email = ANY($1::text[])',
+        [OWNED_USER_EMAILS],
+    );
+    return rowCount ?? 0;
+}
+/**
+ * Deactivates the categories 004 seeded that this seed does not own.
+ *
+ * Deactivated rather than deleted: `businesses.business_category_id` is ON
+ * DELETE RESTRICT, and a hand-created business pointing at one of them would
+ * make the delete fail. The public directory only lists active categories, so
+ * deactivating is enough to make them disappear.
+ */
+async function removeOwnedCategories(client: import('pg').PoolClient): Promise<void> {
+    await client.query(
+        `UPDATE business_categories
+            SET is_active = FALSE
+          WHERE category_slug = ANY($1::text[])
+            AND category_slug <> ALL($2::text[])`,
+        [RETIRED_CATEGORY_SLUGS, SEED_CATEGORIES.map((c) => c.slug)],
+    );
+}
+
+/** Creates the seed's categories, updating the ones 004 already seeded. */
+async function upsertCategories(client: import('pg').PoolClient): Promise<void> {
+    for (const category of SEED_CATEGORIES) {
+        await client.query(
+            `INSERT INTO business_categories
+                (category_name, category_slug, description, icon, sort_order, is_active)
+             VALUES ($1, $2, $3, $4, $5, TRUE)
+             ON CONFLICT (category_slug) DO UPDATE SET
+                category_name = EXCLUDED.category_name,
+                description = EXCLUDED.description,
+                icon = EXCLUDED.icon,
+                sort_order = EXCLUDED.sort_order,
+                is_active = TRUE`,
+            [category.name, category.slug, category.description, category.icon, category.sortOrder],
         );
     }
+}
 
-    // Branches: the hospital has three.
-    const locations: Array<[number, string, string]> = [
-        [hospitalA, 'Main Branch', 'Damascus'],
-        [hospitalA, 'North Branch', 'Damascus'],
-        [hospitalA, 'Airport Branch', 'Damascus'],
-        [restaurantA, 'Downtown', 'Homs'],
-    ];
-    for (const [businessId, locationName, city] of locations) {
-        await adminPool.query(
-            `INSERT INTO business_locations (business_id, location_name, address, city, district, phone, is_primary)
-             SELECT $1, $2, 'Street 1', $3, 'Centre', '+9630000001', (COUNT(*) = 0)
-             FROM business_locations WHERE business_id = $1`,
-            [businessId, locationName, city],
+async function upsertUser(
+    client: import('pg').PoolClient,
+    email: string,
+    fullName: string,
+): Promise<number> {
+    const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
+    const { rows } = await client.query<{ user_id: string }>(
+        `INSERT INTO users (email, password_hash, full_name, status)
+         VALUES ($1, $2, $3, 'active')
+         ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
+         RETURNING user_id`,
+        [email, passwordHash, fullName],
+    );
+    return Number(rows[0]!.user_id);
+}
+
+async function roleId(
+    client: import('pg').PoolClient,
+    roleKey: string,
+    scope: 'platform' | 'business',
+): Promise<number> {
+    const { rows } = await client.query<{ role_id: string }>(
+        'SELECT role_id FROM roles WHERE role_key = $1 AND scope = $2',
+        [roleKey, scope],
+    );
+    if (!rows[0]) throw new Error(`role ${roleKey} (${scope}) is missing`);
+    return Number(rows[0].role_id);
+}
+
+/**
+ * Every seeded business is active and verified.
+ *
+ * `businesses_verified_flag_consistent` requires is_verified, verification_status
+ * and verified_at to agree, so all three are set together here rather than
+ * relying on a default.
+ */
+async function insertBusiness(
+    client: import('pg').PoolClient,
+    business: (typeof SEED_BUSINESSES)[number],
+): Promise<number> {
+    const { rows } = await client.query<{ business_id: string }>(
+        `INSERT INTO businesses
+            (business_name, business_slug, business_description, business_category_id,
+             phone, whatsapp_number, email, address, city, district,
+             status, verification_status, is_verified, verified_at, is_featured)
+         VALUES ($1, $2, $3,
+                 (SELECT category_id FROM business_categories WHERE category_slug = $4 AND is_active),
+                 $5, $6, $7, $8, $9, $10,
+                 'active', 'verified', TRUE, now(), $11)
+         RETURNING business_id`,
+        [
+            business.name,
+            business.slug,
+            business.description,
+            business.category,
+            business.phone,
+            business.whatsapp,
+            `${business.slug}@example.test`,
+            business.address,
+            business.city,
+            business.district,
+            business.featured,
+        ],
+    );
+    return Number(rows[0]!.business_id);
+}
+
+async function insertOpeningHours(
+    client: import('pg').PoolClient,
+    businessId: number,
+    hours: ReadonlyArray<{ day: number; open: string | null; close?: string | null }>,
+): Promise<number> {
+    let inserted = 0;
+    for (const entry of hours) {
+        const isClosed = entry.open === null;
+        await client.query(
+            `INSERT INTO business_opening_hours
+                (business_id, day_of_week, opens_at, closes_at, is_closed)
+             VALUES ($1, $2, $3::time, $4::time, $5)
+             ON CONFLICT (business_id, day_of_week) DO UPDATE SET
+                opens_at = EXCLUDED.opens_at,
+                closes_at = EXCLUDED.closes_at,
+                is_closed = EXCLUDED.is_closed`,
+            [
+                businessId,
+                entry.day,
+                isClosed ? null : entry.open,
+                isClosed ? null : (entry.close ?? null),
+                isClosed,
+            ],
         );
+        inserted += 1;
     }
-
-    const { rows: medicalCategory } = await adminPool.query<{ category_id: string }>(
-        `SELECT category_id FROM service_categories WHERE category_slug = 'medical-consultation'`,
-    );
-    await adminPool.query(
-        `INSERT INTO services (business_id, service_category_id, service_name, price, duration_minutes, status)
-         VALUES ($1, $2, 'Medical Consultation', 40.00, 30, 'active')
-         ON CONFLICT DO NOTHING`,
-        [hospitalA, medicalCategory[0]!.category_id],
-    );
-
-    const { rows: catering } = await adminPool.query<{ category_id: string }>(
-        `SELECT category_id FROM service_categories WHERE category_slug = 'events-catering'`,
-    );
-    await adminPool.query(
-        `INSERT INTO services (business_id, service_category_id, service_name, price, status)
-         VALUES ($1, $2, 'Wedding Catering Package', 1500.00, 'active')
-         ON CONFLICT DO NOTHING`,
-        [restaurantA, catering[0]!.category_id],
-    );
-
-    const { rows: productCategories } = await adminPool.query<{ category_id: string }>(
-        `SELECT category_id FROM product_categories WHERE category_slug = 'food-beverage'`,
-    );
-    const productNames = ['Grape Leaves 1kg', 'Chicken Sandwich', 'Fresh Juice 500ml'];
-    for (const [index, productName] of productNames.entries()) {
-        await adminPool.query(
-            `INSERT INTO products (business_id, category_id, product_name, price, stock_quantity, sku, status)
-             VALUES ($1, $2, $3, $4, 50, $5, 'active')
-             ON CONFLICT (business_id, sku) DO NOTHING`,
-            [restaurantA, productCategories[0]!.category_id, productName, 5 + index * 2.5, `SKU-${index + 1}`],
-        );
-    }
-
-    // One completed order so statistics are not all zeroes.
-    const { rows: orderRows } = await adminPool.query<{ order_id: string }>(
-        `INSERT INTO orders (business_id, customer_id, order_status, subtotal, total_amount, completed_at)
-         SELECT $1, $2, 'completed', 15.00, 15.00, now()
-         RETURNING order_id`,
-        [restaurantA, sara],
-    );
-    const { rows: firstProduct } = await adminPool.query<{ product_id: string; price: string }>(
-        `SELECT product_id, price FROM products WHERE business_id = $1 ORDER BY product_id LIMIT 1`,
-        [restaurantA],
-    );
-    await adminPool.query(
-        `INSERT INTO order_items (order_id, business_id, product_id, item_type, item_name, quantity, unit_price, total_price)
-         VALUES ($1, $2, $3, 'product', 'Grape Leaves 1kg', 1, $4, $4)`,
-        [orderRows[0]!.order_id, restaurantA, firstProduct[0]!.product_id, firstProduct[0]!.price],
-    );
-
-    await adminPool.query(
-        `INSERT INTO reviews (business_id, user_id, order_id, rating, review_text, status)
-         VALUES ($1, $2, $3, 5, 'Excellent service and fast delivery', 'published')
-         ON CONFLICT (business_id, user_id) DO NOTHING`,
-        [restaurantA, sara, orderRows[0]!.order_id],
-    );
-
-    await adminPool.query('SELECT refresh_business_statistics()');
-
-    const { rows: summary } = await adminPool.query(
-        `SELECT (SELECT count(*) FROM businesses) AS businesses,
-                (SELECT count(*) FROM users) AS users,
-                (SELECT count(*) FROM products) AS products,
-                (SELECT count(*) FROM services) AS services,
-                (SELECT count(*) FROM orders) AS orders,
-                (SELECT count(*) FROM business_locations) AS locations`,
-    );
-    console.log('[seed] done', summary[0]);
-    console.log(`[seed] every seeded user has the password: ${PASSWORD}`);
+    return inserted;
 }
 
 main()
