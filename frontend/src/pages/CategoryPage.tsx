@@ -6,6 +6,7 @@ import { BusinessCard } from '../components/business/BusinessCard';
 import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { Button } from '../components/common/Button';
 import { ErrorState } from '../components/common/ErrorState';
+import { CategoryIcon } from '../components/common/CategoryIcon';
 import { businessApi, directoryApi } from '../services/api';
 import type { PublicBusinessCard, PublicCategory } from '../types';
 
@@ -88,12 +89,17 @@ export function CategoryPage() {
             <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
             {t('category.backToExplore')}
           </Link>
-          <h1 className="text-2xl font-bold text-navy-900">
-            {category?.category_name ?? categorySlug}
-          </h1>
-          {category?.description && (
-            <p className="text-navy-500 mt-1 max-w-2xl">{category.description}</p>
-          )}
+          <div className="flex items-center gap-4">
+            <CategoryIcon slug={category?.category_slug ?? categorySlug} size="card" />
+            <div>
+              <h1 className="text-2xl font-bold text-navy-900">
+                {category?.category_name ?? categorySlug}
+              </h1>
+              {category?.description && (
+                <p className="text-navy-500 mt-1 max-w-2xl">{category.description}</p>
+              )}
+            </div>
+          </div>
           <p className="text-navy-500 mt-1">
             {loading ? t('common.loading') : t('explore.results', { count: totalCount })}
           </p>

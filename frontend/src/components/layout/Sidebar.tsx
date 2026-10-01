@@ -5,7 +5,7 @@ import { useLocation, NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, Users, Package, Truck, Star, BarChart3, Settings, ChevronRight, LogOut,
 } from 'lucide-react';
-import { BrandMark } from '../branding/BrandMark';
+import { Logo } from '../branding/Logo';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from './Avatar';
 
@@ -45,7 +45,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
       >
         <div className="flex flex-col h-full">
           <div className={cn('flex items-center justify-between h-16 px-4 border-b border-navy-200', collapsed && 'justify-center')}>
-            <BrandMark
+            <Logo
                 to="/dashboard"
                 ariaLabel={t('brand.dashboardLabel')}
                 variant="light"

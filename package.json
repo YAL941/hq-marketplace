@@ -2,7 +2,7 @@
   "name": "hq-marketplace",
   "version": "0.1.0",
   "private": true,
-  "description": "HQ Marketplace - Phase 1: multi-business database architecture and data isolation",
+  "description": "OmniHQ - Phase 1: multi-business database architecture and data isolation",
   "type": "module",
   "engines": {
     "node": ">=20.11"

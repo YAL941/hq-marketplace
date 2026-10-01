@@ -1,23 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, MapPin, Search, Store, Heart } from 'lucide-react';
+import { ArrowRight, Building2, MapPin, Store } from 'lucide-react';
 import { BusinessCard } from '../components/business/BusinessCard';
-import { CategoryCard } from '../components/business/CategoryCard';
 import { SearchBar } from '../components/common/SearchBar';
-import { Badge } from '../components/common/Badge';
-import { Card } from '../components/common/Card';
-import { BusinessCardSkeleton, CategoryCardSkeleton } from '../components/common/Skeleton';
+import { Button } from '../components/common/Button';
+import { CategoryIcon } from '../components/common/CategoryIcon';
+import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { ErrorState } from '../components/common/ErrorState';
 import { businessApi, directoryApi } from '../services/api';
 import { formatNumber } from '../lib/utils';
 import type { PublicBusinessCard, PublicCategory, PublicCity } from '../types';
 
-const HOW_IT_WORKS = [
-  { key: 'step1', icon: Search },
-  { key: 'step2', icon: Store },
-  { key: 'step3', icon: Heart },
-] as const;
+const FEATURED_LIMIT = 4;
+/** Eight is all that fits above the fold on a phone; the rest live in /explore. */
+const CATEGORY_CHIP_LIMIT = 8;
 
 export function HomePage() {
   const { t } = useTranslation();
@@ -26,8 +23,11 @@ export function HomePage() {
   const [featured, setFeatured] = useState<PublicBusinessCard[]>([]);
   const [categories, setCategories] = useState<PublicCategory[]>([]);
   const [cities, setCities] = useState<PublicCity[]>([]);
-  // Counts come from the server, so a home page for an empty deployment reads
-  // "0 businesses" instead of inventing "500+".
+  /**
+   * Counts come from the server. A home page for an empty deployment reads
+   * "0 businesses listed" rather than inventing a number, and the featured
+   * section falls back to the newest businesses when nothing is featured yet.
+   */
   const [totalBusinesses, setTotalBusinesses] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -38,15 +38,22 @@ export function HomePage() {
     setLoading(true);
     setError(false);
     try {
-      const [featuredRes, totalRes, catRes, cityRes] = await Promise.all([
-        businessApi.listPublic({ featured: true, sort: 'featured', limit: 8 }),
+      const [featuredRes, newestRes, totalRes, catRes, cityRes] = await Promise.all([
+        businessApi.listPublic({ featured: true, sort: 'featured', limit: FEATURED_LIMIT }),
+        // Read at the same time as the featured query so the two sections can
+        // never disagree with each other or cost an extra round trip.
+        businessApi.listPublic({ sort: 'newest', limit: FEATURED_LIMIT }),
         // A cheap first page whose only job is to read meta.total.
         businessApi.listPublic({ limit: 1 }),
         directoryApi.categories(),
         directoryApi.cities(),
       ]);
 
-      setFeatured(featuredRes.data.data);
+      // An editorial pick is not guaranteed, so an empty featured result is
+      // filled with the newest listings rather than an empty section.
+      setFeatured(
+        featuredRes.data.data.length > 0 ? featuredRes.data.data : newestRes.data.data,
+      );
       setTotalBusinesses(Number(totalRes.data.meta?.total ?? 0));
       // A category nobody has a business in would render as an empty page, so
       // it is dropped here rather than on the categories route.
@@ -71,171 +78,175 @@ export function HomePage() {
     navigate(`/explore?${params.toString()}`);
   };
 
+  const chips = categories.slice(0, CATEGORY_CHIP_LIMIT);
+
   return (
     <div className="min-h-screen bg-navy-50">
-      <section className="relative bg-gradient-to-br from-navy-900 via-navy-800 to-navy-900 text-white overflow-hidden">
-        <div className="absolute inset-0 hero-dots" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
+      {/* Hero: navy to blue, so the gold buttons and chips read as accents. */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-navy-900 via-navy-900 to-primary-700 text-white">
+        <div className="absolute inset-0 hero-dots" aria-hidden="true" />
+
+        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
           <div className="max-w-3xl">
-            <Badge variant="info" className="mb-4 text-sm">{t('brand.tagline')}</Badge>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+            <h1 className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
               {t('home.heroTitle')}
             </h1>
-            <p className="text-lg sm:text-xl text-navy-200 mb-8 max-w-2xl">
+            <p className="mt-5 max-w-2xl text-base text-navy-200 sm:text-lg">
               {t('home.heroSubtitle')}
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 max-w-xl">
+
+            {/* The search row is the hero's only control group, so it stays a
+                single column on a phone rather than splitting the input from
+                its own button. */}
+            <div className="mt-8 flex flex-col gap-3 sm:max-w-2xl">
               <SearchBar
                 value={searchQuery}
                 onChange={setSearchQuery}
                 onSearch={handleSearch}
-                placeholder={t('explore.searchPlaceholder')}
-                className="flex-1"
+                placeholder={t('home.heroSearchPlaceholder')}
+                className="w-full"
               />
-              {cities.length > 0 && (
-                <div className="relative">
-                  <label htmlFor="home-city" className="sr-only">{t('explore.city')}</label>
-                  <MapPin
-                    className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-navy-300"
-                    aria-hidden="true"
-                  />
-                  <select
-                    id="home-city"
-                    value={selectedCity}
-                    onChange={(e) => setSelectedCity(e.target.value)}
-                    className="w-full ps-12 pe-4 py-3 bg-white/10 text-white border border-white/20 rounded-button focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors min-w-[200px]"
-                  >
-                    <option value="">{t('explore.allCities')}</option>
-                    {cities.map((city) => (
-                      <option key={city.city} value={city.city} className="text-navy-900">
-                        {city.city}
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {cities.length > 0 && (
+                  <div className="relative flex-1">
+                    <label htmlFor="home-city" className="sr-only">
+                      {t('home.heroCitiesLabel')}
+                    </label>
+                    <MapPin
+                      className="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 h-5 w-5 text-navy-300"
+                      aria-hidden="true"
+                    />
+                    <select
+                      id="home-city"
+                      value={selectedCity}
+                      onChange={(e) => setSelectedCity(e.target.value)}
+                      className="w-full rounded-button border border-white/20 bg-white/10 py-3 ps-12 pe-4 text-white transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-gold-400"
+                    >
+                      <option value="" className="text-navy-900">
+                        {t('home.heroAllCities')}
                       </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                      {cities.map((city) => (
+                        <option key={city.city} value={city.city} className="text-navy-900">
+                          {city.city}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <Button
+                  variant="gold"
+                  size="lg"
+                  onClick={() => handleSearch(searchQuery)}
+                  className="sm:w-auto"
+                >
+                  {t('home.heroSearchCta')}
+                </Button>
+              </div>
             </div>
+
+            {/* Every figure here is a server count. Nothing is hardcoded. */}
+            {!loading && (
+              <dl className="mt-10 flex flex-wrap gap-x-10 gap-y-4">
+                {[
+                  { value: totalBusinesses, label: t('home.statsBusinesses', { count: totalBusinesses }) },
+                  { value: categories.length, label: t('home.statsCategories', { count: categories.length }) },
+                  { value: cities.length, label: t('home.statsCities', { count: cities.length }) },
+                ].map((stat) => (
+                  <div key={stat.label}>
+                    <dt className="sr-only">{stat.label}</dt>
+                    <dd>
+                      <span className="block text-3xl font-bold text-gold-400">
+                        {formatNumber(stat.value)}
+                      </span>
+                      <span className="text-sm text-navy-200">{stat.label}</span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
           </div>
         </div>
-        <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-navy-50 to-transparent" />
       </section>
 
-      <section className="bg-white border-b border-navy-200 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="text-3xl font-bold text-navy-900">
-                {loading ? '—' : formatNumber(totalBusinesses)}
-              </div>
-              <div className="text-navy-500 text-sm">
-                {t('home.statsBusinesses', { count: totalBusinesses })}
-              </div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-navy-900">
-                {loading ? '—' : formatNumber(categories.length)}
-              </div>
-              <div className="text-navy-500 text-sm">
-                {t('home.statsCategories', { count: categories.length })}
-              </div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-navy-900">
-                {loading ? '—' : formatNumber(cities.length)}
-              </div>
-              <div className="text-navy-500 text-sm">
-                {t('home.statsCities', { count: cities.length })}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-16 bg-navy-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8 gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-navy-900">{t('business.sections.categories')}</h2>
-              <p className="text-navy-500 mt-1">{t('business.sections.categoriesSubtitle')}</p>
-            </div>
-            <Link
-              to="/explore"
-              className="text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1 flex-shrink-0"
-            >
-              {t('common.viewAll')} <ArrowRight className="w-4 h-4 rtl:rotate-180" />
-            </Link>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-              {[...Array(6)].map((_, i) => <CategoryCardSkeleton key={i} />)}
-            </div>
-          ) : categories.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-              {categories.map((category) => (
-                <CategoryCard key={category.category_id} category={category} />
+      {/* Category chips stay inside the dark hero so they use the gold badge. */}
+      {chips.length > 0 && (
+        <section className="bg-gradient-to-t from-primary-700 to-navy-900 pb-14 text-white">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-navy-200">
+              {t('home.browseCategories')}
+            </h2>
+            <ul className="flex flex-wrap gap-2.5">
+              {chips.map((category) => (
+                <li key={category.category_id}>
+                  <Link
+                    to={`/categories/${category.category_slug}`}
+                    className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 py-1.5 pe-4 ps-1.5 transition-colors hover:border-gold-400/60 hover:bg-white/10"
+                  >
+                    <CategoryIcon slug={category.category_slug} size="chip" />
+                    <span className="text-sm font-medium">{category.category_name}</span>
+                  </Link>
+                </li>
               ))}
-            </div>
-          ) : (
-            <p className="text-center text-navy-500 py-12">
-              {t('business.sections.categoriesEmpty')}
-            </p>
-          )}
-        </div>
-      </section>
+            </ul>
+          </div>
+        </section>
+      )}
 
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8 gap-4">
+      <section className="bg-white py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-navy-900">
+              <h2 className="text-2xl font-bold text-navy-900 sm:text-3xl">
                 {t('business.sections.featured')}
               </h2>
-              <p className="text-navy-500 mt-1">{t('business.sections.featuredSubtitle')}</p>
+              <p className="mt-1 text-navy-500">{t('business.sections.featuredSubtitle')}</p>
             </div>
             <Link
               to="/explore"
-              className="text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1 flex-shrink-0"
+              className="flex items-center gap-1 font-medium text-primary-600 hover:text-primary-700"
             >
-              {t('common.viewAll')} <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+              {t('common.viewAll')}
+              <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
             </Link>
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[...Array(4)].map((_, i) => <BusinessCardSkeleton key={i} />)}
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {[...Array(4)].map((_, i) => (
+                <BusinessCardSkeleton key={i} />
+              ))}
             </div>
           ) : error ? (
             <ErrorState onRetry={() => void load()} />
           ) : featured.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {featured.map((business) => (
                 <BusinessCard key={business.business_id} business={business} />
               ))}
             </div>
           ) : (
-            <p className="text-center text-navy-500 py-12">{t('business.sections.categoriesEmpty')}</p>
+            <div className="py-12 text-center">
+              <Building2 className="mx-auto mb-4 h-12 w-12 text-navy-300" aria-hidden="true" />
+              <p className="text-navy-500">{t('business.sections.categoriesEmpty')}</p>
+            </div>
           )}
         </div>
       </section>
 
-      <section className="py-16 bg-navy-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold text-navy-900">{t('home.howItWorks')}</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {HOW_IT_WORKS.map((step) => (
-              <Card key={step.key} padding="lg" className="text-center">
-                <div className="w-14 h-14 rounded-xl bg-primary-100 flex items-center justify-center mx-auto mb-4 text-primary-600">
-                  <step.icon className="w-7 h-7" />
-                </div>
-                <h3 className="text-lg font-semibold text-navy-900 mb-2">
-                  {t(`home.${step.key}Title`)}
-                </h3>
-                <p className="text-navy-500">{t(`home.${step.key}Body`)}</p>
-              </Card>
-            ))}
+      <section className="bg-navy-50 py-16">
+        <div className="mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
+          <Store className="mx-auto mb-4 h-10 w-10 text-primary-500" aria-hidden="true" />
+          <h2 className="text-2xl font-bold text-navy-900 sm:text-3xl">{t('home.ctaTitle')}</h2>
+          <p className="mx-auto mt-3 max-w-xl text-navy-600">{t('home.ctaSubtitle')}</p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Button variant="gold" size="lg" onClick={() => navigate('/register')}>
+              {t('home.ctaButton')}
+            </Button>
+            <Button variant="outline" size="lg" onClick={() => navigate('/explore')}>
+              {t('home.ctaSecondary')}
+            </Button>
           </div>
         </div>
       </section>

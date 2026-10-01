@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
-import { BrandMark } from '../components/branding/BrandMark';
+import { Logo } from '../components/branding/Logo';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
@@ -38,7 +38,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-navy-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <BrandMark to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="md" className="inline-flex mb-8" />
+          <Logo to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="md" className="inline-flex mb-8" />
           <h2 className="text-3xl font-bold text-navy-900">{t('auth.signInTitle')}</h2>
           <p className="mt-2 text-navy-500">{t('auth.signInSubtitle')}</p>
         </div>

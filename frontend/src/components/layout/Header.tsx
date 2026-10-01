@@ -4,7 +4,7 @@ import { cn } from '../../lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Menu, X, User, ShoppingBag, LayoutDashboard, ChevronDown } from 'lucide-react';
-import { BrandMark } from '../branding/BrandMark';
+import { Logo } from '../branding/Logo';
 import { Button } from '../common/Button';
 import { SearchBar } from '../common/SearchBar';
 import { Avatar } from './Avatar';
@@ -46,10 +46,10 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
               <div className="hidden sm:block">
-                <BrandMark to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="sm" />
+                <Logo to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="sm" />
               </div>
               <div className="sm:hidden">
-                <BrandMark to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="sm" className="[&>span:last-child]:hidden" />
+                <Logo to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="sm" className="[&>span:last-child]:hidden" />
               </div>
 
               {isPublic && (

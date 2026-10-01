@@ -24,7 +24,7 @@ export function createApp(): Express {
 
     app.get('/api', (_req, res) => {
         res.json({
-            service: 'HQ Marketplace',
+            service: 'OmniHQ',
             phase: 1,
             scope: 'database architecture + multi-business data isolation',
             public: [

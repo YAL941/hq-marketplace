@@ -2,7 +2,7 @@ import { ButtonHTMLAttributes, forwardRef } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  variant?: 'primary' | 'gold' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
 }
@@ -13,6 +13,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variants = {
       primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 shadow-soft',
+      // Navy text on gold, not white: white on #FFC83D sits at about 1.9:1.
+      gold: 'bg-gold-400 text-navy-900 hover:bg-gold-300 focus:ring-gold-400 shadow-soft',
       secondary: 'bg-navy-100 text-navy-900 hover:bg-navy-200 focus:ring-navy-400',
       outline: 'border-2 border-navy-300 text-navy-700 hover:bg-navy-50 focus:ring-primary-500',
       ghost: 'text-navy-600 hover:bg-navy-100 focus:ring-navy-400',

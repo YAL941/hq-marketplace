@@ -3,7 +3,8 @@ import { Badge } from '../common/Badge';
 import { RatingStars } from '../common/RatingStars';
 import { Card } from '../common/Card';
 import { Link } from 'react-router-dom';
-import { MapPin, Tag } from 'lucide-react';
+import { ArrowRight, MapPin, Tag } from 'lucide-react';
+import { CategoryIcon } from '../common/CategoryIcon';
 import type { PublicBusinessCard } from '../../types';
 
 interface BusinessCardProps {
@@ -80,7 +81,12 @@ export function BusinessCard({ business, compact = false }: BusinessCardProps) {
               </Link>
             </h3>
             {business.category_name && (
-              <p className="text-sm text-navy-500 mt-0.5">{business.category_name}</p>
+              <p className="text-sm text-navy-500 mt-1 flex items-center gap-1.5">
+                {business.category_slug && (
+                  <CategoryIcon slug={business.category_slug} size="inline" />
+                )}
+                {business.category_name}
+              </p>
             )}
           </div>
         </div>
@@ -115,9 +121,10 @@ export function BusinessCard({ business, compact = false }: BusinessCardProps) {
         <div className="mt-auto pt-3 border-t border-navy-100">
           <Link
             to={href}
-            className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
           >
-            {t('business.viewDetails')} →
+            {t('business.viewDetails')}
+            <ArrowRight className="w-4 h-4 rtl:rotate-180" aria-hidden="true" />
           </Link>
         </div>
       </div>

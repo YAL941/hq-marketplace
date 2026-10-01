@@ -8,6 +8,7 @@ import { Button } from '../components/common/Button';
 import { SearchBar } from '../components/common/SearchBar';
 import { Badge } from '../components/common/Badge';
 import { ErrorState } from '../components/common/ErrorState';
+import { CategoryIcon } from '../components/common/CategoryIcon';
 import { businessApi, directoryApi } from '../services/api';
 import type {
   DirectorySort,
@@ -193,9 +194,16 @@ export function ExplorePage() {
 
               <div className="space-y-6">
                 <div>
-                  <label htmlFor="filter-category" className="block text-sm font-medium text-navy-700 mb-2">
-                    {t('explore.category')}
-                  </label>
+                  {/* A native <select> cannot hold an icon, so the mark sits
+                      beside the label and shows the selected category. */}
+                  <div className="flex items-center gap-2 mb-2">
+                    {category && (
+                      <CategoryIcon slug={category} size="card" className="!w-8 !h-8" />
+                    )}
+                    <label htmlFor="filter-category" className="block text-sm font-medium text-navy-700">
+                      {t('explore.category')}
+                    </label>
+                  </div>
                   <select
                     id="filter-category"
                     value={category}

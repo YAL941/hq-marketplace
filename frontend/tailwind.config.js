@@ -7,32 +7,60 @@ export default {
   theme: {
     extend: {
       colors: {
+        /**
+         * Brand ramp.
+         *
+         * Two of the specified brand values land on ramp entries rather than
+         * beside them, because the ramp is read far more often than the flat
+         * aliases: `primary-500` is the brand blue and `navy-900` is the brand
+         * navy, while `primary-600` is the hover shade and `primary-900` is the
+         * darkest step. Each ramp stays monotonic in luminance, so a `700`
+         * sitting over a `500` background reads as a darker tone rather than a
+         * brighter one.
+         */
         primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-          950: '#082f49',
+          50: '#f4f9ff',
+          100: '#EAF4FF',
+          200: '#c9e2fb',
+          300: '#96c8f5',
+          400: '#4f9fe8',
+          500: '#1E78D6',
+          600: '#145FC4',
+          700: '#11498f',
+          800: '#0d3567',
+          900: '#0B2A4A',
         },
+        /** The hover/active shade, named for call sites that read as brand. */
+        'primary-dark': '#145FC4',
         navy: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
-          500: '#64748b',
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a',
-          950: '#020617',
+          50: '#f6f9fc',
+          100: '#e8eff7',
+          200: '#c5d8ea',
+          300: '#8fb5d6',
+          400: '#4f8cbd',
+          500: '#2a6699',
+          600: '#1d4f7c',
+          700: '#173f63',
+          800: '#12314f',
+          900: '#0B2A4A',
+          950: '#071c31',
         },
+        gold: {
+          50: '#fffaeb',
+          100: '#fff3c6',
+          200: '#ffe88c',
+          300: '#ffdd52',
+          400: '#FFC83D',
+          500: '#f5b022',
+          600: '#dd9312',
+          700: '#b76e0c',
+          800: '#94580e',
+          900: '#7a4a0e',
+        },
+        /** Flat aliases for the three brand values used outside a scale. */
+        'brand-navy': '#0B2A4A',
+        'brand-gold': '#FFC83D',
+        sky: '#EAF4FF',
         success: {
           50: '#f0fdf4',
           500: '#22c55e',
@@ -51,6 +79,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        brand: ['"Readex Pro"', 'Inter', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
