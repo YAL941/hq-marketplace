@@ -1,10 +1,10 @@
 import { Badge } from '../common/Badge';
 import { MapPin, Star, Tag, CheckCircle } from 'lucide-react';
-import type { Business } from '../../types';
+import type { Business, Id } from '../../types';
 
 interface BusinessHeaderProps {
   business: Business;
-  currentBusinessId?: number;
+  currentBusinessId?: Id;
   isOwner?: boolean;
   onEdit?: () => void;
   onContact?: () => void;

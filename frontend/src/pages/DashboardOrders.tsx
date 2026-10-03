@@ -5,7 +5,7 @@ import { Package, ChevronLeft } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
-import { Badge } from '../components/common/Badge';
+import { Badge, type BadgeVariant } from '../components/common/Badge';
 import {
   OffsetPagerView, StaffListLayout, useOffsetPager,
 } from '../components/common/OffsetPager';
@@ -21,7 +21,7 @@ const STATUSES: Array<OrderStatus | ''> = [
 ];
 
 /** The tone of each status pill, so a cancelled order does not look active. */
-const STATUS_VARIANT: Record<OrderStatus, 'default' | 'info' | 'success' | 'warning' | 'danger'> = {
+const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   pending: 'warning',
   confirmed: 'info',
   in_progress: 'info',

@@ -34,8 +34,11 @@ export function ProductFormPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const params = useParams<{ businessId: string; productId: string }>();
-  const productId = params.productId;
-  const isEdit = productId !== undefined;
+  // The id stays the string the route carried: it is a bigint on the server, so
+  // turning it into a number would corrupt anything past 2^53. An empty string
+  // is what "this route has no :productId" becomes.
+  const productId = params.productId ?? '';
+  const isEdit = productId !== '';
   const businessId = Number(params.businessId);
 
   const [form, setForm] = useState<FormState>({
@@ -60,7 +63,7 @@ export function ProductFormPage() {
       setLoading(true);
       setLoadFailed(false);
       try {
-        const res = await productApi.getForBusiness(businessId, Number(productId));
+        const res = await productApi.getForBusiness(businessId, productId);
         if (cancelled) return;
         const p: Product = res.data.data;
         setForm({
@@ -145,7 +148,7 @@ export function ProductFormPage() {
       };
 
       if (isEdit) {
-        await productApi.update(businessId, Number(productId), payload);
+        await productApi.update(businessId, productId, payload);
       } else {
         await productApi.create(businessId, payload);
       }

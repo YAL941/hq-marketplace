@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Package, MapPin, StickyNote, Clock } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
-import { Badge } from '../components/common/Badge';
+import { Badge, type BadgeVariant } from '../components/common/Badge';
 import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
 import { orderApi, toFieldIssue, type FieldIssue } from '../services/api';
@@ -23,7 +23,7 @@ const SETTABLE: SettableOrderStatus[] = [
   'completed', 'cancelled', 'rejected',
 ];
 
-const STATUS_VARIANT: Record<OrderStatus, 'default' | 'info' | 'success' | 'warning' | 'danger'> = {
+const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   pending: 'warning',
   confirmed: 'info',
   in_progress: 'info',

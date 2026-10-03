@@ -1,11 +1,17 @@
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
+/**
+ * `danger` is the solid red of the `error` ramp, for the states an owner has to
+ * act on (a cancelled or rejected order, a rejected review). `error` stays the
+ * soft tint for text that merely reports a failure.
+ */
 export type BadgeVariant =
   | 'default'
   | 'success'
   | 'warning'
   | 'error'
+  | 'danger'
   | 'info'
   | 'verified';
 
@@ -30,6 +36,7 @@ export function Badge({
     success: 'bg-success-50 text-success-600',
     warning: 'bg-warning-50 text-warning-600',
     error: 'bg-error-50 text-error-600',
+    danger: 'bg-error-600 text-white',
     info: 'bg-primary-50 text-primary-600',
     verified: 'bg-success-50 text-success-600 border border-success-200',
   };

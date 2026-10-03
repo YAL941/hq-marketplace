@@ -6,6 +6,7 @@ import type {
   BusinessRecord,
   BusinessReview,
   BusinessStatistics,
+  Id,
   Location,
   LoginResponse,
   Order,
@@ -283,13 +284,13 @@ export const productApi = {
   listForBusiness: (businessId: number, params?: ProductListQuery) =>
     api.get<ApiResponse<Product[]>>(`/business/${businessId}/products`, { params: staffParams(params) }),
 
-  getForBusiness: (businessId: number, productId: number) =>
+  getForBusiness: (businessId: number, productId: Id) =>
     api.get<ApiResponse<Product>>(`/business/${businessId}/products/${productId}`),
 
   create: (businessId: number, data: ProductInput) =>
     api.post<ApiResponse<Product>>(`/business/${businessId}/products`, data),
 
-  update: (businessId: number, productId: number, data: Partial<ProductInput>) =>
+  update: (businessId: number, productId: Id, data: Partial<ProductInput>) =>
     api.patch<ApiResponse<Product>>(`/business/${businessId}/products/${productId}`, data),
 
   /**
@@ -297,7 +298,7 @@ export const productApi = {
    * the row survives with `status = 'archived'` and can be filtered out of the
    * public catalogue instead of vanishing from past orders.
    */
-  archive: (businessId: number, productId: number) =>
+  archive: (businessId: number, productId: Id) =>
     api.delete(`/business/${businessId}/products/${productId}`),
 };
 
@@ -364,10 +365,10 @@ export const reviewApi = {
   listForBusiness: (businessId: number, params?: ReviewListQuery) =>
     api.get<ApiResponse<BusinessReview[]>>(`/business/${businessId}/reviews`, { params: staffParams(params) }),
 
-  respond: (businessId: number, reviewId: number, response: string) =>
+  respond: (businessId: number, reviewId: Id, response: string) =>
     api.post<ApiResponse<BusinessReview>>(`/business/${businessId}/reviews/${reviewId}/respond`, { response }),
 
-  moderate: (businessId: number, reviewId: number, status: 'published' | 'hidden') =>
+  moderate: (businessId: number, reviewId: Id, status: 'published' | 'hidden') =>
     api.patch<ApiResponse<BusinessReview>>(`/business/${businessId}/reviews/${reviewId}/moderate`, { status }),
 };
 

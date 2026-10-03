@@ -39,7 +39,7 @@ export function DashboardSettingsPage() {
         if (cancelled) return;
         const record = res.data.data;
         setBusiness({
-          business_id: Number(record.business_id),
+          business_id: record.business_id,
           business_name: record.business_name,
           business_slug: record.business_slug,
           business_description: record.business_description ?? undefined,

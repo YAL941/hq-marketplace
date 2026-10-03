@@ -9,7 +9,7 @@ import { Badge } from '../components/common/Badge';
 import { OffsetPagerView, StaffListLayout, useOffsetPager } from '../components/common/OffsetPager';
 import { productApi } from '../services/api';
 import { formatCurrency, formatDate } from '../lib/utils';
-import type { CatalogueStatus, Product } from '../types';
+import type { CatalogueStatus, Id, Product } from '../types';
 
 const PAGE_SIZE = 20;
 const STATUSES: Array<CatalogueStatus | ''> = ['', 'draft', 'active', 'inactive', 'archived'];
@@ -31,7 +31,7 @@ export function DashboardProductsPage() {
   const [status, setStatus] = useState<CatalogueStatus | ''>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [busyId, setBusyId] = useState<Id | null>(null);
   const pager = useOffsetPager(PAGE_SIZE, { filterKey: `${search}|${status}` });
 
   const load = useCallback(async () => {

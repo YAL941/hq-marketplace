@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { formatRelativeTime } from '../../lib/utils';
 import { Card } from '../common/Card';
-import { Badge } from '../common/Badge';
 import { RatingStars } from '../common/RatingStars';
 import { User, MessageSquare, Clock } from 'lucide-react';
 import type { PublicReview } from '../../types';
@@ -14,15 +13,16 @@ interface ReviewCardProps {
    * which is the one view that carries `author_name` and `responded_at`. The
    * owner's endpoint selects `r.*` and has neither, so this card cannot be fed
    * from the dashboard without showing a blank author and a missing date.
+   *
+   * This card is also presentational only. A published review carries no
+   * `status` at all — moderation state is not published — so there is nothing
+   * here for a status pill or a publish/hide button to read. The owner surface
+   * renders `DashboardReviewCard` instead.
    */
   review: PublicReview;
-  /** Shows the moderation controls. Only reachable from an owner surface. */
-  isBusinessView?: boolean;
-  onRespond?: (reviewId: string) => void;
-  onModerate?: (reviewId: string, status: 'published' | 'hidden') => void;
 }
 
-export function ReviewCard({ review, onRespond, onModerate, isBusinessView = false }: ReviewCardProps) {
+export function ReviewCard({ review }: ReviewCardProps) {
   const { t } = useTranslation();
 
   return (
@@ -68,44 +68,6 @@ export function ReviewCard({ review, onRespond, onModerate, isBusinessView = fal
               {t('review.respondedOn', { date: formatRelativeTime(review.responded_at) })}
             </p>
           )}
-        </div>
-      )}
-
-      {isBusinessView && (
-        <div className="mt-4 flex items-center gap-2">
-          {review.status === 'pending' && (
-            <>
-              <button
-                onClick={() => onModerate?.(review.review_id, 'published')}
-                className="px-3 py-1.5 bg-success-500 text-white text-sm rounded-button hover:bg-success-600 transition-colors"
-              >
-                {t('review.publish')}
-              </button>
-              <button
-                onClick={() => onModerate?.(review.review_id, 'hidden')}
-                className="px-3 py-1.5 bg-navy-200 text-navy-800 text-sm rounded-button hover:bg-navy-300 transition-colors"
-              >
-                {t('review.hide')}
-              </button>
-            </>
-          )}
-          {review.status === 'published' && !review.business_response && onRespond && (
-            <button
-              onClick={() => onRespond(review.review_id)}
-              className="px-3 py-1.5 bg-primary-500 text-white text-sm rounded-button hover:bg-primary-600 transition-colors"
-            >
-              {t('review.sendReply')}
-            </button>
-          )}
-          <Badge
-            variant={
-              review.status === 'published' ? 'success' :
-              review.status === 'rejected' ? 'error' : 'default'
-            }
-            size="sm"
-          >
-            {t(`reviewStatus.${review.status}`)}
-          </Badge>
         </div>
       )}
     </Card>

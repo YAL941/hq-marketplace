@@ -1,29 +1,35 @@
 import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
 import { RatingStars } from '../common/RatingStars';
-import type { Business } from '../../types';
+import type {
+  Business, BusinessReview, Id, Location, Product, PublicReview, Service,
+} from '../../types';
 import { BusinessHeader } from './BusinessHeader';
 import { BusinessContact } from './BusinessContact';
 import { ProductCard } from './ProductCard';
 import { ServiceCard } from './ServiceCard';
 import { ReviewCard } from './ReviewCard';
+import { DashboardReviewCard } from './DashboardReviewCard';
 import { LocationCard } from './LocationCard';
 
 interface BusinessProfileProps {
   business: Business;
-  products?: any[];
-  services?: any[];
-  reviews?: any[];
-  locations?: any[];
-  currentBusinessId?: number;
+  products?: Product[];
+  services?: Service[];
+  /** Published reviews, which carry an author name and no moderation state. */
+  reviews?: PublicReview[];
+  /** The owner's own rows, which carry `status` and get the moderation controls. */
+  ownerReviews?: BusinessReview[];
+  locations?: Location[];
+  currentBusinessId?: Id;
   isOwner?: boolean;
   onEdit?: () => void;
   onContact?: () => void;
   onBook?: () => void;
   onOrder?: () => void;
   onFavorite?: () => void;
-  onRespondReview?: (reviewId: number) => void;
-  onModerateReview?: (reviewId: number, status: 'published' | 'hidden') => void;
+  onRespondReview?: (reviewId: Id) => void;
+  onModerateReview?: (reviewId: Id, status: 'published' | 'hidden') => void;
 }
 
 export function BusinessProfile({
@@ -31,6 +37,7 @@ export function BusinessProfile({
   products = [],
   services = [],
   reviews = [],
+  ownerReviews = [],
   locations = [],
   currentBusinessId,
   isOwner = false,
@@ -92,18 +99,20 @@ export function BusinessProfile({
               </Card>
             )}
 
-            {reviews.length > 0 && (
+            {(reviews.length > 0 || ownerReviews.length > 0) && (
               <Card>
                 <h3 className="text-lg font-semibold text-navy-900 mb-4">Reviews</h3>
                 <div className="space-y-4">
-                  {reviews.map((review) => (
-                    <ReviewCard
+                  {ownerReviews.map((review) => (
+                    <DashboardReviewCard
                       key={review.review_id}
                       review={review}
-                      isBusinessView={isOwner}
                       onRespond={onRespondReview}
                       onModerate={onModerateReview}
                     />
+                  ))}
+                  {reviews.map((review) => (
+                    <ReviewCard key={review.review_id} review={review} />
                   ))}
                 </div>
               </Card>

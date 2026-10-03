@@ -203,11 +203,11 @@ export interface PublicDirectoryQuery {
 
 // Business
 export interface Business {
-  business_id: number;
+  business_id: Id;
   business_name: string;
   business_slug: string;
   business_description?: string;
-  business_category_id?: number;
+  business_category_id?: Id;
   phone?: string;
   email?: string;
   website?: string;

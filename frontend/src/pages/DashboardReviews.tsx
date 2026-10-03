@@ -5,18 +5,18 @@ import { MessageSquare, EyeOff, Eye, Send, Star } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
-import { Badge } from '../components/common/Badge';
+import { Badge, type BadgeVariant } from '../components/common/Badge';
 import {
   OffsetPagerView, StaffListLayout, useOffsetPager,
 } from '../components/common/OffsetPager';
 import { reviewApi, toFieldIssue, type FieldIssue } from '../services/api';
 import { formatDateTime } from '../lib/utils';
-import type { BusinessReview, ReviewStatus } from '../types';
+import type { BusinessReview, Id, ReviewStatus } from '../types';
 
 const PAGE_SIZE = 20;
 const STATUSES: Array<ReviewStatus | ''> = ['', 'pending', 'published', 'hidden', 'rejected'];
 
-const STATUS_VARIANT: Record<ReviewStatus, 'default' | 'info' | 'success' | 'warning' | 'danger'> = {
+const STATUS_VARIANT: Record<ReviewStatus, BadgeVariant> = {
   pending: 'warning',
   published: 'success',
   hidden: 'default',
@@ -40,7 +40,7 @@ export function DashboardReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [busyId, setBusyId] = useState<Id | null>(null);
   const [issue, setIssue] = useState<FieldIssue | null>(null);
   const pager = useOffsetPager(PAGE_SIZE, { filterKey: status });
 
