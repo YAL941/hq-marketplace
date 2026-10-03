@@ -66,8 +66,38 @@ export interface AuthMeResponse {
 }
 
 export interface LoginResponse {
-  user: { user_id: number; email: string; full_name: string };
+  user: { user_id: number; email: string | null; full_name: string };
   token: string;
+}
+
+/** Where an account starts. `business_owner` also creates a business. */
+export type AccountRole = 'customer' | 'business_owner';
+
+/**
+ * The signup body.
+ *
+ * `email` and `phone` are both optional in the type and optional on the server,
+ * with a shared rule that at least one has to be present. Modelling that as a
+ * union would force every caller to branch, and the form already enforces it.
+ */
+export interface RegisterPayload {
+  fullName: string;
+  password: string;
+  role: AccountRole;
+  /** Required by the server when `role` is `business_owner`. */
+  businessName?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface RegisterResponse extends LoginResponse {
+  /** The business created alongside a `business_owner` account, else null. */
+  business: {
+    business_id: string;
+    business_name: string;
+    business_slug: string;
+    status: string;
+  } | null;
 }
 
 // ---------------------------------------------------------------------------

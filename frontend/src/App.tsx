@@ -20,6 +20,7 @@ import { ServiceCreatePage } from './pages/ServiceCreate';
 import { ServiceEditPage } from './pages/ServiceEdit';
 import { OrderDetailPage } from './pages/OrderDetail';
 import { LocationManagePage } from './pages/LocationManage';
+import { ComingSoonPage } from './pages/ComingSoon';
 import './index.css';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -71,6 +72,12 @@ function App() {
           <Route path="/business/:businessSlug" element={<MainLayout><BusinessProfilePage /></MainLayout>} />
           <Route path="/login" element={<MainLayout><LoginPage /></MainLayout>} />
           <Route path="/register" element={<MainLayout><RegisterPage /></MainLayout>} />
+
+          {/* Linked from the auth screens, so they exist rather than falling
+              through to the home page and looking broken. */}
+          <Route path="/terms" element={<MainLayout><ComingSoonPage /></MainLayout>} />
+          <Route path="/privacy" element={<MainLayout><ComingSoonPage /></MainLayout>} />
+          <Route path="/forgot-password" element={<MainLayout><ComingSoonPage /></MainLayout>} />
 
           {/* Dashboard Routes - require auth + business */}
           <Route

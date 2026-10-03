@@ -9,6 +9,8 @@ import type {
   PublicCity,
   PublicDirectoryQuery,
   PublicReview,
+  RegisterPayload,
+  RegisterResponse,
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
@@ -41,7 +43,12 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401) {
+    // A rejected sign-in is a normal outcome, not a lost session, so the login
+    // and register calls are exempt. Without this, a wrong password would
+    // answer 401, be treated as "your session expired", and reload the page the
+    // user is already on — taking the inline error message with it.
+    const isAuthAttempt = /\/auth\/(login|register)$/.test(error.config?.url ?? '');
+    if (error.response?.status === 401 && !isAuthAttempt) {
       setAuthToken(null);
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
@@ -51,12 +58,65 @@ api.interceptors.response.use(
   }
 );
 
+/**
+ * The error body every failure uses: `{ error: { code, message, details } }`.
+ *
+ * `details.field` is what lets a form put a message next to the input that
+ * caused it. When it is absent the caller has to fall back to a banner, so that
+ * absence is reported rather than hidden.
+ */
+export interface ApiErrorBody {
+  error?: {
+    code?: string;
+    message?: string;
+    details?: { field?: string; reason?: string } | string;
+  };
+}
+
+export interface FieldIssue {
+  /** Which input the message belongs to, when the server said. */
+  field?: 'identifier' | 'email' | 'phone' | 'password' | 'fullName' | 'businessName' | 'terms';
+  /** Server code, e.g. CONFLICT / BAD_REQUEST / UNAUTHORIZED. */
+  code?: string;
+  status?: number;
+  message: string;
+}
+
+/** Reads an API failure into something a form can render. */
+export function toFieldIssue(error: unknown): FieldIssue {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    const body = error.response?.data as ApiErrorBody | undefined;
+    const details = body?.error?.details;
+    const field =
+      details && typeof details === 'object' && typeof details.field === 'string'
+        ? (details.field as FieldIssue['field'])
+        : undefined;
+
+    // The server's message is written for a person and is already specific
+    // ("This phone number is already registered"), so it is preferred over any
+    // client-side wording; the caller supplies a translated fallback.
+    return {
+      field,
+      code: body?.error?.code,
+      status,
+      message: body?.error?.message ?? '',
+    };
+  }
+  return { message: error instanceof Error ? error.message : '' };
+}
+
 // Auth API
 export const authApi = {
-  register: (data: { email: string; password: string; fullName: string; phone?: string }) =>
-    api.post<ApiResponse<LoginResponse>>('/auth/register', data),
+  register: (data: RegisterPayload) =>
+    api.post<ApiResponse<RegisterResponse>>('/auth/register', data),
 
-  login: (data: { email: string; password: string }) =>
+  /**
+   * `identifier` is one field the server reads as either a phone number or an
+   * email address; it normalises a phone to the same E.164 form the account was
+   * stored with, so the caller may type it however the person prefers.
+   */
+  login: (data: { identifier: string; password: string }) =>
     api.post<ApiResponse<LoginResponse>>('/auth/login', data),
 
   me: () =>
