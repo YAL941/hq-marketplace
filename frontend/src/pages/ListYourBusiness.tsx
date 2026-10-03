@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
-import { BadgeCheck, CheckCircle2, Clock, Store } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { AlertCircle, BadgeCheck, CheckCircle2, Clock, Store } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { Skeleton } from '../components/common/Skeleton';
-import { directoryApi, authApi, toFieldIssue, type FieldIssue } from '../services/api';
+import { businessApi, directoryApi, authApi, toFieldIssue, type FieldIssue } from '../services/api';
 import { normalisePhone } from '../lib/phone';
 import { useAuth } from '../context/AuthContext';
-import type { BusinessRegistrationInput, PublicCategory, PublicCity } from '../types';
+import type { BusinessProfilePatch, BusinessRegistrationInput, PublicCategory, PublicCity, StaffBusinessProfile } from '../types';
 
 interface FormState {
   businessName: string;
@@ -50,7 +50,15 @@ const EMPTY: FormState = {
 export function ListYourBusinessPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isAuthenticated, isLoading: authLoading, refreshUser } = useAuth();
+
+  /**
+   * The URL decides the mode. A bare `?complete=<businessId>` switches the page
+   * from "create a new business" to "complete an existing one": the form is
+   * prefilled from the staff read and saved with a PATCH instead of a POST.
+   */
+  const completeId = searchParams.get('complete') ?? '';
 
   const [form, setForm] = useState<FormState>(EMPTY);
   const [categories, setCategories] = useState<PublicCategory[] | null>(null);
@@ -59,6 +67,11 @@ export function ListYourBusinessPage() {
   const [saving, setSaving] = useState(false);
   const [issue, setIssue] = useState<FieldIssue | null>(null);
   const [created, setCreated] = useState<{ businessId: string; businessName: string } | null>(null);
+
+  /** The staff read of the business being completed, used to prefill the form. */
+  const [profile, setProfile] = useState<StaffBusinessProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(!!completeId);
+  const [profileError, setProfileError] = useState<FieldIssue | null>(null);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -81,9 +94,53 @@ export function ListYourBusinessPage() {
     setLoading(false);
   }, []);
 
+  /**
+   * Complete mode loads the business so every editable box can be prefilled.
+   *
+   * 403 means the caller is not a member; 404 means the id does not match a
+   * business at all. Both answer the same way the staff read does: with a clear
+   * message instead of an empty form, because an editable form for a business
+   * the account cannot reach is a lie.
+   */
+  const loadProfile = useCallback(async () => {
+    if (!completeId) return;
+    setProfileLoading(true);
+    setProfileError(null);
+    try {
+      const res = await businessApi.getForBusiness(completeId);
+      const p = res.data.data;
+      setProfile(p);
+      setForm({
+        businessName: p.business_name,
+        categoryId: p.business_category_id ?? '',
+        city: p.city ?? '',
+        district: p.district ?? '',
+        address: p.address ?? '',
+        phone: p.phone ?? '',
+        whatsapp: p.whatsapp_number ?? '',
+        description: p.business_description ?? '',
+      });
+    } catch (error) {
+      const err = toFieldIssue(error);
+      if (err.status === 403) {
+        setProfileError({ message: t('listBusiness.notMember') });
+      } else if (err.status === 404) {
+        setProfileError({ message: t('listBusiness.notFound') });
+      } else {
+        setProfileError(err);
+      }
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [completeId, t]);
+
   useEffect(() => {
     void loadReference();
   }, [loadReference]);
+
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
 
   /**
    * Login is required, and the person comes back here afterwards.
@@ -159,25 +216,44 @@ export function ListYourBusinessPage() {
     setSaving(true);
     setIssue(null);
     try {
-      // Only fields that carry something are sent. The server treats a missing
-      // optional field as "not stated"; sending an empty string instead would
-      // store an empty string, which is not the same thing.
-      const payload: BusinessRegistrationInput = { businessName: form.businessName.trim() };
-      if (form.categoryId !== '') payload.businessCategoryId = Number(form.categoryId);
-      if (form.city.trim() !== '') payload.city = form.city.trim();
-      if (form.district.trim() !== '') payload.district = form.district.trim();
-      if (form.address.trim() !== '') payload.address = form.address.trim();
-      if (form.phone.trim() !== '') payload.phone = form.phone.trim();
-      if (form.whatsapp.trim() !== '') payload.whatsapp = form.whatsapp.trim();
-      if (form.description.trim() !== '') payload.description = form.description.trim();
+      if (completeId) {
+        // Complete mode never creates: it patches the business the URL names,
+        // sending the same editable fields the Settings page writes — including
+        // category and WhatsApp. Fields the form does not edit (email, website,
+        // logo, cover) are simply omitted, which a partial PATCH leaves alone.
+        const patch: BusinessProfilePatch = {
+          businessName: form.businessName.trim(),
+          businessDescription: form.description.trim() || null,
+          businessCategoryId: form.categoryId === '' ? null : Number(form.categoryId),
+          phone: form.phone.trim() || null,
+          whatsapp: form.whatsapp.trim() || null,
+          city: form.city.trim() || null,
+          district: form.district.trim() || null,
+          address: form.address.trim() || null,
+        };
+        const res = await businessApi.update(completeId, patch);
+        const updated = res.data.data;
+        setCreated({ businessId: updated.business_id, businessName: updated.business_name });
+      } else {
+        // Create mode sends only fields with a value; an empty box is omitted,
+        // not sent as an empty string, so the server stores null rather than ''.
+        const payload: BusinessRegistrationInput = { businessName: form.businessName.trim() };
+        if (form.categoryId !== '') payload.businessCategoryId = Number(form.categoryId);
+        if (form.city.trim() !== '') payload.city = form.city.trim();
+        if (form.district.trim() !== '') payload.district = form.district.trim();
+        if (form.address.trim() !== '') payload.address = form.address.trim();
+        if (form.phone.trim() !== '') payload.phone = form.phone.trim();
+        if (form.whatsapp.trim() !== '') payload.whatsapp = form.whatsapp.trim();
+        if (form.description.trim() !== '') payload.description = form.description.trim();
 
-      const res = await authApi.registerBusiness(payload);
-      const business = res.data.data;
-      // The membership was created with the business, so `/auth/me` is stale
-      // until it is refetched. Without this the sidebar would show no business
-      // and the dashboard link on the success screen would go nowhere.
-      await refreshUser();
-      setCreated({ businessId: business.business_id, businessName: business.business_name });
+        const res = await authApi.registerBusiness(payload);
+        const business = res.data.data;
+        // The membership was created with the business, so `/auth/me` is stale
+        // until it is refetched. Without this the sidebar would show no business
+        // and the dashboard link on the success screen would go nowhere.
+        await refreshUser();
+        setCreated({ businessId: business.business_id, businessName: business.business_name });
+      }
     } catch (error) {
       setIssue(toFieldIssue(error));
     } finally {
@@ -195,6 +271,31 @@ export function ListYourBusinessPage() {
 
   if (created) return <PendingVerification businessId={created.businessId} name={created.businessName} />;
 
+  if (completeId && profileLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (completeId && profileError) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+        <Card className="p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-error-50 text-error-600 flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-8 h-8" aria-hidden="true" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-navy-900 mb-3">{profileError.message}</h1>
+          <div className="flex flex-wrap gap-3 justify-center">
+            <Button variant="outline" onClick={() => void loadProfile()}>{t('common.retry')}</Button>
+            <Link to="/" className="text-primary-600 hover:text-primary-800 font-medium">{t('common.back')}</Link>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
       <div className="mb-8">
@@ -203,11 +304,17 @@ export function ListYourBusinessPage() {
           {t('listBusiness.badge')}
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold text-navy-900 mb-3">{t('listBusiness.title')}</h1>
-        <p className="text-navy-600 max-w-2xl">{t('listBusiness.subtitle')}</p>
+        <p className="text-navy-600 max-w-2xl">
+          {completeId
+            ? profile
+              ? t('listBusiness.completeSubtitle', { name: profile.business_name })
+              : t('listBusiness.subtitle')
+            : t('listBusiness.subtitle')}
+        </p>
       </div>
 
       <Card className="p-6">
-        {loading ? (
+        {profileLoading || loading ? (
           <div className="space-y-4">
             {[1, 2, 3, 4, 5].map((i) => (
               <Skeleton key={i} variant="rectangular" height={44} />
@@ -329,7 +436,7 @@ export function ListYourBusinessPage() {
 
             <div className="flex flex-wrap gap-3 pt-2">
               <Button type="submit" loading={saving}>
-                {t('listBusiness.submit')}
+                {completeId ? t('common.save') : t('listBusiness.submit')}
               </Button>
               <Button type="button" variant="outline" onClick={() => navigate('/')} disabled={saving}>
                 {t('common.cancel')}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ShoppingBag, DollarSign, Users, Star, Package, Sparkles, MessageSquare, Clock,
+  ShoppingBag, DollarSign, Users, Star, Package, Sparkles, MessageSquare, Clock, AlertCircle,
 } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { DashboardStatsSkeleton } from '../components/common/Skeleton';
@@ -10,7 +10,7 @@ import { ErrorState } from '../components/common/ErrorState';
 import { NotAvailableYet } from '../components/common/OffsetPager';
 import { businessApi } from '../services/api';
 import { formatCurrency, formatNumber, formatDateTime } from '../lib/utils';
-import type { BusinessStatistics, Id } from '../types';
+import type { BusinessStatistics, StaffBusinessProfile, Id } from '../types';
 
 /**
  * The owner's home.
@@ -26,6 +26,7 @@ export function DashboardHomePage() {
   const businessId = params.businessId ?? '';
 
   const [stats, setStats] = useState<BusinessStatistics | null>(null);
+  const [profile, setProfile] = useState<StaffBusinessProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -36,6 +37,15 @@ export function DashboardHomePage() {
     try {
       const res = await businessApi.getStatistics(businessId);
       setStats(res.data.data);
+      // Best-effort: the staff profile is only needed to spot an incomplete
+      // listing. A failure here must not hide the statistics, which are the
+      // point of the page.
+      try {
+        const pres = await businessApi.getForBusiness(businessId);
+        setProfile(pres.data.data);
+      } catch {
+        setProfile(null);
+      }
     } catch {
       setError(true);
     } finally {
@@ -69,6 +79,12 @@ export function DashboardHomePage() {
     { label: t('dashboard.totalReviews'), value: formatNumber(stats.total_reviews), Icon: MessageSquare },
   ];
 
+  // A business created with only a name is incomplete until it has a category,
+  // a city and a phone. The link points at complete mode for the current
+  // business, never at the create form.
+  const incomplete =
+    profile && (profile.business_category_id == null || !profile.city || !profile.phone);
+
   return (
     <div>
       <div className="mb-6">
@@ -77,6 +93,19 @@ export function DashboardHomePage() {
           {t('dashboard.computedAt', { date: formatDateTime(stats.computed_at) })}
         </p>
       </div>
+
+      {incomplete && (
+        <div className="mb-4 p-3 bg-warning-50 border border-warning-200 rounded-button flex items-center gap-3 text-sm text-warning-800">
+          <AlertCircle className="w-5 h-5 text-warning-600 flex-shrink-0" aria-hidden="true" />
+          <span>{t('dashboard.incompleteProfile')}</span>
+          <Link
+            to={`/list-your-business?complete=${businessId}`}
+            className="ms-auto font-medium text-primary-700 hover:text-primary-800"
+          >
+            {t('dashboard.completeIt')}
+          </Link>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {cards.map(({ label, value, Icon }) => (

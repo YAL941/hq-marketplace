@@ -109,7 +109,7 @@ export function RegisterPage() {
 
     setLoading(true);
     try {
-      await register(
+      const outcome = await register(
         {
           fullName,
           password: formData.password,
@@ -122,7 +122,15 @@ export function RegisterPage() {
         },
         true,
       );
-      navigate(isBusiness ? '/dashboard' : '/', { replace: true });
+      // A business owner lands on the completion form for the business the
+      // server just made (it starts with only a name), instead of on an empty
+      // dashboard. If the id never came back, fall back to the dashboard rather
+      // than guessing one.
+      if (isBusiness && outcome.businessId) {
+        navigate(`/list-your-business?complete=${outcome.businessId}`, { replace: true });
+      } else {
+        navigate(isBusiness ? '/dashboard' : '/', { replace: true });
+      }
     } catch (error) {
       setIssue(toFieldIssue(error));
     } finally {

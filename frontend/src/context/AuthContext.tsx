@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type {
-  User, AuthMeResponse, BusinessMembership, LoginResponse, RegisterPayload, RegisterResponse, AccountRole,
+  User, AuthMeResponse, BusinessMembership, LoginResponse, RegisterPayload, RegisterResponse, AccountRole, Id,
 } from '../types';
 import { authApi, setAuthToken } from '../services/api';
 
@@ -12,6 +12,8 @@ const REMEMBER_KEY = 'hq_remember';
 /** What a caller needs to route itself once the account exists. */
 export interface AuthOutcome {
   role: AccountRole;
+  /** The business created alongside a `business_owner` signup, else undefined. */
+  businessId?: Id;
 }
 
 interface AuthContextType {
@@ -136,17 +138,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (payload: RegisterPayload, remember: boolean) => {
     const response = await authApi.register(payload);
-    const { token } = response.data.data as RegisterResponse;
+    const data = response.data.data as RegisterResponse;
+    const { token } = data;
 
     persistToken(token, remember);
     if (remember) localStorage.setItem(REMEMBER_KEY, '1');
     else localStorage.removeItem(REMEMBER_KEY);
 
+    // Prefer the id the server returns with the registration itself, so the
+    // post-signup redirect does not depend on the `/me` round trip landing in
+    // time. The business-owner branch of `/auth/register` always returns one;
+    // a `customer` signup returns null, which is what `businessId` stays.
+    let businessId = data.business?.business_id;
+    if (!businessId && payload.role === 'business_owner') {
+      // Defensive fallback only: re-read /me and take the newest membership the
+      // account now owns, in case the register response ever stops carrying it.
+      const meData = (await authApi.me()).data.data as AuthMeResponse;
+      const memberships = meData.businesses;
+      businessId = memberships[memberships.length - 1]?.business_id;
+    }
+
     await refreshUser();
     // The role the form asked for is what decides where to send the person; the
     // business may not have appeared in `/auth/me` yet on a slow round trip, and
     // guessing from an empty list would drop an owner on the home page.
-    return { role: payload.role };
+    return { role: payload.role, businessId };
   };
 
   const logout = () => {

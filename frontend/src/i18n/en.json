@@ -322,6 +322,8 @@
     "orderBreakdown": "Orders by status",
     "orderBreakdownBody": "How many orders the API counted in each status. No totals, no chart: the statistics endpoint returns counts only.",
     "quickActions": "Quick actions",
+    "incompleteProfile": "Your profile is missing a category, city, or phone.",
+    "completeIt": "Complete it",
     "notAvailableTitle": "Not available yet"
   },
   "analytics": {
@@ -515,6 +517,7 @@
     "badge": "For businesses",
     "title": "List your business",
     "subtitle": "Add your business to the OmniHQ directory so customers can find you. We review every listing before it goes public.",
+    "completeSubtitle": "Complete the details for {{name}}.",
     "businessName": "Business name",
     "businessNameHint": "The name customers will see. You can change it later.",
     "category": "Category",
@@ -533,6 +536,8 @@
     "description": "Short description",
     "descriptionHint": "What you sell or do, in a sentence or two.",
     "willStore": "Will be stored as:",
+    "notMember": "You are not a member of this business.",
+    "notFound": "Business not found.",
     "submit": "Submit for review",
     "errorName": "Enter a business name between 2 and 200 characters.",
     "errorCategory": "Choose a category from the list.",

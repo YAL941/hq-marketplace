@@ -322,6 +322,8 @@
     "orderBreakdown": "Daryoomaan xaalad ayay kuugu jiraan",
     "orderBreakdownBody": "Tirada daryoomaan ee API-ga ku xisaabeeyay xaalad kasta. Wadarta iyo jaantus ma jiraan: endpoint-ka xisaabeeddu wuxuu bixiyaa tiro kaliya.",
     "quickActions": "Hawlo degdeg ah",
+    "incompleteProfile": "Buugaagga wuxuu ku lacag ahaa qayb, magalo, ama telefoon.",
+    "completeIt": "Kululaa hadda",
     "notAvailableTitle": "Weli lama hadha"
   },
   "analytics": {
@@ -515,6 +517,7 @@
     "badge": "Ganacsiyada uu",
     "title": "Liis geli ganacsigaada",
     "subtitle": "K lagu daro buugga OmniHQ si macaamiilku uu ku helaan. Waxaan hubinaa liis kasta ka hor inta uu dadweyne noqon.",
+    "completeSubtitle": "Kululaa faafadda {{name}}.",
     "businessName": "Magaca ganacsiga",
     "businessNameHint": "Magaca macaamiilku uu arki doono. Waad beddeli kartaa hadda.",
     "category": "Qaybta",
@@ -533,6 +536,8 @@
     "description": "Faahfaahin gaaban",
     "descriptionHint": "Waxaad iibsiyo ama qabto, hal ama laba jumlad.",
     "willStore": "Wuxuu noqonayaa:",
+    "notMember": "Adigu xubin ahay kalaasa ganacsiga.",
+    "notFound": "Ganacsiga la kululaa.",
     "submit": "Diribixinta hubinta",
     "errorName": "Gali magac ganacsi oo u dhexeeya 2 ilaa 200 xaraf.",
     "errorCategory": "Dooro qayb liiska.",
