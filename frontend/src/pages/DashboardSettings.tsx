@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Building2, Save, Users, Shield } from 'lucide-react';
 import { Card } from '../components/common/Card';
@@ -9,14 +9,22 @@ import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
 import { Avatar } from '../components/layout/Avatar';
 import { useAuth } from '../context/AuthContext';
-import { businessApi, toFieldIssue, type FieldIssue } from '../services/api';
+import { businessApi, directoryApi, toFieldIssue, type FieldIssue } from '../services/api';
 import { formatDate } from '../lib/utils';
-import type { BusinessMember, BusinessProfilePatch, BusinessRecord } from '../types';
+import { normalisePhone } from '../lib/phone';
+import type {
+  BusinessMember,
+  BusinessProfilePatch,
+  BusinessRecord,
+  PublicCategory,
+} from '../types';
 
 interface FormState {
   businessName: string;
   businessDescription: string;
+  categoryId: string;
   phone: string;
+  whatsapp: string;
   email: string;
   website: string;
   address: string;
@@ -29,7 +37,9 @@ interface FormState {
 const EMPTY: FormState = {
   businessName: '',
   businessDescription: '',
+  categoryId: '',
   phone: '',
+  whatsapp: '',
   email: '',
   website: '',
   address: '',
@@ -43,20 +53,23 @@ const EMPTY: FormState = {
  * Settings.
  *
  * Everything on this screen is either read from an endpoint or written through
- * one. Three facts about the API shape the screen:
+ * one. The shape of the API decides three things here:
  *
- *   * There is **no** owner read for a business record. `GET /api/business/:id`
- *     does not exist — only PATCH, `/statistics` and `/members`. The form is
- *     therefore prefilled from `GET /api/businesses/:businessId`, the public
- *     profile, which an owner is allowed to read and which carries the fields
- *     that are edited here. It does **not** carry the business email, so that
- *     box starts empty and is only sent once it has been typed into.
- *   * `status`, `is_verified` and `verification_status` are returned by the
- *     PATCH response, so they are shown after a save and never before one.
- *     Nothing here invents them, and nothing claims a business is verified.
- *   * The old version of this page wrote `is_verified: false` and a hard-coded
- *     "Active" into a client-side object and saved it with a `setTimeout`. That
- *     is gone: the save is a real PATCH and its answer is what the screen shows.
+ *   * The form is prefilled from `GET /api/business/:businessId`, the staff read.
+ *     It used to be prefilled from the public profile, which is a 404 for a
+ *     business that is still `pending` or has been `rejected` — that is, for
+ *     exactly the businesses whose owner most needs this screen. The staff read
+ *     also carries the business email and category, which the public profile
+ *     never published, so those two boxes are no longer guesses.
+ *   * The editable set is what `PATCH /api/business/:businessId` accepts:
+ *     name, description, category, phone, WhatsApp, email, website, address,
+ *     city, district, logo and cover. Nothing else is offered, because a field
+ *     that cannot be saved is worse than an absent one. `latitude`/`longitude`
+ *     are accepted by the route but there is no map here to source them from, and
+ *     `status`/`verification_status` belong to an admin decision.
+ *   * Phone and WhatsApp are normalised to E.164 by the server and by the copy of
+ *     its rules in `lib/phone.ts`, so the canonical form is shown while typing
+ *     and an unusable number is caught before the round trip.
  */
 export function DashboardSettingsPage() {
   const { t } = useTranslation();
@@ -64,12 +77,34 @@ export function DashboardSettingsPage() {
   const businessId = currentBusiness?.business_id ?? '';
 
   const [form, setForm] = useState<FormState>(EMPTY);
+  const [categories, setCategories] = useState<PublicCategory[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [issue, setIssue] = useState<FieldIssue | null>(null);
   const [saved, setSaved] = useState<BusinessRecord | null>(null);
   const [members, setMembers] = useState<BusinessMember[] | null>(null);
+
+  /**
+   * The category list is reference data, so a failure here must not take the form
+   * down with it: the select renders empty and the current value is still shown
+   * as an id-derived option is not possible, so the box simply has no choice to
+   * offer until a reload.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    void directoryApi
+      .categories()
+      .then((res) => {
+        if (!cancelled) setCategories(res.data.data);
+      })
+      .catch(() => {
+        if (!cancelled) setCategories([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -80,17 +115,19 @@ export function DashboardSettingsPage() {
     setForm(EMPTY);
     try {
       const [profileRes, membersRes] = await Promise.all([
-        businessApi.getPublic(businessId),
+        // The staff read, not the public profile: it is the only one that
+        // answers for a business which is not publicly visible.
+        businessApi.getForBusiness(businessId),
         businessApi.getMembers(businessId).catch(() => null),
       ]);
       const profile = profileRes.data.data;
       setForm({
         businessName: profile.business_name,
         businessDescription: profile.business_description ?? '',
+        categoryId: profile.business_category_id ?? '',
         phone: profile.phone ?? '',
-        // The public profile does not publish the business email, so this starts
-        // empty rather than being filled with something that was not returned.
-        email: '',
+        whatsapp: profile.whatsapp_number ?? '',
+        email: profile.email ?? '',
         website: profile.website ?? '',
         address: profile.address ?? '',
         city: profile.city ?? '',
@@ -120,6 +157,29 @@ export function DashboardSettingsPage() {
     issue && issue.field === field ? issue.message || t('common.saveFailed') : undefined;
 
   /**
+   * The canonical form of a number box, or the reason it has none.
+   *
+   * This is the client mirror of the server's normaliser, and the server's own
+   * 400 still wins if the two ever disagree: the point is to catch the mistake
+   * here, where the message can sit under the box that caused it.
+   */
+  const numberProblem = (value: string): string | null => {
+    if (value.trim() === '') return null;
+    const result = normalisePhone(value);
+    return result.ok ? null : t(`listBusiness.phoneProblem.${result.reason}`);
+  };
+
+  const phonePreview = useMemo(() => {
+    const result = form.phone.trim() === '' ? null : normalisePhone(form.phone);
+    return result && result.ok ? result.e164 : null;
+  }, [form.phone]);
+
+  const whatsappPreview = useMemo(() => {
+    const result = form.whatsapp.trim() === '' ? null : normalisePhone(form.whatsapp);
+    return result && result.ok ? result.e164 : null;
+  }, [form.whatsapp]);
+
+  /**
    * Mirrors the server's schema, so the message appears next to the box that
    * caused it rather than as a banner after the round trip.
    */
@@ -139,8 +199,15 @@ export function DashboardSettingsPage() {
         return { field: key, message: t('settings.errorUrl') };
       }
     }
-    if (form.phone.trim().length > 20) {
-      return { field: 'phone', message: t('settings.errorPhone') };
+    const phone = numberProblem(form.phone);
+    if (phone) return { field: 'phone', message: phone };
+    const whatsapp = numberProblem(form.whatsapp);
+    if (whatsapp) return { field: 'whatsapp', message: whatsapp };
+    if (form.categoryId !== '') {
+      const parsed = Number(form.categoryId);
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        return { field: 'categoryId', message: t('listBusiness.errorCategory') };
+      }
     }
     return null;
   };
@@ -159,12 +226,14 @@ export function DashboardSettingsPage() {
     try {
       // Every field is sent, with an empty box as null: the schema is
       // `nullish` on all of them, so this both clears a value and sets it.
-      // `email` is left out entirely while it is blank, because a PATCH that
-      // carries `email: null` would erase an address the form never read.
       const patch: BusinessProfilePatch = {
         businessName: form.businessName.trim(),
         businessDescription: form.businessDescription.trim() || null,
+        // `businessCategoryId` is a JSON number: the route validates it with
+        // `z.number()`, and the id arrives as a string from the category list.
+        businessCategoryId: form.categoryId === '' ? null : Number(form.categoryId),
         phone: form.phone.trim() || null,
+        whatsapp: form.whatsapp.trim() || null,
         website: form.website.trim() || null,
         address: form.address.trim() || null,
         city: form.city.trim() || null,
