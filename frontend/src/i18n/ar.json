@@ -19,7 +19,8 @@
     "mainNavigation": "التنقل الرئيسي",
     "dashboardNavigation": "تنقل لوحة التحكم",
     "toggleMenu": "إظهار أو إخفاء القائمة",
-    "signUp": "إنشاء حساب"
+    "signUp": "إنشاء حساب",
+    "listYourBusiness": "أدرج عملك"
   },
   "language": {
     "label": "اللغة",
@@ -317,7 +318,8 @@
     "statsCities_two": "مدينتان",
     "statsCities_few": "{{count}} مدن",
     "statsCities_many": "{{count}} مدينة",
-    "statsCities_other": "{{count}} مدينة"
+    "statsCities_other": "{{count}} مدينة",
+    "ctaListBusiness": "لديك حساب بالفعل؟ أدرج عملك"
   },
   "branches": {
     "title": "الفروع",
@@ -517,5 +519,42 @@
     "service": "خدمة",
     "mixed": "منتجات وخدمات",
     "booking": "حجز"
+  },
+  "listBusiness": {
+    "badge": "للأعمال",
+    "title": "أدرج عملك",
+    "subtitle": "أضف عملك إلى دليل OmniHQ ليجدك العملاء. نراجع كل إدراج قبل أن يصبح علنياً.",
+    "businessName": "اسم العمل",
+    "businessNameHint": "الاسم الذي سيراه العملاء. يمكنك تغييره لاحقاً.",
+    "category": "القسم",
+    "categoryAny": "اختر قسماً",
+    "categoryHint": "اختياري، لكن القسم هو ما يجدك به الناس في البحث.",
+    "city": "المدينة",
+    "cityHint": "اكتب مدينتك. الاقتراحات هي المدن التي فيها عمل مدرج بالفعل.",
+    "district": "الحي",
+    "districtHint": "اختياري.",
+    "address": "عنوان الشارع",
+    "addressHint": "اختياري. أين يجدك العملاء.",
+    "phone": "هاتف العمل",
+    "phoneHint": "الرقم الذي يتصل به العملاء.",
+    "whatsapp": "واتساب",
+    "whatsappHint": "اختياري. الرقم الذي يرسل إليه العملاء رسائل.",
+    "description": "وصف مختصر",
+    "descriptionHint": "ما تبيعه أو ما تقوم به، في جملة أو جملتين.",
+    "willStore": "سيُخزَّن هكذا:",
+    "submit": "إرسال للمراجعة",
+    "errorName": "أدخل اسم عمل بين حرفين و200 حرف.",
+    "errorCategory": "اختر قسماً من القائمة.",
+    "phoneProblem_empty": "أدخل رقم هاتف.",
+    "phoneProblem_letters": "رقم الهاتف لا يقبل حروفاً.",
+    "phoneProblem_country": "لا تُقبل إلا أرقام +252.",
+    "phoneProblem_length": "رقم +252 يحتاج بين 8 و9 أرقام.",
+    "pendingTitle": "عملك قيد المراجعة",
+    "pendingBody": "تم إرسال {{name}}. نتحقق من كل إدراج قبل أن يظهر في الدليل.",
+    "pendingStepReview": "نقرأ التفاصيل التي أرسلتها.",
+    "pendingStepDecision": "يشخص من فريق OmniHQ يعتمد الإدراج أو يطلب تعديلاً.",
+    "pendingStepListed": "بعد الاعتماد يظهر عملك في البحث وفي صفحته الخاصة.",
+    "goToDashboard": "افتح لوحة التحكم",
+    "backHome": "العودة للصفحة الرئيسية"
   }
 }

@@ -15,6 +15,7 @@ import { DashboardReviewsPage } from './pages/DashboardReviews';
 import { DashboardAnalyticsPage } from './pages/DashboardAnalytics';
 import { DashboardCustomersPage } from './pages/DashboardCustomers';
 import { DashboardSettingsPage } from './pages/DashboardSettings';
+import { ListYourBusinessPage } from './pages/ListYourBusiness';
 import { ProductCreatePage } from './pages/ProductCreate';
 import { ProductEditPage } from './pages/ProductEdit';
 import { ServiceCreatePage } from './pages/ServiceCreate';
@@ -103,6 +104,12 @@ function App() {
           <Route path="/business/:businessSlug" element={<MainLayout><BusinessProfilePage /></MainLayout>} />
           <Route path="/login" element={<MainLayout><LoginPage /></MainLayout>} />
           <Route path="/register" element={<MainLayout><RegisterPage /></MainLayout>} />
+          {/*
+            Onboarding, not a dashboard screen: it creates the business itself, so
+            it sits outside `/dashboard/business/:businessId`. The guard is the
+            page's own — it redirects to the login screen and comes back here.
+          */}
+          <Route path="/list-your-business" element={<MainLayout><ListYourBusinessPage /></MainLayout>} />
 
           {/* Linked from the auth screens, so they exist rather than falling
               through to the home page and looking broken. */}

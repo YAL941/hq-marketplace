@@ -1,10 +1,13 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import type {
+  AdminBusinessRow,
+  AdminBusinessStatus,
   ApiResponse,
   AuthMeResponse,
   BusinessMember,
   BusinessProfilePatch,
   BusinessRecord,
+  BusinessRegistrationInput,
   BusinessReview,
   BusinessStatistics,
   BusinessSummary,
@@ -31,6 +34,9 @@ import type {
   ServiceInput,
   ServiceListQuery,
   SettableOrderStatus,
+  StaffBusinessProfile,
+  VerificationDecision,
+  VerificationInput,
 } from '../types';
 
 /**
@@ -175,20 +181,13 @@ export const authApi = {
   /**
    * Onboarding for an account that did not ask for a business at signup.
    *
-   * `businessCategoryId` and the rest are the body, and the server validates
-   * them as numbers and strings respectively; only the ids in a path stay as
-   * strings.
+   * `businessCategoryId` is a JSON **number** because the route validates it with
+   * `z.number()`, even though every category id arrives as a string. Phone and
+   * WhatsApp are sent as typed: the route normalises them to E.164 and answers a
+   * bad one with 400 and `details.field`, which is what the form needs.
    */
-  registerBusiness: (data: {
-    businessName: string;
-    businessCategoryId?: number;
-    description?: string;
-    phone?: string;
-    email?: string;
-    address?: string;
-    city?: string;
-    district?: string;
-  }) => api.post<ApiResponse<BusinessSummary>>('/businesses/register', data),
+  registerBusiness: (data: BusinessRegistrationInput) =>
+    api.post<ApiResponse<BusinessSummary>>('/businesses/register', data),
 };
 
 /**
@@ -276,6 +275,17 @@ export const businessApi = {
   /** PATCH /business/:businessId — partial update, empty fields rejected. */
   update: (businessId: Id, data: BusinessProfilePatch) =>
     api.patch<ApiResponse<BusinessRecord>>(`/business/${businessId}`, data),
+
+  /**
+   * GET /business/:businessId — the business as its own staff sees it.
+   *
+   * The public profile answers 404 for a business that is still pending or has
+   * been rejected, which is exactly the business an owner most needs to read.
+   * This one has no visibility predicate: membership is checked by
+   * `resolveBusiness`, and RLS returns nothing for anyone else.
+   */
+  getForBusiness: (businessId: Id) =>
+    api.get<ApiResponse<StaffBusinessProfile>>(`/business/${businessId}`),
 };
 
 /** Reference data for the public directory. No authentication. */
@@ -402,6 +412,27 @@ export const locationApi = {
 
   listPublic: (businessId: Id) =>
     api.get<ApiResponse<Location[]>>(`/businesses/${businessId}/locations`),
+};
+
+/**
+ * Platform administration.
+ *
+ * Every call here answers 403 unless the caller holds `platform_admin`, and that
+ * is checked twice: once in the middleware before any query runs, and again
+ * against the `business.verify` permission for the decision itself. A 403 from
+ * this client therefore means the account is not an admin, not that the request
+ * was malformed.
+ *
+ * The list is paged with `page`/`limit` rather than `offset`, because these are
+ * the platform routes rather than the business-scoped ones, and the server caps
+ * `limit` at 50.
+ */
+export const adminApi = {
+  listBusinesses: (params: { status?: AdminBusinessStatus; page?: number; limit?: number }) =>
+    api.get<ApiResponse<AdminBusinessRow[]>>('/admin/businesses', { params }),
+
+  decideVerification: (businessId: Id, data: VerificationInput) =>
+    api.patch<ApiResponse<VerificationDecision>>(`/admin/businesses/${businessId}/verification`, data),
 };
 
 export default api;

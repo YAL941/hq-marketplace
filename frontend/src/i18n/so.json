@@ -19,7 +19,8 @@
     "mainNavigation": "Navigation-ka ugu weyn",
     "dashboardNavigation": "Navigation-ka kontorada",
     "toggleMenu": "Furi ama xiri menu-ka",
-    "signUp": "Koon samee"
+    "signUp": "Koon samee",
+    "listYourBusiness": "Liis geli ganacsigaada"
   },
   "language": {
     "label": "Luqad",
@@ -296,7 +297,8 @@
     "statsCategories_one": "Hal qayb",
     "statsCategories_other": "{{count}} qaybood",
     "statsCities_one": "Hal magaalo",
-    "statsCities_other": "{{count}} magaalo"
+    "statsCities_other": "{{count}} magaalo",
+    "ctaListBusiness": "Ma haysato koon? Liis geli ganacsigaada"
   },
   "branches": {
     "title": "Laammooyinka",
@@ -496,5 +498,42 @@
     "service": "Adeeg",
     "mixed": "Alaab iyo adeeg",
     "booking": "Bixin"
+  },
+  "listBusiness": {
+    "badge": "Ganacsiyada uu",
+    "title": "Liis geli ganacsigaada",
+    "subtitle": "K lagu daro buugga OmniHQ si macaamiilku uu ku helaan. Waxaan hubinaa liis kasta ka hor inta uu dadweyne noqon.",
+    "businessName": "Magaca ganacsiga",
+    "businessNameHint": "Magaca macaamiilku uu arki doono. Waad beddeli kartaa hadda.",
+    "category": "Qaybta",
+    "categoryAny": "Dooro qayb",
+    "categoryHint": "Ikhtiyaari, laakiin qaybtu waa sida macaamiilku kuugu helo raadinta.",
+    "city": "Magalo",
+    "cityHint": "Qor magaaladaada. Talooyinku waa magaalooyin horey uu ganacsi lagu qaatay.",
+    "district": "Xaafid",
+    "districtHint": "Ikhtiyaari.",
+    "address": "Cinwaabka jidda",
+    "addressHint": "Ikhtiyaari. Halka macaamiilku kuu helaan.",
+    "phone": "Telefoonka ganacsiga",
+    "phoneHint": "Taleefanka macaamiilku wuu ka soo wacdaa.",
+    "whatsapp": "WhatsApp",
+    "whatsappHint": "Ikhtiyaari. Taleefanka macaamiilku wuu ka soo qaadaa.",
+    "description": "Faahfaahin gaaban",
+    "descriptionHint": "Waxaad iibsiyo ama qabto, hal ama laba jumlad.",
+    "willStore": "Wuxuu noqonayaa:",
+    "submit": "Diribixinta hubinta",
+    "errorName": "Gali magac ganacsi oo u dhexeeya 2 ilaa 200 xaraf.",
+    "errorCategory": "Dooro qayb liiska.",
+    "phoneProblem_empty": "Gali taleefan.",
+    "phoneProblem_letters": "Taleefanku wuxuu qaadan karaa xaraf.",
+    "phoneProblem_country": "Taleefanaha +252 keliya ayaa la oggolaa.",
+    "phoneProblem_length": "+252 waxay u baahan tahay 8 ilaa 9 tiro.",
+    "pendingTitle": "Ganacsigaagu wuxuu ku jiraa hubin",
+    "pendingBody": "{{name}} waa la diribiyay. Waxaan hubinaa liis kasta ka hor inta uu buugga ka muuqdo.",
+    "pendingStepReview": "Waxaan akhrinaa faahfaahinta aad diribisay.",
+    "pendingStepDecision": "Qof ka tirsan kooxda OmniHQ ayaa go’aaminaya ama wax u hagaajinaya.",
+    "pendingStepListed": "Marka la ansixo, ganacsigaagu wuxuu ka muuqdaa raadinta iyo bogga gaar ah.",
+    "goToDashboard": "Furi dashboard-ka",
+    "backHome": "Dib ugu noqo bogga hore"
   }
 }

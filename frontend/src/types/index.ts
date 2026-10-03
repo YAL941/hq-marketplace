@@ -562,6 +562,11 @@ export interface BusinessProfilePatch {
   businessDescription?: string | null;
   businessCategoryId?: number | null;
   phone?: string | null;
+  /**
+   * Sent as `whatsapp`, not as the column name: the route maps it to
+   * `whatsapp_number` and normalises it to E.164 like the phone.
+   */
+  whatsapp?: string | null;
   email?: string | null;
   website?: string | null;
   address?: string | null;
@@ -569,6 +574,102 @@ export interface BusinessProfilePatch {
   district?: string | null;
   logoUrl?: string | null;
   coverImageUrl?: string | null;
+}
+
+/**
+ * The body of a business registration.
+ *
+ * `businessCategoryId` is a **number** even though `category_id` arrives as a
+ * string everywhere else: the route validates it with `z.number().int()`.
+ * `phone` and `whatsapp` are sent as typed and normalised by the server, which
+ * is the copy of the rules in `lib/phone.ts` mirrored on the other side.
+ */
+export interface BusinessRegistrationInput {
+  businessName: string;
+  businessCategoryId?: number;
+  description?: string;
+  phone?: string;
+  whatsapp?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  district?: string;
+}
+
+/**
+ * The staff read of a business: `GET /api/business/:businessId`.
+ *
+ * This is the only read that returns a business which is not public yet. The
+ * public profile answers 404 for `pending` and `rejected`, so an owner opening
+ * their own dashboard has to come here or see nothing at all.
+ */
+export interface StaffBusinessProfile extends BusinessRecord {
+  /** Joined for display only; the id is `business_category_id`. */
+  category_name: string | null;
+  category_slug: string | null;
+  whatsapp_number: string | null;
+  /** Why it was rejected, or null. Only ever set by an admin decision. */
+  rejection_reason: string | null;
+  verified_at: string | null;
+}
+
+/** The three business states the admin queue can filter by. */
+export type AdminBusinessStatus = 'pending' | 'active' | 'rejected';
+
+/**
+ * One row of the admin verification queue.
+ *
+ * `owner_*` is who registered it: an admin's first question about an
+ * application is who is behind it, so the account's name and email travel with
+ * the row rather than needing a second lookup.
+ */
+export interface AdminBusinessRow {
+  business_id: Id;
+  business_name: string;
+  business_slug: string;
+  business_description: string | null;
+  category_name: string | null;
+  category_slug: string | null;
+  address: string | null;
+  city: string | null;
+  district: string | null;
+  phone: string | null;
+  whatsapp_number: string | null;
+  email: string | null;
+  status: AdminBusinessStatus;
+  verification_status: string;
+  is_verified: boolean;
+  rejection_reason: string | null;
+  verified_at: string | null;
+  created_at: string;
+  owner_user_id: Id | null;
+  owner_full_name: string | null;
+  owner_email: string | null;
+}
+
+/**
+ * What a verification decision returns.
+ *
+ * It is a summary on purpose: the admin asked to change the verification, not to
+ * read the business, so the rest of the row is not repeated here.
+ */
+export interface VerificationDecision {
+  business_id: Id;
+  business_name: string;
+  business_slug: string;
+  status: string;
+  verification_status: string;
+  is_verified: boolean;
+  verified_at: string | null;
+  rejection_reason: string | null;
+}
+
+/** The body of a decision. `reason` is required, and long enough, to reject. */
+export interface VerificationInput {
+  decision: 'approve' | 'reject';
+  reason?: string;
+  /** Re-deciding a business that already carries this decision is a 409. */
+  force?: boolean;
 }
 
 export interface BusinessRecord {

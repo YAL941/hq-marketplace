@@ -248,6 +248,17 @@ export function HomePage() {
               {t('home.ctaSecondary')}
             </Button>
           </div>
+          {/* For an account that already exists: signing up again is the wrong
+              instruction. This link works either way, because the listing page
+              sends an anonymous visitor to the login screen first and brings
+              them back here afterwards. */}
+          <button
+            type="button"
+            onClick={() => navigate('/list-your-business')}
+            className="mt-6 text-sm font-medium text-primary-600 hover:text-primary-700 underline underline-offset-4"
+          >
+            {t('home.ctaListBusiness')}
+          </button>
         </div>
       </section>
     </div>

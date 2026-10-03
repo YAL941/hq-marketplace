@@ -19,7 +19,8 @@
     "mainNavigation": "Main navigation",
     "dashboardNavigation": "Dashboard navigation",
     "toggleMenu": "Toggle menu",
-    "signUp": "Create an account"
+    "signUp": "Create an account",
+    "listYourBusiness": "List your business"
   },
   "language": {
     "label": "Language",
@@ -296,7 +297,8 @@
     "statsCategories_one": "{{count}} category",
     "statsCategories_other": "{{count}} categories",
     "statsCities_one": "{{count}} city",
-    "statsCities_other": "{{count}} cities"
+    "statsCities_other": "{{count}} cities",
+    "ctaListBusiness": "Already have an account? List your business"
   },
   "branches": {
     "title": "Branches",
@@ -496,5 +498,42 @@
     "service": "Service",
     "mixed": "Products and services",
     "booking": "Booking"
+  },
+  "listBusiness": {
+    "badge": "For businesses",
+    "title": "List your business",
+    "subtitle": "Add your business to the OmniHQ directory so customers can find you. We review every listing before it goes public.",
+    "businessName": "Business name",
+    "businessNameHint": "The name customers will see. You can change it later.",
+    "category": "Category",
+    "categoryAny": "Choose a category",
+    "categoryHint": "Optional, but a category is how people find you in search.",
+    "city": "City",
+    "cityHint": "Type your city. The suggestions are cities that already have a listed business.",
+    "district": "District",
+    "districtHint": "Optional.",
+    "address": "Street address",
+    "addressHint": "Optional. Where customers can find you.",
+    "phone": "Business phone",
+    "phoneHint": "The number customers call.",
+    "whatsapp": "WhatsApp",
+    "whatsappHint": "Optional. The number customers message.",
+    "description": "Short description",
+    "descriptionHint": "What you sell or do, in a sentence or two.",
+    "willStore": "Will be stored as:",
+    "submit": "Submit for review",
+    "errorName": "Enter a business name between 2 and 200 characters.",
+    "errorCategory": "Choose a category from the list.",
+    "phoneProblem_empty": "Enter a phone number.",
+    "phoneProblem_letters": "A phone number cannot contain letters.",
+    "phoneProblem_country": "Only +252 numbers are accepted.",
+    "phoneProblem_length": "A +252 number needs between 8 and 9 digits.",
+    "pendingTitle": "Your business is in review",
+    "pendingBody": "{{name}} has been submitted. We check every listing before it appears in the directory.",
+    "pendingStepReview": "We read the details you submitted.",
+    "pendingStepDecision": "A person on the OmniHQ team approves it or asks for a change.",
+    "pendingStepListed": "Once approved, your business appears in search and on its own page.",
+    "goToDashboard": "Open my dashboard",
+    "backHome": "Back to the home page"
   }
 }
