@@ -101,3 +101,21 @@ export function DashboardStatsSkeleton() {
     </div>
   );
 }
+
+/** Placeholder rows for a staff list, so the page does not jump when data lands. */
+export function TableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="space-y-3" aria-hidden="true">
+      {Array.from({ length: rows }, (_unused, index) => (
+        <div key={index} className="flex items-center gap-4 rounded-card border border-navy-200 p-4">
+          <Skeleton variant="rectangular" width={56} height={56} className="rounded-card" />
+          <div className="flex-1 space-y-2">
+            <Skeleton variant="text" width="35%" />
+            <Skeleton variant="text" width="55%" />
+          </div>
+          <Skeleton variant="text" width={80} className="hidden sm:block" />
+        </div>
+      ))}
+    </div>
+  );
+}

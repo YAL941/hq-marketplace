@@ -235,21 +235,6 @@ export interface Business {
   is_featured?: boolean;
 }
 
-export interface BusinessStatistics {
-  business_id: number;
-  total_orders: number;
-  completed_orders: number;
-  cancelled_orders: number;
-  pending_orders: number;
-  total_customers: number;
-  total_products: number;
-  total_services: number;
-  total_reviews: number;
-  average_rating: number;
-  total_revenue: number;
-  computed_at: string;
-}
-
 // Categories
 export interface BusinessCategory {
   category_id: number;
@@ -269,34 +254,14 @@ export interface BusinessCategory {
  */
 export type CategorySummary = PublicCategory;
 
-export interface Product {
-  product_id: number;
-  business_id: number;
-  category_id?: number;
-  product_name: string;
-  description?: string;
-  price: string;
-  discount_price?: string;
-  currency: string;
-  sku?: string;
-  image_url?: string;
-  stock_quantity: number;
-  is_stock_tracked: boolean;
-  status: 'draft' | 'active' | 'inactive' | 'archived';
-  rating_avg: string;
-  rating_count: number;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string;
-}
-
-export interface ProductListQuery {
-  status?: string;
-  categoryId?: number;
-  search?: string;
-  limit?: number;
-  offset?: number;
-}
+/**
+ * `Product`, `ProductInput`, `ProductListQuery`, `Service`, `ServiceInput`,
+ * `ServiceListQuery`, `Order`, `OrderItem`, `OrderDetail`, `OrderListQuery`,
+ * `BusinessReview`, `ReviewListQuery`, `BusinessStatistics`, `BusinessMember`
+ * and `Id`/`CatalogueStatus`/`OrderStatus` live in the owner dashboard block at
+ * the end of this file. They used to be declared here with `number` ids and
+ * `number` money, which does not match what the API actually sends.
+ */
 
 export interface CreateProductInput {
   productName: string;
@@ -311,34 +276,6 @@ export interface CreateProductInput {
 }
 
 // Services
-export interface Service {
-  service_id: number;
-  business_id: number;
-  service_category_id?: number;
-  location_id?: number;
-  service_name: string;
-  description?: string;
-  price: string;
-  currency: string;
-  duration_minutes?: number;
-  capacity?: number;
-  is_bookable: boolean;
-  status: 'draft' | 'active' | 'inactive' | 'archived';
-  rating_avg: string;
-  rating_count: number;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string;
-}
-
-export interface ServiceListQuery {
-  status?: string;
-  serviceCategoryId?: number;
-  search?: string;
-  limit?: number;
-  offset?: number;
-}
-
 export interface CreateServiceInput {
   serviceName: string;
   serviceCategoryId?: number | null;
@@ -353,46 +290,6 @@ export interface CreateServiceInput {
 }
 
 // Orders
-export interface Order {
-  order_id: number;
-  order_number: string;
-  business_id: number;
-  customer_id: number;
-  location_id?: number;
-  order_type: 'product' | 'service' | 'mixed' | 'booking';
-  order_status: 'pending' | 'confirmed' | 'in_progress' | 'ready' | 'out_for_delivery' | 'completed' | 'cancelled' | 'rejected' | 'refunded';
-  subtotal: string;
-  delivery_fee: string;
-  discount_amount: string;
-  tax_amount: string;
-  total_amount: string;
-  currency: string;
-  customer_note?: string;
-  delivery_address?: string;
-  scheduled_for?: string;
-  confirmed_at?: string;
-  completed_at?: string;
-  cancelled_at?: string;
-  cancellation_reason?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface OrderItem {
-  order_item_id: number;
-  order_id: number;
-  business_id: number;
-  product_id?: number;
-  service_id?: number;
-  item_type: 'product' | 'service';
-  item_name: string;
-  quantity: string;
-  unit_price: string;
-  total_price: string;
-  notes?: string;
-  created_at: string;
-}
-
 export interface CreateOrderInput {
   businessId: number;
   locationId?: number | null;
@@ -410,37 +307,7 @@ export interface CreateOrderInput {
   scheduledFor?: string | null;
 }
 
-export interface OrderListQuery {
-  orderStatus?: string;
-  customerId?: number;
-  limit?: number;
-  offset?: number;
-}
-
 // Reviews
-export interface Review {
-  review_id: number;
-  business_id: number;
-  user_id: number;
-  order_id?: number;
-  rating: number;
-  review_text?: string;
-  business_response?: string;
-  responded_at?: string;
-  status: 'pending' | 'published' | 'rejected' | 'hidden';
-  created_at: string;
-  updated_at: string;
-  user_full_name?: string;
-}
-
-export interface ReviewListQuery {
-  status?: string;
-  minRating?: number;
-  businessId?: number;
-  limit?: number;
-  offset?: number;
-}
-
 export interface CreateReviewInput {
   businessId: number;
   orderId?: number | null;
@@ -483,10 +350,196 @@ export interface CreateLocationInput {
   workingHours?: Record<string, string[]> | null;
 }
 
-// Business Members
+export interface AddMemberInput {
+  userId: number;
+  roleKey: 'business_owner' | 'business_manager' | 'business_employee';
+}
+
+// ---------------------------------------------------------------------------
+// Owner dashboard
+//
+// Every shape below mirrors a row the server actually returns. Amounts are
+// strings because the columns are NUMERIC: the driver hands them over as text
+// so that a value like 1234567890123456.78 is not silently rounded by a JS
+// double, and parsing them here would lose that. Money is formatted with
+// formatCurrency at the point of display, not on the way in.
+
+/** `bigint` columns arrive serialised, so ids stay strings. */
+export type Id = string;
+
+export type CatalogueStatus = 'draft' | 'active' | 'inactive' | 'archived';
+
+export interface Product {
+  product_id: Id;
+  business_id: Id;
+  category_id: Id | null;
+  product_name: string;
+  description: string | null;
+  price: string;
+  discount_price: string | null;
+  currency: string;
+  sku: string | null;
+  image_url: string | null;
+  stock_quantity: number;
+  is_stock_tracked: boolean;
+  status: CatalogueStatus;
+  rating_avg: string;
+  rating_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Service {
+  service_id: Id;
+  business_id: Id;
+  service_category_id: Id | null;
+  location_id: Id | null;
+  service_name: string;
+  description: string | null;
+  price: string;
+  currency: string;
+  duration_minutes: number | null;
+  capacity: number | null;
+  is_bookable: boolean;
+  status: CatalogueStatus;
+  rating_avg: string;
+  rating_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductInput {
+  productName: string;
+  categoryId?: number | null;
+  description?: string | null;
+  /** A number, not a string: the schema is `z.number().nonnegative()`. */
+  price: number;
+  currency?: string;
+  sku?: string | null;
+  imageUrl?: string | null;
+  stockQuantity?: number;
+  status?: CatalogueStatus;
+}
+
+export interface ServiceInput {
+  serviceName: string;
+  serviceCategoryId?: number | null;
+  locationId?: number | null;
+  description?: string | null;
+  price: number;
+  currency?: string;
+  durationMinutes?: number | null;
+  capacity?: number | null;
+  isBookable?: boolean;
+  status?: CatalogueStatus;
+}
+
+export type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'in_progress'
+  | 'ready'
+  | 'out_for_delivery'
+  | 'completed'
+  | 'cancelled'
+  | 'rejected'
+  | 'refunded';
+
+/** The only statuses the owner is allowed to move an order into. */
+export type SettableOrderStatus = Exclude<OrderStatus, 'pending' | 'refunded'>;
+
+export interface Order {
+  order_id: Id;
+  order_number: string;
+  business_id: Id;
+  customer_id: Id;
+  location_id: Id | null;
+  order_type: string;
+  order_status: OrderStatus;
+  subtotal: string;
+  delivery_fee: string;
+  discount_amount: string;
+  tax_amount: string;
+  total_amount: string;
+  currency: string;
+  customer_note: string | null;
+  delivery_address: string | null;
+  scheduled_for: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One line of an order.
+ *
+ * `item_name` is a copy the order took when it was placed, so a product deleted
+ * since then still shows its name on the order. The owning product or service is
+ * an id and nothing else: this endpoint does not join to either table.
+ */
+export interface OrderItem {
+  order_item_id: Id;
+  product_id: Id | null;
+  service_id: Id | null;
+  item_type: string;
+  item_name: string;
+  quantity: number;
+  unit_price: string;
+  total_price: string;
+  notes: string | null;
+}
+
+export interface OrderDetail {
+  order: Order;
+  items: OrderItem[];
+}
+
+export type ReviewStatus = 'pending' | 'published' | 'rejected' | 'hidden';
+
+/**
+ * A review as the owner's endpoint returns it.
+ *
+ * There is no reviewer name on this row: the endpoint selects `r.*`, and only
+ * the public endpoint reads `app_public_reviews()`, which is the one that
+ * publishes a display name. `user_id` is the only trace of who wrote it, and it
+ * is not a name, so the UI shows a neutral label instead of guessing one.
+ */
+export interface BusinessReview {
+  review_id: Id;
+  business_id: Id;
+  user_id: Id;
+  order_id: Id | null;
+  rating: number;
+  review_text: string | null;
+  business_response: string | null;
+  status: ReviewStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * The one row `business_statistics` holds.
+ *
+ * There is no time series here. Every chart a dashboard usually draws needs a
+ * series, so anything that plots one has no data behind it and is not rendered.
+ */
+export interface BusinessStatistics {
+  business_id: Id;
+  total_orders: number;
+  completed_orders: number;
+  cancelled_orders: number;
+  pending_orders: number;
+  total_customers: number;
+  total_products: number;
+  total_services: number;
+  total_reviews: number;
+  average_rating: string;
+  total_revenue: string;
+  computed_at: string;
+}
+
 export interface BusinessMember {
-  business_user_id: number;
-  user_id: number;
+  business_user_id: Id;
+  user_id: Id;
   full_name: string;
   email: string;
   role_key: string;
@@ -495,7 +548,78 @@ export interface BusinessMember {
   joined_at: string;
 }
 
-export interface AddMemberInput {
-  userId: number;
-  roleKey: 'business_owner' | 'business_manager' | 'business_employee';
+/** The subset of the business row the settings screen edits. */
+export interface BusinessProfilePatch {
+  businessName?: string;
+  businessDescription?: string | null;
+  businessCategoryId?: number | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  address?: string | null;
+  city?: string | null;
+  district?: string | null;
+  logoUrl?: string | null;
+  coverImageUrl?: string | null;
+}
+
+export interface BusinessRecord {
+  business_id: Id;
+  business_name: string;
+  business_slug: string;
+  business_description: string | null;
+  business_category_id: Id | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  address: string | null;
+  city: string | null;
+  district: string | null;
+  logo_url: string | null;
+  cover_image_url: string | null;
+  status: string;
+  is_verified: boolean;
+  verification_status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * The metadata every owner-scoped list returns.
+ *
+ * `count` is the length of the page that came back, not the size of the table.
+ * There is no total and no totalPages anywhere in these endpoints, so a pager
+ * can offer next and previous but cannot say how many pages there are.
+ */
+export interface StaffListMeta {
+  count: number;
+  businessId: Id;
+}
+
+export interface StaffListQuery {
+  limit?: number;
+  offset?: number;
+}
+
+export interface ProductListQuery extends StaffListQuery {
+  status?: CatalogueStatus;
+  categoryId?: number;
+  /** Named `search` by the server; `q` is rejected by its schema. */
+  search?: string;
+}
+
+export interface ServiceListQuery extends StaffListQuery {
+  status?: CatalogueStatus;
+  serviceCategoryId?: number;
+  search?: string;
+}
+
+export interface OrderListQuery extends StaffListQuery {
+  orderStatus?: OrderStatus;
+  customerId?: number;
+}
+
+export interface ReviewListQuery extends StaffListQuery {
+  status?: ReviewStatus;
+  minRating?: number;
 }

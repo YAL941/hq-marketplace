@@ -1,42 +1,51 @@
+import { useTranslation } from 'react-i18next';
 import { formatRelativeTime } from '../../lib/utils';
 import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
 import { RatingStars } from '../common/RatingStars';
-import { User, MessageSquare, Clock, CheckCircle } from 'lucide-react';
-import type { Review } from '../../types';
+import { User, MessageSquare, Clock } from 'lucide-react';
+import type { PublicReview } from '../../types';
 
 interface ReviewCardProps {
-  review: Review;
-  showBusiness?: boolean;
-  businessName?: string;
-  onRespond?: (reviewId: number) => void;
-  onModerate?: (reviewId: number, status: 'published' | 'hidden') => void;
+  /**
+   * A `PublicReview`, not the owner's `BusinessReview`.
+   *
+   * These are different rows. The public endpoint reads `app_public_reviews()`,
+   * which is the one view that carries `author_name` and `responded_at`. The
+   * owner's endpoint selects `r.*` and has neither, so this card cannot be fed
+   * from the dashboard without showing a blank author and a missing date.
+   */
+  review: PublicReview;
+  /** Shows the moderation controls. Only reachable from an owner surface. */
   isBusinessView?: boolean;
+  onRespond?: (reviewId: string) => void;
+  onModerate?: (reviewId: string, status: 'published' | 'hidden') => void;
 }
 
 export function ReviewCard({ review, onRespond, onModerate, isBusinessView = false }: ReviewCardProps) {
+  const { t } = useTranslation();
+
   return (
     <Card padding="md" className="relative">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-          <User className="w-5 h-5 text-primary-600" />
+        <div className="w-10 h-10 rounded-full bg-sky flex items-center justify-center flex-shrink-0">
+          <User className="w-5 h-5 text-primary-500" aria-hidden="true" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1">
             <h4 className="font-medium text-navy-900 truncate">
-              {review.user_full_name || 'Anonymous'}
+              {review.author_name || t('review.customer')}
             </h4>
             <RatingStars rating={review.rating} size="sm" />
           </div>
           <div className="flex items-center gap-3 text-sm text-navy-500 mb-2">
             <span className="flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" />
+              <Clock className="w-3.5 h-3.5" aria-hidden="true" />
               {formatRelativeTime(review.created_at)}
             </span>
             {review.responded_at && (
-              <span className="flex items-center gap-1 text-success-600">
-                <CheckCircle className="w-3.5 h-3.5" />
-                Responded {formatRelativeTime(review.responded_at)}
+              <span className="text-success-600">
+                {t('review.respondedOn', { date: formatRelativeTime(review.responded_at) })}
               </span>
             )}
           </div>
@@ -48,15 +57,17 @@ export function ReviewCard({ review, onRespond, onModerate, isBusinessView = fal
       )}
 
       {review.business_response && (
-        <div className="mt-4 p-3 bg-primary-50 rounded-sg border border-primary-100">
+        <div className="mt-4 p-3 bg-sky rounded-sg border border-primary-100">
           <div className="flex items-center gap-1.5 text-sm text-primary-700 mb-1">
-            <MessageSquare className="w-4 h-4" />
-            <span className="font-medium">Business Response:</span>
+            <MessageSquare className="w-4 h-4" aria-hidden="true" />
+            <span className="font-medium">{t('review.yourReply')}</span>
           </div>
-          <p className="text-primary-800">{review.business_response}</p>
-          <p className="text-xs text-primary-500 mt-1">
-            Responded {formatRelativeTime(review.responded_at!)}
-          </p>
+          <p className="text-navy-700">{review.business_response}</p>
+          {review.responded_at && (
+            <p className="text-xs text-navy-500 mt-1">
+              {t('review.respondedOn', { date: formatRelativeTime(review.responded_at) })}
+            </p>
+          )}
         </div>
       )}
 
@@ -68,13 +79,13 @@ export function ReviewCard({ review, onRespond, onModerate, isBusinessView = fal
                 onClick={() => onModerate?.(review.review_id, 'published')}
                 className="px-3 py-1.5 bg-success-500 text-white text-sm rounded-button hover:bg-success-600 transition-colors"
               >
-                Publish
+                {t('review.publish')}
               </button>
               <button
                 onClick={() => onModerate?.(review.review_id, 'hidden')}
-                className="px-3 py-1.5 bg-warning-500 text-white text-sm rounded-button hover:bg-warning-600 transition-colors"
+                className="px-3 py-1.5 bg-navy-200 text-navy-800 text-sm rounded-button hover:bg-navy-300 transition-colors"
               >
-                Hide
+                {t('review.hide')}
               </button>
             </>
           )}
@@ -83,18 +94,17 @@ export function ReviewCard({ review, onRespond, onModerate, isBusinessView = fal
               onClick={() => onRespond(review.review_id)}
               className="px-3 py-1.5 bg-primary-500 text-white text-sm rounded-button hover:bg-primary-600 transition-colors"
             >
-              Respond
+              {t('review.sendReply')}
             </button>
           )}
           <Badge
             variant={
               review.status === 'published' ? 'success' :
-              review.status === 'hidden' ? 'warning' :
               review.status === 'rejected' ? 'error' : 'default'
             }
             size="sm"
           >
-            {review.status}
+            {t(`reviewStatus.${review.status}`)}
           </Badge>
         </div>
       )}

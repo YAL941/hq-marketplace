@@ -1,8 +1,19 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import type {
   ApiResponse,
+  BusinessMember,
+  BusinessProfilePatch,
+  BusinessRecord,
+  BusinessReview,
+  BusinessStatistics,
   Location,
   LoginResponse,
+  Order,
+  OrderDetail,
+  OrderListQuery,
+  Product,
+  ProductInput,
+  ProductListQuery,
   PublicBusinessCard,
   PublicBusinessProfile,
   PublicCategory,
@@ -11,7 +22,30 @@ import type {
   PublicReview,
   RegisterPayload,
   RegisterResponse,
+  ReviewListQuery,
+  Service,
+  ServiceInput,
+  ServiceListQuery,
+  SettableOrderStatus,
 } from '../types';
+
+/**
+ * The page size the owner screens ask for.
+ *
+ * The staff list routes cap `limit` at 100, not 50. 20 is used because it keeps
+ * a page of cards inside one screen on a laptop; the cap itself is the server's
+ * business and is not duplicated here.
+ */
+const STAFF_PAGE_SIZE = 20;
+
+/** Strips undefined so axios omits the parameter instead of sending `undefined`. */
+function staffParams<T extends object>(query: T | undefined) {
+  const clean: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (value !== undefined && value !== '' && value !== null) clean[key] = value;
+  }
+  return { limit: STAFF_PAGE_SIZE, ...clean };
+}
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
@@ -74,8 +108,15 @@ export interface ApiErrorBody {
 }
 
 export interface FieldIssue {
-  /** Which input the message belongs to, when the server said. */
-  field?: 'identifier' | 'email' | 'phone' | 'password' | 'fullName' | 'businessName' | 'terms';
+  /**
+   * Which input the message belongs to, when the server said.
+   *
+   * Typed as `string` rather than a fixed union: the auth schema names
+   * `identifier`, the business schema names `businessName`, and the catalogue
+   * schemas name neither, so a union here would need a new member per form and
+   * would silently drop the field a future endpoint reports.
+   */
+  field?: string;
   /** Server code, e.g. CONFLICT / BAD_REQUEST / UNAUTHORIZED. */
   code?: string;
   status?: number;
@@ -202,17 +243,26 @@ export const businessApi = {
    */
   list: (query: PublicDirectoryQuery = {}) => businessApi.listPublic(query),
 
+  /**
+   * GET /business/:businessId/statistics — the one row `business_statistics`
+   * holds. It refreshes the cache on read, so `computed_at` is when the numbers
+   * were calculated, which is shown next to them rather than hidden.
+   */
   getStatistics: (businessId: number) =>
-    api.get<ApiResponse<any>>(`/business/${businessId}/statistics`),
+    api.get<ApiResponse<BusinessStatistics>>(`/business/${businessId}/statistics`),
 
   getMembers: (businessId: number) =>
-    api.get<ApiResponse<any[]>>(`/business/${businessId}/members`),
+    api.get<ApiResponse<BusinessMember[]>>(`/business/${businessId}/members`),
 
   addMember: (businessId: number, data: { userId: number; roleKey: string }) =>
-    api.post<ApiResponse<any>>(`/business/${businessId}/members`, data),
+    api.post<ApiResponse<BusinessMember>>(`/business/${businessId}/members`, data),
 
-  update: (businessId: number, data: Record<string, any>) =>
-    api.patch<ApiResponse<any>>(`/business/${businessId}`, data),
+  /** PATCH /business/:businessId — partial update, empty fields rejected. */
+  update: (businessId: number, data: BusinessProfilePatch) =>
+    api.patch<ApiResponse<BusinessRecord>>(`/business/${businessId}`, data),
+
+  get: (businessId: number) =>
+    api.get<ApiResponse<BusinessRecord>>(`/business/${businessId}`),
 };
 
 /** Reference data for the public directory. No authentication. */
@@ -226,116 +276,99 @@ export const directoryApi = {
 
 // Products API
 export const productApi = {
-  listPublic: (params?: {
-    status?: string;
-    categoryId?: number;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  }) => api.get<ApiResponse<any[]>>('/products', { params }),
+  /** GET /products — the public catalogue. Anonymous. */
+  listPublic: (params?: ProductListQuery) =>
+    api.get<ApiResponse<Product[]>>('/products', { params }),
 
-  listForBusiness: (businessId: number, params?: {
-    status?: string;
-    categoryId?: number;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  }) => api.get<ApiResponse<any[]>>(`/business/${businessId}/products`, { params }),
+  listForBusiness: (businessId: number, params?: ProductListQuery) =>
+    api.get<ApiResponse<Product[]>>(`/business/${businessId}/products`, { params: staffParams(params) }),
 
   getForBusiness: (businessId: number, productId: number) =>
-    api.get<ApiResponse<any>>(`/business/${businessId}/products/${productId}`),
+    api.get<ApiResponse<Product>>(`/business/${businessId}/products/${productId}`),
 
-  create: (businessId: number, data: any) =>
-    api.post<ApiResponse<any>>(`/business/${businessId}/products`, data),
+  create: (businessId: number, data: ProductInput) =>
+    api.post<ApiResponse<Product>>(`/business/${businessId}/products`, data),
 
-  update: (businessId: number, productId: number, data: any) =>
-    api.patch<ApiResponse<any>>(`/business/${businessId}/products/${productId}`, data),
+  update: (businessId: number, productId: number, data: Partial<ProductInput>) =>
+    api.patch<ApiResponse<Product>>(`/business/${businessId}/products/${productId}`, data),
 
-  delete: (businessId: number, productId: number) =>
+  /**
+   * DELETE is an archive, not a destroy: the route calls `archiveProduct`, so
+   * the row survives with `status = 'archived'` and can be filtered out of the
+   * public catalogue instead of vanishing from past orders.
+   */
+  archive: (businessId: number, productId: number) =>
     api.delete(`/business/${businessId}/products/${productId}`),
 };
 
 // Services API
 export const serviceApi = {
-  listPublic: (params?: {
-    status?: string;
-    serviceCategoryId?: number;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  }) => api.get<ApiResponse<any[]>>('/services', { params }),
+  listPublic: (params?: ServiceListQuery) =>
+    api.get<ApiResponse<Service[]>>('/services', { params }),
 
-  listForBusiness: (businessId: number, params?: {
-    status?: string;
-    serviceCategoryId?: number;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  }) => api.get<ApiResponse<any[]>>(`/business/${businessId}/services`, { params }),
+  listForBusiness: (businessId: number, params?: ServiceListQuery) =>
+    api.get<ApiResponse<Service[]>>(`/business/${businessId}/services`, { params: staffParams(params) }),
 
   getForBusiness: (businessId: number, serviceId: number) =>
-    api.get<ApiResponse<any>>(`/business/${businessId}/services/${serviceId}`),
+    api.get<ApiResponse<Service>>(`/business/${businessId}/services/${serviceId}`),
 
-  create: (businessId: number, data: any) =>
-    api.post<ApiResponse<any>>(`/business/${businessId}/services`, data),
+  create: (businessId: number, data: ServiceInput) =>
+    api.post<ApiResponse<Service>>(`/business/${businessId}/services`, data),
 
-  update: (businessId: number, serviceId: number, data: any) =>
-    api.patch<ApiResponse<any>>(`/business/${businessId}/services/${serviceId}`, data),
+  update: (businessId: number, serviceId: number, data: Partial<ServiceInput>) =>
+    api.patch<ApiResponse<Service>>(`/business/${businessId}/services/${serviceId}`, data),
 };
 
 // Orders API
 export const orderApi = {
-  create: (data: any) =>
-    api.post<ApiResponse<any>>('/orders', data),
+  /** POST /orders — a customer places an order. */
+  create: (data: {
+    businessId: number;
+    items: Array<{ productId?: number; serviceId?: number; quantity?: number }>;
+    locationId?: number | null;
+    customerNote?: string | null;
+    deliveryAddress?: string | null;
+    deliveryFee?: number;
+    discountAmount?: number;
+    taxAmount?: number;
+    currency?: string;
+  }) => api.post<ApiResponse<Order>>('/orders', data),
 
-  listMine: () =>
-    api.get<ApiResponse<any[]>>('/orders/mine'),
+  listMine: () => api.get<ApiResponse<Order[]>>('/orders/mine'),
 
-  getMine: (orderId: number) =>
-    api.get<ApiResponse<any>>(`/orders/mine/${orderId}`),
+  getMine: (orderId: number) => api.get<ApiResponse<OrderDetail>>(`/orders/mine/${orderId}`),
 
   cancelMine: (orderId: number, reason?: string) =>
-    api.post<ApiResponse<any>>(`/orders/mine/${orderId}/cancel`, { reason }),
+    api.post<ApiResponse<Order>>(`/orders/mine/${orderId}/cancel`, { reason }),
 
-  listForBusiness: (businessId: number, params?: {
-    orderStatus?: string;
-    customerId?: number;
-    limit?: number;
-    offset?: number;
-  }) => api.get<ApiResponse<any[]>>(`/business/${businessId}/orders`, { params }),
+  listForBusiness: (businessId: number, params?: OrderListQuery) =>
+    api.get<ApiResponse<Order[]>>(`/business/${businessId}/orders`, { params: staffParams(params) }),
 
+  /** The detail response carries the order and its lines together. */
   getForBusiness: (businessId: number, orderId: number) =>
-    api.get<ApiResponse<any>>(`/business/${businessId}/orders/${orderId}`),
+    api.get<ApiResponse<OrderDetail>>(`/business/${businessId}/orders/${orderId}`),
 
-  updateStatus: (businessId: number, orderId: number, orderStatus: string) =>
-    api.patch<ApiResponse<any>>(`/business/${businessId}/orders/${orderId}/status`, { orderStatus }),
+  /** Only the seven settable statuses are accepted by the route's schema. */
+  updateStatus: (businessId: number, orderId: number, orderStatus: SettableOrderStatus) =>
+    api.patch<ApiResponse<Order>>(`/business/${businessId}/orders/${orderId}/status`, { orderStatus }),
 };
 
 // Reviews API
 export const reviewApi = {
-  create: (data: any) =>
-    api.post<ApiResponse<any>>('/reviews', data),
+  create: (data: { businessId: number; orderId?: number | null; rating: number; reviewText?: string | null }) =>
+    api.post<ApiResponse<BusinessReview>>('/reviews', data),
 
-  listPublic: (params?: {
-    status?: string;
-    minRating?: number;
-    businessId?: number;
-    limit?: number;
-    offset?: number;
-  }) => api.get<ApiResponse<any[]>>('/reviews', { params }),
+  listPublic: (params?: ReviewListQuery & { businessId?: number }) =>
+    api.get<ApiResponse<BusinessReview[]>>('/reviews', { params }),
 
-  listForBusiness: (businessId: number, params?: {
-    status?: string;
-    minRating?: number;
-    limit?: number;
-    offset?: number;
-  }) => api.get<ApiResponse<any[]>>(`/business/${businessId}/reviews`, { params }),
+  listForBusiness: (businessId: number, params?: ReviewListQuery) =>
+    api.get<ApiResponse<BusinessReview[]>>(`/business/${businessId}/reviews`, { params: staffParams(params) }),
 
   respond: (businessId: number, reviewId: number, response: string) =>
-    api.post<ApiResponse<any>>(`/business/${businessId}/reviews/${reviewId}/respond`, { response }),
+    api.post<ApiResponse<BusinessReview>>(`/business/${businessId}/reviews/${reviewId}/respond`, { response }),
 
   moderate: (businessId: number, reviewId: number, status: 'published' | 'hidden') =>
-    api.patch<ApiResponse<any>>(`/business/${businessId}/reviews/${reviewId}/moderate`, { status }),
+    api.patch<ApiResponse<BusinessReview>>(`/business/${businessId}/reviews/${reviewId}/moderate`, { status }),
 };
 
 // Locations API
@@ -350,7 +383,7 @@ export const locationApi = {
     api.patch<ApiResponse<any>>(`/business/${businessId}/locations/${locationId}`, data),
 
   listPublic: (businessId: number) =>
-    api.get<ApiResponse<any[]>>(`/businesses/${businessId}/locations`),
+    api.get<ApiResponse<Location[]>>(`/businesses/${businessId}/locations`),
 };
 
 export default api;

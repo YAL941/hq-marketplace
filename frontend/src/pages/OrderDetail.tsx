@@ -1,160 +1,246 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { orderApi } from '../services/api';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Package, MapPin, StickyNote, Clock } from 'lucide-react';
 import { Card } from '../components/common/Card';
+import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
-import type { BadgeVariant } from '../components/common/Badge';
-import { ErrorState } from '../components/common/ErrorState';
-import { ArrowLeft, Package, Truck, User, MapPin } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
-import { cn, formatCurrency, formatRelativeTime } from '../lib/utils';
+import { EmptyState } from '../components/common/EmptyState';
+import { Skeleton } from '../components/common/Skeleton';
+import { orderApi, toFieldIssue, type FieldIssue } from '../services/api';
+import { formatCurrency, formatDateTime } from '../lib/utils';
+import type { OrderDetail, OrderStatus, SettableOrderStatus } from '../types';
 
-const statusColors: Record<string, BadgeVariant> = {
+/**
+ * The statuses the status endpoint accepts.
+ *
+ * `pending` is missing on purpose: the customer owns that state and the route's
+ * schema does not accept it as a target. `refunded` is missing for the same
+ * reason. Offering either would be a 400 waiting to happen.
+ */
+const SETTABLE: SettableOrderStatus[] = [
+  'confirmed', 'in_progress', 'ready', 'out_for_delivery',
+  'completed', 'cancelled', 'rejected',
+];
+
+const STATUS_VARIANT: Record<OrderStatus, 'default' | 'info' | 'success' | 'warning' | 'danger'> = {
   pending: 'warning',
   confirmed: 'info',
   in_progress: 'info',
   ready: 'info',
   out_for_delivery: 'info',
   completed: 'success',
-  cancelled: 'error',
-  rejected: 'error',
-  refunded: 'warning',
+  cancelled: 'danger',
+  rejected: 'danger',
+  refunded: 'default',
 };
 
+/**
+ * One order, its lines and its status.
+ *
+ * The items come from the same response as the order, so they are shown as they
+ * were when the order was placed: `item_name` is a copy, which is why a product
+ * deleted since then still has a name here.
+ */
 export function OrderDetailPage() {
-  const { currentBusiness } = useAuth();
-  const { orderId } = useParams<{ orderId: string }>();
-  const [orderData, setOrderData] = useState<any>(null);
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const params = useParams<{ businessId: string; orderId: string }>();
+  const businessId = Number(params.businessId);
+  const orderId = Number(params.orderId);
+
+  const [data, setData] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [issue, setIssue] = useState<FieldIssue | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadFailed(false);
+    try {
+      const res = await orderApi.getForBusiness(businessId, orderId);
+      setData(res.data.data);
+    } catch {
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId, orderId]);
 
   useEffect(() => {
-    if (!currentBusiness || !orderId) return;
-    const fetchOrder = async () => {
-      try {
-        const res = await orderApi.getForBusiness(currentBusiness.business_id, parseInt(orderId));
-        setOrderData(res.data.data);
-      } catch (err) {
-        setError('Failed to load order');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchOrder();
-  }, [currentBusiness, orderId]);
+    void load();
+  }, [load]);
 
-  const handleStatusUpdate = async (newStatus: string) => {
-    if (!currentBusiness || !orderId) return;
-    setUpdatingStatus(true);
+  const changeStatus = async (next: SettableOrderStatus) => {
+    setSaving(true);
+    setIssue(null);
     try {
-      await orderApi.updateStatus(currentBusiness.business_id, parseInt(orderId), newStatus);
-      const res = await orderApi.getForBusiness(currentBusiness.business_id, parseInt(orderId));
-      setOrderData(res.data.data);
-    } catch (err: any) {
-      alert(err.response?.data?.error?.message || 'Failed to update status');
+      const res = await orderApi.updateStatus(businessId, orderId, next);
+      // The status endpoint returns the whole order, so the badge updates from
+      // the server's answer rather than from what was requested.
+      setData((prev) => (prev ? { ...prev, order: res.data.data } : prev));
+    } catch (error) {
+      setIssue(toFieldIssue(error));
     } finally {
-      setUpdatingStatus(false);
+      setSaving(false);
     }
   };
 
-  if (!currentBusiness) return <ErrorState message="No business selected" />;
-  if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-4 border-primary-600 border-t-transparent" /></div>;
-  if (error || !orderData) return <ErrorState message={error || 'Order not found'} />;
+  if (loadFailed) {
+    return (
+      <EmptyState
+        icon={<Package className="w-8 h-8" />}
+        title={t('order.notFoundTitle')}
+        action={
+          <Button variant="outline" onClick={() => navigate('/dashboard/orders')}>
+            {t('order.backToList')}
+          </Button>
+        }
+      />
+    );
+  }
 
-  const { order, items } = orderData;
+  if (loading || !data) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} variant="rectangular" height={90} />
+        ))}
+      </div>
+    );
+  }
+
+  const { order, items } = data;
+  const currentIsSettable = (SETTABLE as string[]).includes(order.order_status);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <Link to="/dashboard/orders" className="inline-flex items-center gap-2 text-navy-600 hover:text-navy-900 mb-4">
-          <ArrowLeft className="w-4 h-4" /> Back to Orders
-        </Link>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-navy-900">Order {order.order_number}</h1>
-            <p className="text-navy-500">{formatRelativeTime(order.created_at)}</p>
-          </div>
-          <Badge variant={statusColors[order.order_status] || 'default'} size="lg">
-            {order.order_status.replace('_', ' ')}
-          </Badge>
-        </div>
+    <div>
+      <button
+        type="button"
+        onClick={() => navigate('/dashboard/orders')}
+        className="inline-flex items-center gap-1 text-sm text-navy-500 hover:text-navy-900 mb-4"
+      >
+        <ArrowLeft className="w-4 h-4 rtl:rotate-180" aria-hidden="true" />
+        {t('order.backToList')}
+      </button>
+
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-navy-900">{order.order_number}</h1>
+        <Badge variant={STATUS_VARIANT[order.order_status]} size="sm">
+          {t(`orderStatus.${order.order_status}`)}
+        </Badge>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <h3 className="text-lg font-semibold text-navy-900 mb-4">Order Items</h3>
-            <div className="space-y-3">
-              {items.map((item: any) => (
-                <div key={item.order_item_id} className="flex items-center justify-between p-3 bg-navy-50 rounded-button">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-sg bg-primary-100 flex items-center justify-center">
-                      {item.item_type === 'product' ? <Package className="w-5 h-5 text-primary-600" /> : <Truck className="w-5 h-5 text-success-600" />}
-                    </div>
-                    <div>
+          <Card className="p-5">
+            <h2 className="font-semibold text-navy-900 mb-4">{t('order.items')}</h2>
+            {items.length === 0 ? (
+              <p className="text-sm text-navy-500">{t('order.noItems')}</p>
+            ) : (
+              <ul className="divide-y divide-navy-100">
+                {items.map((item) => (
+                  <li key={item.order_item_id} className="py-3 flex items-start gap-4">
+                    <div className="flex-1 min-w-0">
                       <p className="font-medium text-navy-900">{item.item_name}</p>
-                      <p className="text-sm text-navy-500">Qty: {item.quantity} x {formatCurrency(item.unit_price, order.currency)}</p>
+                      <p className="text-sm text-navy-500">
+                        {t('order.quantityAndUnit', {
+                          quantity: item.quantity,
+                          price: formatCurrency(item.unit_price, order.currency),
+                        })}
+                      </p>
+                      {item.notes && (
+                        <p className="text-xs text-navy-400 mt-1">{item.notes}</p>
+                      )}
                     </div>
-                  </div>
-                  <p className="font-semibold text-navy-900">{formatCurrency(item.total_price, order.currency)}</p>
-                </div>
-              ))}
-            </div>
+                    <p className="font-medium text-navy-900">
+                      {formatCurrency(item.total_price, order.currency)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
 
-          {order.customer_note && (
-            <Card>
-              <h3 className="text-lg font-semibold text-navy-900 mb-2">Customer Note</h3>
-              <p className="text-navy-700">{order.customer_note}</p>
+          {(order.delivery_address || order.customer_note || order.scheduled_for) && (
+            <Card className="p-5">
+              <h2 className="font-semibold text-navy-900 mb-4">{t('order.details')}</h2>
+              <dl className="space-y-3 text-sm">
+                {order.delivery_address && (
+                  <div className="flex gap-2">
+                    <dt className="shrink-0"><MapPin className="w-4 h-4 text-navy-400" aria-hidden="true" /></dt>
+                    <dd className="text-navy-700">{order.delivery_address}</dd>
+                  </div>
+                )}
+                {order.customer_note && (
+                  <div className="flex gap-2">
+                    <dt className="shrink-0"><StickyNote className="w-4 h-4 text-navy-400" aria-hidden="true" /></dt>
+                    <dd className="text-navy-700">{order.customer_note}</dd>
+                  </div>
+                )}
+                {order.scheduled_for && (
+                  <div className="flex gap-2">
+                    <dt className="shrink-0"><Clock className="w-4 h-4 text-navy-400" aria-hidden="true" /></dt>
+                    <dd className="text-navy-700">{formatDateTime(order.scheduled_for)}</dd>
+                  </div>
+                )}
+              </dl>
             </Card>
           )}
         </div>
 
         <div className="space-y-6">
-          <Card>
-            <h3 className="text-lg font-semibold text-navy-900 mb-4">Order Summary</h3>
+          <Card className="p-5">
+            <h2 className="font-semibold text-navy-900 mb-4">{t('order.totals')}</h2>
             <dl className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-navy-500">Subtotal</span><span className="text-navy-900">{formatCurrency(order.subtotal, order.currency)}</span></div>
-              <div className="flex justify-between"><span className="text-navy-500">Delivery Fee</span><span className="text-navy-900">{formatCurrency(order.delivery_fee, order.currency)}</span></div>
-              {parseFloat(order.discount_amount) > 0 && (
-                <div className="flex justify-between"><span className="text-navy-500">Discount</span><span className="text-navy-900">-{formatCurrency(order.discount_amount, order.currency)}</span></div>
-              )}
-              <div className="flex justify-between"><span className="text-navy-500">Tax</span><span className="text-navy-900">{formatCurrency(order.tax_amount, order.currency)}</span></div>
-              <div className="flex justify-between pt-2 border-t border-navy-200 font-semibold"><span>Total</span><span className="text-navy-900">{formatCurrency(order.total_amount, order.currency)}</span></div>
+              {[
+                ['subtotal', order.subtotal],
+                ['deliveryFee', order.delivery_fee],
+                ['discountAmount', order.discount_amount],
+                ['taxAmount', order.tax_amount],
+              ].map(([key, amount]) => (
+                <div key={key} className="flex justify-between">
+                  <dt className="text-navy-500">{t(`order.${key}`)}</dt>
+                  <dd className="text-navy-900">{formatCurrency(amount, order.currency)}</dd>
+                </div>
+              ))}
+              <div className="flex justify-between pt-2 border-t border-navy-200 font-semibold">
+                <dt className="text-navy-900">{t('order.total')}</dt>
+                <dd className="text-navy-900">{formatCurrency(order.total_amount, order.currency)}</dd>
+              </div>
             </dl>
           </Card>
 
-          <Card>
-            <h3 className="text-lg font-semibold text-navy-900 mb-4">Customer Info</h3>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center"><User className="w-5 h-5 text-primary-600" /></div>
-              <div><p className="font-medium text-navy-900">Customer #{order.customer_id}</p></div>
-            </div>
-            {order.delivery_address && (
-              <div className="flex items-start gap-2 text-sm text-navy-600"><MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" /><span>{order.delivery_address}</span></div>
-            )}
-          </Card>
+          <Card className="p-5">
+            <h2 className="font-semibold text-navy-900 mb-1">{t('order.changeStatus')}</h2>
+            <p className="text-xs text-navy-500 mb-4">{t('order.statusHint')}</p>
 
-          <Card>
-            <h3 className="text-lg font-semibold text-navy-900 mb-4">Update Status</h3>
-            <div className="flex flex-wrap gap-2">
-              {['confirmed', 'in_progress', 'ready', 'out_for_delivery', 'completed', 'cancelled', 'rejected'].map((status) => (
-                <button
-                  key={status}
-                  onClick={() => handleStatusUpdate(status)}
-                  disabled={updatingStatus || order.order_status === status}
-                  className={cn(
-                    'px-3 py-1.5 text-xs font-medium rounded-button transition-colors',
-                    order.order_status === status
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-navy-100 text-navy-700 hover:bg-navy-200 disabled:opacity-50'
-                  )}
-                >
-                  {status.replace('_', ' ')}
-                </button>
-              ))}
-            </div>
+            {issue && (
+              <p className="mb-3 p-3 bg-error-50 border border-error-200 rounded-button text-error-700 text-sm" role="alert">
+                {issue.message || t('common.saveFailed')}
+              </p>
+            )}
+
+            {!currentIsSettable ? (
+              <p className="text-sm text-navy-500">{t('order.statusLocked')}</p>
+            ) : (
+              <div className="space-y-2">
+                {SETTABLE.map((value) => (
+                  <Button
+                    key={value}
+                    variant={value === order.order_status ? 'primary' : 'outline'}
+                    size="sm"
+                    className="w-full"
+                    loading={saving && value === order.order_status}
+                    disabled={saving || value === order.order_status}
+                    onClick={() => void changeStatus(value)}
+                  >
+                    {t(`orderStatus.${value}`)}
+                  </Button>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
       </div>

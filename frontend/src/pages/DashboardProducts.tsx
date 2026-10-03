@@ -1,144 +1,224 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { productApi } from '../services/api';
-import { ProductCard } from '../components/business/ProductCard';
-import { BusinessCardSkeleton } from '../components/common/Skeleton';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Package, Plus, Pencil, Search } from 'lucide-react';
 import { Button } from '../components/common/Button';
-import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
-import { Plus, Search, Edit, Trash2, Package } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { EmptyState } from '../components/common/EmptyState';
+import { Badge } from '../components/common/Badge';
+import { OffsetPagerView, StaffListLayout, useOffsetPager } from '../components/common/OffsetPager';
+import { productApi } from '../services/api';
+import { formatCurrency, formatDate } from '../lib/utils';
+import type { CatalogueStatus, Product } from '../types';
 
+const PAGE_SIZE = 20;
+const STATUSES: Array<CatalogueStatus | ''> = ['', 'draft', 'active', 'inactive', 'archived'];
+
+/**
+ * The owner's product list.
+ *
+ * The filter box maps to the server's `search` parameter. It is not `q`: the
+ * staff list schema names it `search`, and sending `q` is silently dropped, so
+ * the search would look broken rather than fail loudly.
+ */
 export function DashboardProductsPage() {
-  const { currentBusiness } = useAuth();
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const businessId = Number(useParams().businessId);
+
+  const [items, setItems] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [status, setStatus] = useState<CatalogueStatus | ''>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const pager = useOffsetPager(PAGE_SIZE, { filterKey: `${search}|${status}` });
+
+  const load = useCallback(async () => {
+    if (!businessId) return;
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await productApi.listForBusiness(businessId, {
+        limit: PAGE_SIZE,
+        offset: pager.offset,
+        search: search.trim() || undefined,
+        status: status || undefined,
+      });
+      setItems(res.data.data);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId, pager.offset, search, status]);
 
   useEffect(() => {
-    if (!currentBusiness) return;
-    const fetchProducts = async () => {
-      setLoading(true);
-      try {
-        const response = await productApi.listForBusiness(currentBusiness.business_id, {
-          search: search || undefined,
-          status: statusFilter || undefined,
-          limit: 50,
-        });
-        setProducts(response.data.data);
-      } catch (error) {
-        console.error('Failed to fetch products:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, [currentBusiness, search, statusFilter]);
+    void load();
+  }, [load]);
 
-  const handleDelete = async (productId: number) => {
-    if (!confirm('Are you sure you want to archive this product?')) return;
+  /** Any filter change starts again at the first page. */
+  const onSearchChange = (value: string) => {
+    pager.reset();
+    setSearch(value);
+  };
+
+  const onStatusChange = (value: string) => {
+    pager.reset();
+    setStatus(value as CatalogueStatus | '');
+  };
+
+  const archive = async (product: Product) => {
+    setBusyId(product.product_id);
     try {
-      await productApi.delete(currentBusiness!.business_id, productId);
-      setProducts(products.filter(p => p.product_id !== productId));
-    } catch (error) {
-      alert('Failed to delete product');
+      await productApi.archive(businessId, product.product_id);
+      // The row survives as archived, so the page is reloaded rather than the
+      // item being spliced out: a stale list would still be showing it.
+      await load();
+    } finally {
+      setBusyId(null);
     }
   };
 
-  if (!currentBusiness) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-16">
-          <Package className="w-16 h-16 text-navy-300 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-navy-900 mb-2">No Business Selected</h1>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-navy-900">Products</h1>
-          <p className="text-navy-500">Manage your product catalog</p>
-        </div>
-        <Link to="/dashboard/products/create">
-          <Button>
-            <Plus className="w-4 h-4 me-2" />
-            Add Product
-          </Button>
-        </Link>
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-navy-900">{t('product.title')}</h1>
+        <Button onClick={() => navigate(`/dashboard/business/${businessId}/products/new`)}>
+          <Plus className="w-4 h-4" aria-hidden="true" />
+          {t('product.create')}
+        </Button>
       </div>
 
-      <Card>
-        <div className="flex flex-col sm:flex-row gap-4 mb-4 p-4 border-b border-navy-200">
-          <Input
-            placeholder="Search products..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 max-w-md"
-            leftIcon={<Search className="w-5 h-5 text-navy-400" />}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <label htmlFor="product-search" className="sr-only">{t('product.search')}</label>
+          <Search
+            className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-navy-400"
+            aria-hidden="true"
           />
+          <input
+            id="product-search"
+            type="search"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={t('product.search')}
+            className="w-full ps-12 pe-4 py-2.5 rounded-button border border-navy-300 bg-white text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
+        </div>
+        <div>
+          <label htmlFor="product-status-filter" className="sr-only">{t('product.status')}</label>
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-navy-300 rounded-button text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-full sm:w-48"
+            id="product-status-filter"
+            value={status}
+            onChange={(e) => onStatusChange(e.target.value)}
+            className="w-full sm:w-auto rounded-button border border-navy-300 px-3 py-2.5 bg-white text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="inactive">Inactive</option>
-            <option value="archived">Archived</option>
+            {STATUSES.map((value) => (
+              <option key={value || 'all'} value={value}>
+                {value ? t(`status.${value}`) : t('product.allStatuses')}
+              </option>
+            ))}
           </select>
         </div>
+      </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-4">
-            {[...Array(8)].map((_, i) => <BusinessCardSkeleton key={i} />)}
-          </div>
-        ) : products.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-4">
-            {products.map((product) => (
-              <div key={product.product_id} className="relative group">
-                <ProductCard
-                  product={product}
-                  showBusiness={false}
-                />
-                <div className="absolute top-2 end-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                  <button
-                    onClick={() => window.location.href = `/dashboard/products/${product.product_id}/edit`}
-                    className="p-2 bg-white rounded-button shadow-card hover:bg-navy-50 transition-colors"
-                    aria-label="Edit product"
+      <StaffListLayout
+        loading={loading}
+        error={error}
+        isEmpty={items.length === 0}
+        onRetry={() => void load()}
+        empty={
+          <EmptyState
+            icon={<Package className="w-8 h-8" />}
+            title={t('product.emptyTitle')}
+            description={t('product.emptyBody')}
+            action={
+              <Button onClick={() => navigate(`/dashboard/business/${businessId}/products/new`)}>
+                {t('product.create')}
+              </Button>
+            }
+          />
+        }
+      >
+        <div className="space-y-3">
+          {items.map((product) => (
+            <Card key={product.product_id} padding="none" className="p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="w-14 h-14 rounded-card bg-navy-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {product.image_url ? (
+                    <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <Package className="w-6 h-6 text-navy-400" aria-hidden="true" />
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold text-navy-900 truncate">{product.product_name}</h3>
+                    <Badge variant={product.status === 'active' ? 'success' : 'default'} size="sm">
+                      {t(`status.${product.status}`)}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-navy-500 mt-0.5">
+                    {product.sku ? `${t('product.sku')}: ${product.sku}` : t('product.noSku')}
+                  </p>
+                  <p className="text-xs text-navy-400 mt-0.5">
+                    {t('product.addedOn', { date: formatDate(product.created_at) })}
+                  </p>
+                </div>
+
+                <div className="text-end">
+                  <p className="font-semibold text-navy-900">
+                    {formatCurrency(product.price, product.currency)}
+                  </p>
+                  {product.is_stock_tracked && (
+                    <p className="text-xs text-navy-500">
+                      {t('product.stockCount', { count: product.stock_quantity })}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      navigate(`/dashboard/business/${businessId}/products/${product.product_id}/edit`)
+                    }
                   >
-                    <Edit className="w-4 h-4 text-navy-600" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(product.product_id)}
-                    className="p-2 bg-white rounded-button shadow-card hover:bg-error-50 text-error-600 transition-colors"
-                    aria-label="Delete product"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    <Pencil className="w-4 h-4" aria-hidden="true" />
+                    {t('common.edit')}
+                  </Button>
+                  {product.status !== 'archived' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      loading={busyId === product.product_id}
+                      onClick={() => void archive(product)}
+                    >
+                      {t('common.archive')}
+                    </Button>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <Package className="w-16 h-16 text-navy-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-navy-900 mb-2">No products yet</h3>
-            <p className="text-navy-500 mb-6">Start adding products to your catalog</p>
-            <Link to="/dashboard/products/create">
-              <Button>
-                <Plus className="w-4 h-4 me-2" />
-                Add Your First Product
-              </Button>
-            </Link>
-          </div>
-        )}
-      </Card>
+            </Card>
+          ))}
+        </div>
+
+        <OffsetPagerView
+          pager={pager}
+          returned={items.length}
+          pageSize={PAGE_SIZE}
+          disabled={loading}
+        />
+      </StaffListLayout>
+
+      <p className="mt-4 text-xs text-navy-400">
+        <Link to="/dashboard/services" className="hover:text-navy-600">
+          {t('product.servicesInstead')}
+        </Link>
+      </p>
     </div>
   );
 }

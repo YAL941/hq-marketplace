@@ -1,144 +1,195 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { serviceApi } from '../services/api';
-import { ServiceCard } from '../components/business/ServiceCard';
-import { BusinessCardSkeleton } from '../components/common/Skeleton';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Sparkles, Plus, Pencil, Search, Clock, Users } from 'lucide-react';
 import { Button } from '../components/common/Button';
-import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
-import { Plus, Search, Edit, Trash2, Truck } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { EmptyState } from '../components/common/EmptyState';
+import { Badge } from '../components/common/Badge';
+import { OffsetPagerView, StaffListLayout, useOffsetPager } from '../components/common/OffsetPager';
+import { serviceApi } from '../services/api';
+import { formatCurrency } from '../lib/utils';
+import type { CatalogueStatus, Service } from '../types';
 
+const PAGE_SIZE = 20;
+const STATUSES: Array<CatalogueStatus | ''> = ['', 'draft', 'active', 'inactive', 'archived'];
+
+/**
+ * The owner's service list.
+ *
+ * Mirrors the product screen deliberately: same layout, same states, same pager.
+ * The two catalogues have the same shape and differ only in a few columns, and
+ * two layouts would be two things to keep in step.
+ */
 export function DashboardServicesPage() {
-  const { currentBusiness } = useAuth();
-  const [services, setServices] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const businessId = Number(useParams().businessId);
+
+  const [items, setItems] = useState<Service[]>([]);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [status, setStatus] = useState<CatalogueStatus | ''>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const pager = useOffsetPager(PAGE_SIZE, { filterKey: `${search}|${status}` });
+
+  const load = useCallback(async () => {
+    if (!businessId) return;
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await serviceApi.listForBusiness(businessId, {
+        limit: PAGE_SIZE,
+        offset: pager.offset,
+        search: search.trim() || undefined,
+        status: status || undefined,
+      });
+      setItems(res.data.data);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId, pager.offset, search, status]);
 
   useEffect(() => {
-    if (!currentBusiness) return;
-    const fetchServices = async () => {
-      setLoading(true);
-      try {
-        const response = await serviceApi.listForBusiness(currentBusiness.business_id, {
-          search: search || undefined,
-          status: statusFilter || undefined,
-          limit: 50,
-        });
-        setServices(response.data.data);
-      } catch (error) {
-        console.error('Failed to fetch services:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchServices();
-  }, [currentBusiness, search, statusFilter]);
+    void load();
+  }, [load]);
 
-  const handleDelete = async (_serviceId: number) => {
-    if (!confirm('Are you sure you want to archive this service?')) return;
-    try {
-      // Note: delete endpoint not implemented in backend yet
-      alert('Delete functionality coming soon');
-    } catch (error) {
-      alert('Failed to delete service');
-    }
+  const onSearchChange = (value: string) => {
+    pager.reset();
+    setSearch(value);
   };
 
-  if (!currentBusiness) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-16">
-          <Truck className="w-16 h-16 text-navy-300 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-navy-900 mb-2">No Business Selected</h1>
-        </div>
-      </div>
-    );
-  }
+  const onStatusChange = (value: string) => {
+    pager.reset();
+    setStatus(value as CatalogueStatus | '');
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-navy-900">Services</h1>
-          <p className="text-navy-500">Manage your service offerings</p>
-        </div>
-        <Link to="/dashboard/services/create">
-          <Button>
-            <Plus className="w-4 h-4 me-2" />
-            Add Service
-          </Button>
-        </Link>
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-navy-900">{t('service.title')}</h1>
+        <Button onClick={() => navigate(`/dashboard/business/${businessId}/services/new`)}>
+          <Plus className="w-4 h-4" aria-hidden="true" />
+          {t('service.create')}
+        </Button>
       </div>
 
-      <Card>
-        <div className="flex flex-col sm:flex-row gap-4 mb-4 p-4 border-b border-navy-200">
-          <Input
-            placeholder="Search services..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 max-w-md"
-            leftIcon={<Search className="w-5 h-5 text-navy-400" />}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <label htmlFor="service-search" className="sr-only">{t('service.search')}</label>
+          <Search
+            className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-navy-400"
+            aria-hidden="true"
           />
+          <input
+            id="service-search"
+            type="search"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={t('service.search')}
+            className="w-full ps-12 pe-4 py-2.5 rounded-button border border-navy-300 bg-white text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
+        </div>
+        <div>
+          <label htmlFor="service-status-filter" className="sr-only">{t('service.status')}</label>
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-navy-300 rounded-button text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-full sm:w-48"
+            id="service-status-filter"
+            value={status}
+            onChange={(e) => onStatusChange(e.target.value)}
+            className="w-full sm:w-auto rounded-button border border-navy-300 px-3 py-2.5 bg-white text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="inactive">Inactive</option>
-            <option value="archived">Archived</option>
+            {STATUSES.map((value) => (
+              <option key={value || 'all'} value={value}>
+                {value ? t(`status.${value}`) : t('service.allStatuses')}
+              </option>
+            ))}
           </select>
         </div>
+      </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
-            {[...Array(6)].map((_, i) => <BusinessCardSkeleton key={i} />)}
-          </div>
-        ) : services.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
-            {services.map((service) => (
-              <div key={service.service_id} className="relative group">
-                <ServiceCard
-                  service={service}
-                  showBusiness={false}
-                />
-                <div className="absolute top-2 end-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                  <button
-                    onClick={() => window.location.href = `/dashboard/services/${service.service_id}/edit`}
-                    className="p-2 bg-white rounded-button shadow-card hover:bg-navy-50 transition-colors"
-                    aria-label="Edit service"
-                  >
-                    <Edit className="w-4 h-4 text-navy-600" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(service.service_id)}
-                    className="p-2 bg-white rounded-button shadow-card hover:bg-error-50 text-error-600 transition-colors"
-                    aria-label="Delete service"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <Truck className="w-16 h-16 text-navy-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-navy-900 mb-2">No services yet</h3>
-            <p className="text-navy-500 mb-6">Start adding services to your catalog</p>
-            <Link to="/dashboard/services/create">
-              <Button>
-                <Plus className="w-4 h-4 me-2" />
-                Add Your First Service
+      <StaffListLayout
+        loading={loading}
+        error={error}
+        isEmpty={items.length === 0}
+        onRetry={() => void load()}
+        empty={
+          <EmptyState
+            icon={<Sparkles className="w-8 h-8" />}
+            title={t('service.emptyTitle')}
+            description={t('service.emptyBody')}
+            action={
+              <Button onClick={() => navigate(`/dashboard/business/${businessId}/services/new`)}>
+                {t('service.create')}
               </Button>
-            </Link>
-          </div>
-        )}
-      </Card>
+            }
+          />
+        }
+      >
+        <div className="space-y-3">
+          {items.map((service) => (
+            <Card key={service.service_id} padding="none" className="p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="w-14 h-14 rounded-card bg-sky flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-6 h-6 text-primary-500" aria-hidden="true" />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold text-navy-900 truncate">{service.service_name}</h3>
+                    <Badge variant={service.status === 'active' ? 'success' : 'default'} size="sm">
+                      {t(`status.${service.status}`)}
+                    </Badge>
+                    {service.is_bookable && (
+                      <Badge variant="info" size="sm">{t('service.bookable')}</Badge>
+                    )}
+                  </div>
+                  {service.description && (
+                    <p className="text-sm text-navy-500 mt-0.5 line-clamp-2">{service.description}</p>
+                  )}
+                  <div className="flex flex-wrap gap-4 text-xs text-navy-500 mt-1">
+                    {service.duration_minutes !== null && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                        {t('service.durationValue', { minutes: service.duration_minutes })}
+                      </span>
+                    )}
+                    {service.capacity !== null && (
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5" aria-hidden="true" />
+                        {t('service.capacityValue', { count: service.capacity })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="font-semibold text-navy-900">
+                  {formatCurrency(service.price, service.currency)}
+                </p>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    navigate(`/dashboard/business/${businessId}/services/${service.service_id}/edit`)
+                  }
+                >
+                  <Pencil className="w-4 h-4" aria-hidden="true" />
+                  {t('common.edit')}
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        <OffsetPagerView
+          pager={pager}
+          returned={items.length}
+          pageSize={PAGE_SIZE}
+          disabled={loading}
+        />
+      </StaffListLayout>
     </div>
   );
 }
