@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { MainLayout } from './components/layout/MainLayout';
 import { HomePage } from './pages/Home';
@@ -13,6 +13,7 @@ import { DashboardServicesPage } from './pages/DashboardServices';
 import { DashboardOrdersPage } from './pages/DashboardOrders';
 import { DashboardReviewsPage } from './pages/DashboardReviews';
 import { DashboardAnalyticsPage } from './pages/DashboardAnalytics';
+import { DashboardCustomersPage } from './pages/DashboardCustomers';
 import { DashboardSettingsPage } from './pages/DashboardSettings';
 import { ProductCreatePage } from './pages/ProductCreate';
 import { ProductEditPage } from './pages/ProductEdit';
@@ -38,7 +39,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function BusinessRoute({ children }: { children: React.ReactNode }) {
-  const { currentBusiness, isAuthenticated, isLoading } = useAuth();
+  const { businesses, isAuthenticated, isLoading } = useAuth();
+  const { businessId } = useParams<{ businessId: string }>();
 
   if (isLoading) {
     return (
@@ -52,11 +54,40 @@ function BusinessRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!currentBusiness) {
+  // The server checks membership on every business-scoped route, so this is the
+  // same rule stated earlier: a business the account does not belong to is not
+  // something to render, and a mistyped id in a pasted link is not an error
+  // page either. It goes to the first business the account does own.
+  if (businesses.length === 0) {
     return <Navigate to="/dashboard/settings" replace />;
   }
 
+  if (!businesses.some((business) => business.business_id === businessId)) {
+    return <Navigate to={`/dashboard/business/${businesses[0].business_id}`} replace />;
+  }
+
   return <>{children}</>;
+}
+
+/**
+ * `/dashboard` on its own has no business to act on, so it forwards to the
+ * first one the account belongs to. The switcher in the sidebar is what moves
+ * between businesses, and it navigates the same way.
+ */
+function DashboardIndex() {
+  const { businesses, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (businesses.length === 0) return <Navigate to="/dashboard/settings" replace />;
+  return <Navigate to={`/dashboard/business/${businesses[0].business_id}`} replace />;
 }
 
 function App() {
@@ -79,9 +110,15 @@ function App() {
           <Route path="/privacy" element={<MainLayout><ComingSoonPage /></MainLayout>} />
           <Route path="/forgot-password" element={<MainLayout><ComingSoonPage /></MainLayout>} />
 
-          {/* Dashboard Routes - require auth + business */}
+          {/*
+            Dashboard routes. The business id is part of the path because it is
+            what the API resolves the workspace from, and a URL that carries it
+            can be bookmarked and shared. `/dashboard` on its own forwards to
+            the first business the account belongs to.
+          */}
+          <Route path="/dashboard" element={<DashboardIndex />} />
           <Route
-            path="/dashboard"
+            path="/dashboard/business/:businessId"
             element={
               <BusinessRoute>
                 <MainLayout withSidebar>
@@ -91,7 +128,7 @@ function App() {
             }
           />
           <Route
-            path="/dashboard/products"
+            path="/dashboard/business/:businessId/products"
             element={
               <BusinessRoute>
                 <MainLayout withSidebar>
@@ -101,7 +138,7 @@ function App() {
             }
           />
           <Route
-            path="/dashboard/products/create"
+            path="/dashboard/business/:businessId/products/create"
             element={
               <BusinessRoute>
                 <MainLayout withSidebar>
@@ -111,7 +148,7 @@ function App() {
             }
           />
           <Route
-            path="/dashboard/products/:productId/edit"
+            path="/dashboard/business/:businessId/products/:productId/edit"
             element={
               <BusinessRoute>
                 <MainLayout withSidebar>
@@ -121,7 +158,7 @@ function App() {
             }
           />
           <Route
-            path="/dashboard/services"
+            path="/dashboard/business/:businessId/services"
             element={
               <BusinessRoute>
                 <MainLayout withSidebar>
@@ -131,7 +168,7 @@ function App() {
             }
           />
           <Route
-            path="/dashboard/services/create"
+            path="/dashboard/business/:businessId/services/create"
             element={
               <BusinessRoute>
                 <MainLayout withSidebar>
@@ -141,7 +178,7 @@ function App() {
             }
           />
           <Route
-            path="/dashboard/services/:serviceId/edit"
+            path="/dashboard/business/:businessId/services/:serviceId/edit"
             element={
               <BusinessRoute>
                 <MainLayout withSidebar>
@@ -151,7 +188,7 @@ function App() {
             }
           />
           <Route
-            path="/dashboard/orders"
+            path="/dashboard/business/:businessId/orders"
             element={
               <BusinessRoute>
                 <MainLayout withSidebar>
@@ -161,7 +198,7 @@ function App() {
             }
           />
           <Route
-            path="/dashboard/orders/:orderId"
+            path="/dashboard/business/:businessId/orders/:orderId"
             element={
               <BusinessRoute>
                 <MainLayout withSidebar>
@@ -171,7 +208,17 @@ function App() {
             }
           />
           <Route
-            path="/dashboard/reviews"
+            path="/dashboard/business/:businessId/customers"
+            element={
+              <BusinessRoute>
+                <MainLayout withSidebar>
+                  <DashboardCustomersPage />
+                </MainLayout>
+              </BusinessRoute>
+            }
+          />
+          <Route
+            path="/dashboard/business/:businessId/reviews"
             element={
               <BusinessRoute>
                 <MainLayout withSidebar>
@@ -181,11 +228,21 @@ function App() {
             }
           />
           <Route
-            path="/dashboard/analytics"
+            path="/dashboard/business/:businessId/analytics"
             element={
               <BusinessRoute>
                 <MainLayout withSidebar>
                   <DashboardAnalyticsPage />
+                </MainLayout>
+              </BusinessRoute>
+            }
+          />
+          <Route
+            path="/dashboard/business/:businessId/locations"
+            element={
+              <BusinessRoute>
+                <MainLayout withSidebar>
+                  <LocationManagePage />
                 </MainLayout>
               </BusinessRoute>
             }
@@ -198,16 +255,6 @@ function App() {
                   <DashboardSettingsPage />
                 </MainLayout>
               </PrivateRoute>
-            }
-          />
-          <Route
-            path="/dashboard/locations"
-            element={
-              <BusinessRoute>
-                <MainLayout withSidebar>
-                  <LocationManagePage />
-                </MainLayout>
-              </BusinessRoute>
             }
           />
 

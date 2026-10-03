@@ -84,9 +84,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.businesses.length > 0 && !currentBusiness) {
         const savedBusinessId = localStorage.getItem(BUSINESS_KEY);
         if (savedBusinessId) {
-          const found = data.businesses.find(b => b.business_id === parseInt(savedBusinessId));
+          // Both sides are the same string the server sent: `business_id` is a
+          // bigint serialised as text, so parsing it would compare two different
+          // representations of the same id.
+          const found = data.businesses.find((b) => b.business_id === savedBusinessId);
           if (found) setCurrentBusiness(found);
-        } else {
+        }
+        if (!savedBusinessId || !data.businesses.some((b) => b.business_id === savedBusinessId)) {
           setCurrentBusiness(data.businesses[0]);
         }
       }
@@ -157,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setCurrentBusinessHandler = (business: BusinessMembership | null) => {
     setCurrentBusiness(business);
     if (business) {
-      localStorage.setItem(BUSINESS_KEY, business.business_id.toString());
+      localStorage.setItem(BUSINESS_KEY, business.business_id);
     } else {
       localStorage.removeItem(BUSINESS_KEY);
     }

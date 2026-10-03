@@ -8,7 +8,7 @@ import { ErrorState } from '../components/common/ErrorState';
 import { NotAvailableYet } from '../components/common/OffsetPager';
 import { businessApi } from '../services/api';
 import { formatCurrency, formatNumber, formatDateTime } from '../lib/utils';
-import type { BusinessStatistics } from '../types';
+import type { BusinessStatistics, Id } from '../types';
 
 /**
  * Analytics, which is a name this page has to earn.
@@ -22,7 +22,8 @@ import type { BusinessStatistics } from '../types';
  */
 export function DashboardAnalyticsPage() {
   const { t } = useTranslation();
-  const businessId = Number(useParams().businessId);
+  const params = useParams<{ businessId: Id }>();
+  const businessId = params.businessId ?? '';
 
   const [stats, setStats] = useState<BusinessStatistics | null>(null);
   const [loading, setLoading] = useState(true);

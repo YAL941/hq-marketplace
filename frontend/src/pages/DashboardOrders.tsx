@@ -11,7 +11,7 @@ import {
 } from '../components/common/OffsetPager';
 import { orderApi } from '../services/api';
 import { formatCurrency, formatDateTime } from '../lib/utils';
-import type { Order, OrderStatus } from '../types';
+import type { Id, Order, OrderStatus } from '../types';
 
 const PAGE_SIZE = 20;
 
@@ -43,7 +43,8 @@ const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
 export function DashboardOrdersPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const businessId = Number(useParams().businessId);
+  const params = useParams<{ businessId: Id }>();
+  const businessId = params.businessId ?? '';
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [status, setStatus] = useState<OrderStatus | ''>('');
@@ -153,7 +154,7 @@ export function DashboardOrdersPage() {
       </StaffListLayout>
 
       <p className="mt-6 text-xs text-navy-400">
-        <Link to="/dashboard" className="inline-flex items-center gap-1 hover:text-navy-600">
+        <Link to={`/dashboard/business/${businessId}`} className="inline-flex items-center gap-1 hover:text-navy-600">
           <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" aria-hidden="true" />
           {t('nav.dashboard')}
         </Link>

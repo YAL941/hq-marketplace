@@ -33,7 +33,8 @@ const STATUS_VARIANT: Record<ReviewStatus, BadgeVariant> = {
  */
 export function DashboardReviewsPage() {
   const { t } = useTranslation();
-  const businessId = Number(useParams().businessId);
+  const params = useParams<{ businessId: Id }>();
+  const businessId = params.businessId ?? '';
 
   const [reviews, setReviews] = useState<BusinessReview[]>([]);
   const [status, setStatus] = useState<ReviewStatus | ''>('');

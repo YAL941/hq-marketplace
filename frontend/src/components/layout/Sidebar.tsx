@@ -1,26 +1,34 @@
 import { HTMLAttributes, forwardRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
-import { useLocation, NavLink } from 'react-router-dom';
+import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, Users, Package, Truck, Star, BarChart3, Settings, ChevronRight, LogOut,
 } from 'lucide-react';
 import { Logo } from '../branding/Logo';
 import { useAuth } from '../../context/AuthContext';
+import type { Id } from '../../types';
 import { Avatar } from './Avatar';
 
 // Labels are translation keys, not text: they have to resolve in the active
 // language at render time, and a module-level string would be frozen in English.
+//
+// The hrefs are built from the business id rather than written out, because
+// every business-scoped screen lives under `/dashboard/business/:businessId`. A
+// link that left the id out would resolve to the dashboard index, which
+// forwards to whichever business happens to be first — the wrong one whenever
+// the account owns more than one.
 const navigation = [
-  { key: 'sidebar.overview', href: '/dashboard', icon: LayoutDashboard },
-  { key: 'sidebar.products', href: '/dashboard/products', icon: Package },
-  { key: 'sidebar.services', href: '/dashboard/services', icon: Truck },
-  { key: 'sidebar.orders', href: '/dashboard/orders', icon: ShoppingBag },
-  { key: 'sidebar.customers', href: '/dashboard/customers', icon: Users },
-  { key: 'sidebar.reviews', href: '/dashboard/reviews', icon: Star },
-  { key: 'sidebar.analytics', href: '/dashboard/analytics', icon: BarChart3 },
-  { key: 'sidebar.settings', href: '/dashboard/settings', icon: Settings },
+  { key: 'sidebar.overview', path: '', icon: LayoutDashboard },
+  { key: 'sidebar.products', path: '/products', icon: Package },
+  { key: 'sidebar.services', path: '/services', icon: Truck },
+  { key: 'sidebar.orders', path: '/orders', icon: ShoppingBag },
+  { key: 'sidebar.customers', path: '/customers', icon: Users },
+  { key: 'sidebar.reviews', path: '/reviews', icon: Star },
+  { key: 'sidebar.analytics', path: '/analytics', icon: BarChart3 },
 ];
+
+const businessHome = (businessId: Id) => `/dashboard/business/${businessId}`;
 
 interface SidebarProps extends HTMLAttributes<HTMLElement> {}
 
@@ -28,8 +36,35 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
   ({ className, ...props }, ref) => {
     const { t } = useTranslation();
     const location = useLocation();
-    const { user, businesses, currentBusiness, logout } = useAuth();
+    const navigate = useNavigate();
+    const { user, businesses, currentBusiness, logout, setCurrentBusiness } = useAuth();
     const [collapsed, setCollapsed] = useState(false);
+
+    /**
+     * Which business the links point at.
+     *
+     * The URL wins over the remembered choice. Opening a bookmarked link for
+     * business B while the context still remembers A would otherwise render B's
+     * screen under A's navigation, and every click would move back to A.
+     */
+    const pathBusinessId = location.pathname.match(/^\/dashboard\/business\/([^/]+)/)?.[1];
+    const activeBusinessId = pathBusinessId ?? currentBusiness?.business_id;
+
+    /**
+     * Switching workspace.
+     *
+     * Two things have to happen together: the context remembers which business
+     * the person is working in, and the URL has to change, because the business
+     * id in the path is what every request is scoped by. Setting the context
+     * alone would leave the old business's order screen on screen while the
+     * sidebar claimed a different one.
+     */
+    const switchBusiness = (businessId: Id) => {
+      const next = businesses.find((business) => business.business_id === businessId);
+      if (!next || next.business_id === currentBusiness?.business_id) return;
+      setCurrentBusiness(next);
+      navigate(businessHome(next.business_id));
+    };
 
     return (
       <aside
@@ -69,31 +104,78 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
             </button>
           </div>
 
+          {/*
+            The workspace picker. It only becomes a control when there is a
+            choice to make: one business means there is nothing to switch to, so
+            it stays a label. Collapsed, the card is replaced by a link to the
+            business the person is already in, because a select has nowhere to
+            put its options in 80 pixels.
+          */}
           {currentBusiness && !collapsed && (
             <div className="px-4 py-3 border-b border-navy-100">
-              <p className="text-xs font-medium text-navy-500 uppercase tracking-wide mb-1">
-                {t('sidebar.currentBusiness')}
-              </p>
+              <label
+                htmlFor="sidebar-current-business"
+                className="block text-xs font-medium text-navy-500 uppercase tracking-wide mb-1"
+              >
+                {businesses.length > 1 ? t('sidebar.switchBusiness') : t('sidebar.currentBusiness')}
+              </label>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-sg bg-primary-100 flex items-center justify-center flex-shrink-0">
-                  <ShoppingBag className="w-4 h-4 text-primary-600" />
+                  <ShoppingBag className="w-4 h-4 text-primary-600" aria-hidden="true" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-navy-900 truncate">{currentBusiness.business_name}</p>
-                  <p className="text-xs text-navy-500 capitalize">{currentBusiness.role_key.replace('business_', '')}</p>
-                </div>
+                {businesses.length > 1 ? (
+                  <select
+                    id="sidebar-current-business"
+                    value={currentBusiness.business_id}
+                    onChange={(event) => switchBusiness(event.target.value)}
+                    className="flex-1 min-w-0 rounded-button border border-navy-300 bg-white px-2 py-1.5 text-sm font-medium text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    {businesses.map((business) => (
+                      <option key={business.business_id} value={business.business_id}>
+                        {business.business_name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-navy-900 truncate">{currentBusiness.business_name}</p>
+                    <p className="text-xs text-navy-500 truncate">{currentBusiness.role_name}</p>
+                  </div>
+                )}
               </div>
+              {businesses.length > 1 && (
+                <p className="mt-1.5 text-xs text-navy-500 truncate">
+                  {t('sidebar.currentBusiness')}: {currentBusiness.business_name}
+                </p>
+              )}
+            </div>
+          )}
+
+          {currentBusiness && collapsed && (
+            <div className="px-3 py-3 border-b border-navy-100 flex justify-center">
+              <NavLink
+                to={businessHome(currentBusiness.business_id)}
+                title={currentBusiness.business_name}
+                aria-label={`${t('sidebar.currentBusiness')}: ${currentBusiness.business_name}`}
+                className="w-10 h-10 rounded-sg bg-primary-100 flex items-center justify-center"
+              >
+                <ShoppingBag className="w-4 h-4 text-primary-600" aria-hidden="true" />
+              </NavLink>
             </div>
           )}
 
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label={t('nav.dashboardNavigation')}>
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/');
+            {activeBusinessId && navigation.map((item) => {
+              const href = `${businessHome(activeBusinessId)}${item.path}`;
+              const isActive =
+                item.path === ''
+                  ? location.pathname === href
+                  : location.pathname.startsWith(href);
               const label = t(item.key);
               return (
                 <NavLink
                   key={item.key}
-                  to={item.href}
+                  to={href}
                   className={({ isActive: active }) => cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-button text-sm font-medium transition-colors',
                     active
@@ -109,6 +191,21 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                 </NavLink>
               );
             })}
+            <NavLink
+              to="/dashboard/settings"
+              className={({ isActive }) => cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-button text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-primary-50 text-primary-600'
+                  : 'text-navy-600 hover:bg-navy-50 hover:text-navy-900',
+                collapsed && 'justify-center'
+              )}
+              title={collapsed ? t('sidebar.settings') : undefined}
+              aria-current={location.pathname === '/dashboard/settings' ? 'page' : undefined}
+            >
+              <Settings className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+              {!collapsed && <span>{t('sidebar.settings')}</span>}
+            </NavLink>
           </nav>
 
           {!collapsed && (
@@ -121,12 +218,6 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                 </div>
               </div>
               <div className="mt-3 space-y-1">
-                {businesses.length > 1 && (
-                  <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-navy-600 hover:bg-navy-50 hover:text-navy-900 rounded-button transition-colors">
-                    <Users className="w-5 h-5" />
-                    {t('sidebar.switchBusiness')}
-                  </button>
-                )}
                 <button
                   onClick={logout}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm text-error-600 hover:bg-error-50 rounded-button transition-colors"

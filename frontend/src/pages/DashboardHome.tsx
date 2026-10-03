@@ -10,7 +10,7 @@ import { ErrorState } from '../components/common/ErrorState';
 import { NotAvailableYet } from '../components/common/OffsetPager';
 import { businessApi } from '../services/api';
 import { formatCurrency, formatNumber, formatDateTime } from '../lib/utils';
-import type { BusinessStatistics } from '../types';
+import type { BusinessStatistics, Id } from '../types';
 
 /**
  * The owner's home.
@@ -22,7 +22,8 @@ import type { BusinessStatistics } from '../types';
  */
 export function DashboardHomePage() {
   const { t } = useTranslation();
-  const businessId = Number(useParams().businessId);
+  const params = useParams<{ businessId: Id }>();
+  const businessId = params.businessId ?? '';
 
   const [stats, setStats] = useState<BusinessStatistics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,11 +126,11 @@ export function DashboardHomePage() {
           <h2 className="font-semibold text-navy-900 mb-4">{t('dashboard.quickActions')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { to: `/dashboard/business/${businessId}/products/new`, label: t('product.create') },
-              { to: `/dashboard/business/${businessId}/services/new`, label: t('service.create') },
+              { to: `/dashboard/business/${businessId}/products/create`, label: t('product.create') },
+              { to: `/dashboard/business/${businessId}/services/create`, label: t('service.create') },
               { to: `/dashboard/business/${businessId}/orders`, label: t('order.title') },
               { to: `/dashboard/business/${businessId}/reviews`, label: t('review.title') },
-              { to: `/dashboard/business/${businessId}/settings`, label: t('settings.title') },
+              { to: '/dashboard/settings', label: t('settings.title') },
             ].map((action) => (
               <Link
                 key={action.to}

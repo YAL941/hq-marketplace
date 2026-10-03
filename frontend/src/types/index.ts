@@ -33,7 +33,7 @@ export interface PaginatedResponse<T> {
 
 // User & Auth
 export interface User {
-  user_id: number;
+  user_id: Id;
   email: string;
   full_name: string;
   phone?: string;
@@ -51,7 +51,7 @@ export interface PlatformRole {
 }
 
 export interface BusinessMembership {
-  business_id: number;
+  business_id: Id;
   business_name: string;
   business_slug: string;
   status: string;
@@ -66,7 +66,7 @@ export interface AuthMeResponse {
 }
 
 export interface LoginResponse {
-  user: { user_id: number; email: string | null; full_name: string };
+  user: { user_id: Id; email: string | null; full_name: string };
   token: string;
 }
 
@@ -92,13 +92,16 @@ export interface RegisterPayload {
 
 export interface RegisterResponse extends LoginResponse {
   /** The business created alongside a `business_owner` account, else null. */
-  business: {
-    business_id: string;
-    business_name: string;
-    business_slug: string;
-    status: string;
-  } | null;
+  business: BusinessSummary | null;
 }
+
+/** What onboarding and registration hand back: id, name, slug and status. */
+export type BusinessSummary = {
+  business_id: string;
+  business_name: string;
+  business_slug: string;
+  status: string;
+};
 
 // ---------------------------------------------------------------------------
 // Public directory
@@ -261,6 +264,11 @@ export type CategorySummary = PublicCategory;
  * and `Id`/`CatalogueStatus`/`OrderStatus` live in the owner dashboard block at
  * the end of this file. They used to be declared here with `number` ids and
  * `number` money, which does not match what the API actually sends.
+ *
+ * One rule for ids: a path or query id is a **string**, because the columns are
+ * bigints and are serialised as text. A body id (`CreateOrderInput.businessId`,
+ * `ProductInput.categoryId`, `AddMemberInput.userId`) stays a **number**,
+ * because the server validates those with `z.number()`.
  */
 
 export interface CreateProductInput {
@@ -317,8 +325,8 @@ export interface CreateReviewInput {
 
 // Locations
 export interface Location {
-  location_id: number;
-  business_id: number;
+  location_id: Id;
+  business_id: Id;
   location_name: string;
   address?: string;
   city?: string;
@@ -604,7 +612,11 @@ export interface StaffListQuery {
 export interface ProductListQuery extends StaffListQuery {
   status?: CatalogueStatus;
   categoryId?: number;
-  /** Named `search` by the server; `q` is rejected by its schema. */
+  /**
+   * Named `search` by the server; `q` is rejected by its schema and silently
+   * dropped, which would leave the search box looking broken. The public
+   * directory is the one that calls it `q`.
+   */
   search?: string;
 }
 

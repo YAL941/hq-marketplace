@@ -9,7 +9,7 @@ import { Badge } from '../components/common/Badge';
 import { OffsetPagerView, StaffListLayout, useOffsetPager } from '../components/common/OffsetPager';
 import { serviceApi } from '../services/api';
 import { formatCurrency } from '../lib/utils';
-import type { CatalogueStatus, Service } from '../types';
+import type { CatalogueStatus, Id, Service } from '../types';
 
 const PAGE_SIZE = 20;
 const STATUSES: Array<CatalogueStatus | ''> = ['', 'draft', 'active', 'inactive', 'archived'];
@@ -24,7 +24,8 @@ const STATUSES: Array<CatalogueStatus | ''> = ['', 'draft', 'active', 'inactive'
 export function DashboardServicesPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const businessId = Number(useParams().businessId);
+  const params = useParams<{ businessId: Id }>();
+  const businessId = params.businessId ?? '';
 
   const [items, setItems] = useState<Service[]>([]);
   const [search, setSearch] = useState('');
@@ -70,7 +71,7 @@ export function DashboardServicesPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-navy-900">{t('service.title')}</h1>
-        <Button onClick={() => navigate(`/dashboard/business/${businessId}/services/new`)}>
+        <Button onClick={() => navigate(`/dashboard/business/${businessId}/services/create`)}>
           <Plus className="w-4 h-4" aria-hidden="true" />
           {t('service.create')}
         </Button>
@@ -120,7 +121,7 @@ export function DashboardServicesPage() {
             title={t('service.emptyTitle')}
             description={t('service.emptyBody')}
             action={
-              <Button onClick={() => navigate(`/dashboard/business/${businessId}/services/new`)}>
+              <Button onClick={() => navigate(`/dashboard/business/${businessId}/services/create`)}>
                 {t('service.create')}
               </Button>
             }

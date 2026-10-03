@@ -8,7 +8,7 @@ import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
 import { serviceApi, toFieldIssue, type FieldIssue } from '../services/api';
-import type { CatalogueStatus, Service } from '../types';
+import type { CatalogueStatus, Id, Service } from '../types';
 
 const STATUSES: CatalogueStatus[] = ['draft', 'active', 'inactive', 'archived'];
 
@@ -27,10 +27,10 @@ interface FormState {
 export function ServiceFormPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const params = useParams<{ businessId: string; serviceId: string }>();
-  const serviceId = params.serviceId;
-  const isEdit = serviceId !== undefined;
-  const businessId = Number(params.businessId);
+  const params = useParams<{ businessId: Id; serviceId: Id }>();
+  const serviceId = params.serviceId ?? '';
+  const isEdit = serviceId !== '';
+  const businessId = params.businessId ?? '';
 
   const [form, setForm] = useState<FormState>({
     serviceName: '',
@@ -55,7 +55,7 @@ export function ServiceFormPage() {
       setLoading(true);
       setLoadFailed(false);
       try {
-        const res = await serviceApi.getForBusiness(businessId, Number(serviceId));
+        const res = await serviceApi.getForBusiness(businessId, serviceId);
         if (cancelled) return;
         const s: Service = res.data.data;
         setForm({
@@ -149,11 +149,11 @@ export function ServiceFormPage() {
       };
 
       if (isEdit) {
-        await serviceApi.update(businessId, Number(serviceId), payload);
+        await serviceApi.update(businessId, serviceId, payload);
       } else {
         await serviceApi.create(businessId, payload);
       }
-      navigate('/dashboard/services');
+      navigate(`/dashboard/business/${businessId}/services`);
     } catch (error) {
       setIssue(toFieldIssue(error));
     } finally {
@@ -168,7 +168,7 @@ export function ServiceFormPage() {
           icon={<Sparkles className="w-8 h-8" />}
           title={t('common.loadFailed')}
           action={
-            <Button variant="outline" onClick={() => navigate('/dashboard/services')}>
+            <Button variant="outline" onClick={() => navigate(`/dashboard/business/${businessId}/services`)}>
               {t('service.backToList')}
             </Button>
           }
@@ -181,7 +181,7 @@ export function ServiceFormPage() {
     <div>
       <button
         type="button"
-        onClick={() => navigate('/dashboard/services')}
+        onClick={() => navigate(`/dashboard/business/${businessId}/services`)}
         className="inline-flex items-center gap-1 text-sm text-navy-500 hover:text-navy-900 mb-4"
       >
         <ArrowLeft className="w-4 h-4 rtl:rotate-180" aria-hidden="true" />
@@ -311,7 +311,7 @@ export function ServiceFormPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/dashboard/services')}
+                onClick={() => navigate(`/dashboard/business/${businessId}/services`)}
                 disabled={saving}
               >
                 {t('common.cancel')}

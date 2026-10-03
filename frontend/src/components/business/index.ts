@@ -1,10 +1,2 @@
 export { BusinessCard } from './BusinessCard';
-export { CategoryCard } from './CategoryCard';
-export { ProductCard } from './ProductCard';
-export { ServiceCard } from './ServiceCard';
-export { ReviewCard } from './ReviewCard';
 export { DashboardReviewCard } from './DashboardReviewCard';
-export { LocationCard } from './LocationCard';
-export { BusinessHeader } from './BusinessHeader';
-export { BusinessContact } from './BusinessContact';
-export { BusinessProfile } from './BusinessProfile';

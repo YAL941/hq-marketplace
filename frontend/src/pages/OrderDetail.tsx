@@ -9,7 +9,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
 import { orderApi, toFieldIssue, type FieldIssue } from '../services/api';
 import { formatCurrency, formatDateTime } from '../lib/utils';
-import type { OrderDetail, OrderStatus, SettableOrderStatus } from '../types';
+import type { Id, OrderDetail, OrderStatus, SettableOrderStatus } from '../types';
 
 /**
  * The statuses the status endpoint accepts.
@@ -41,13 +41,18 @@ const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
  * The items come from the same response as the order, so they are shown as they
  * were when the order was placed: `item_name` is a copy, which is why a product
  * deleted since then still has a name here.
+ *
+ * What this screen cannot show is who placed it. The endpoint returns
+ * `customer_id` as a bare id and joins nothing to it, so the id is printed as an
+ * id. Turning it into a name would mean either inventing one or calling an
+ * endpoint that does not exist.
  */
 export function OrderDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const params = useParams<{ businessId: string; orderId: string }>();
-  const businessId = Number(params.businessId);
-  const orderId = Number(params.orderId);
+  const params = useParams<{ businessId: Id; orderId: Id }>();
+  const businessId = params.businessId ?? '';
+  const orderId = params.orderId ?? '';
 
   const [data, setData] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,7 +98,7 @@ export function OrderDetailPage() {
         icon={<Package className="w-8 h-8" />}
         title={t('order.notFoundTitle')}
         action={
-          <Button variant="outline" onClick={() => navigate('/dashboard/orders')}>
+          <Button variant="outline" onClick={() => navigate(`/dashboard/business/${businessId}/orders`)}>
             {t('order.backToList')}
           </Button>
         }
@@ -118,7 +123,7 @@ export function OrderDetailPage() {
     <div>
       <button
         type="button"
-        onClick={() => navigate('/dashboard/orders')}
+        onClick={() => navigate(`/dashboard/business/${businessId}/orders`)}
         className="inline-flex items-center gap-1 text-sm text-navy-500 hover:text-navy-900 mb-4"
       >
         <ArrowLeft className="w-4 h-4 rtl:rotate-180" aria-hidden="true" />
@@ -149,6 +154,9 @@ export function OrderDetailPage() {
                           quantity: item.quantity,
                           price: formatCurrency(item.unit_price, order.currency),
                         })}
+                      </p>
+                      <p className="text-xs text-navy-400 mt-0.5">
+                        {t(`orderType.${item.item_type}`, { defaultValue: item.item_type })}
                       </p>
                       {item.notes && (
                         <p className="text-xs text-navy-400 mt-1">{item.notes}</p>
@@ -210,6 +218,14 @@ export function OrderDetailPage() {
                 <dd className="text-navy-900">{formatCurrency(order.total_amount, order.currency)}</dd>
               </div>
             </dl>
+
+            {/* The only handle the API gives on the person who placed this:
+                the bare id. No name is shown because none is returned. */}
+            <div className="mt-4 pt-4 border-t border-navy-100">
+              <dt className="text-navy-500 text-xs">{t('order.customerId')}</dt>
+              <dd className="text-navy-900 text-sm font-mono">{order.customer_id}</dd>
+              <p className="text-xs text-navy-400 mt-1">{t('order.customerNameUnavailable')}</p>
+            </div>
           </Card>
 
           <Card className="p-5">

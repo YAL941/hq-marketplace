@@ -24,7 +24,10 @@ const STATUSES: Array<CatalogueStatus | ''> = ['', 'draft', 'active', 'inactive'
 export function DashboardProductsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const businessId = Number(useParams().businessId);
+  const params = useParams<{ businessId: Id }>();
+  // The id is whatever the route carried, as a string: it is a bigint on the
+  // server, so `Number(...)` here would corrupt anything past 2^53.
+  const businessId = params.businessId ?? '';
 
   const [items, setItems] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -84,7 +87,7 @@ export function DashboardProductsPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-navy-900">{t('product.title')}</h1>
-        <Button onClick={() => navigate(`/dashboard/business/${businessId}/products/new`)}>
+        <Button onClick={() => navigate(`/dashboard/business/${businessId}/products/create`)}>
           <Plus className="w-4 h-4" aria-hidden="true" />
           {t('product.create')}
         </Button>
@@ -134,7 +137,7 @@ export function DashboardProductsPage() {
             title={t('product.emptyTitle')}
             description={t('product.emptyBody')}
             action={
-              <Button onClick={() => navigate(`/dashboard/business/${businessId}/products/new`)}>
+              <Button onClick={() => navigate(`/dashboard/business/${businessId}/products/create`)}>
                 {t('product.create')}
               </Button>
             }
@@ -215,7 +218,7 @@ export function DashboardProductsPage() {
       </StaffListLayout>
 
       <p className="mt-4 text-xs text-navy-400">
-        <Link to="/dashboard/services" className="hover:text-navy-600">
+        <Link to={`/dashboard/business/${businessId}/services`} className="hover:text-navy-600">
           {t('product.servicesInstead')}
         </Link>
       </p>

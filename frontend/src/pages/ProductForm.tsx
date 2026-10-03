@@ -8,7 +8,7 @@ import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
 import { productApi, toFieldIssue, type FieldIssue } from '../services/api';
-import type { CatalogueStatus, Product } from '../types';
+import type { CatalogueStatus, Id, Product } from '../types';
 
 const STATUSES: CatalogueStatus[] = ['draft', 'active', 'inactive', 'archived'];
 
@@ -18,6 +18,7 @@ interface FormState {
   price: string;
   currency: string;
   sku: string;
+  imageUrl: string;
   stockQuantity: string;
   status: CatalogueStatus;
 }
@@ -33,13 +34,13 @@ interface FormState {
 export function ProductFormPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const params = useParams<{ businessId: string; productId: string }>();
+  const params = useParams<{ businessId: Id; productId: Id }>();
   // The id stays the string the route carried: it is a bigint on the server, so
   // turning it into a number would corrupt anything past 2^53. An empty string
   // is what "this route has no :productId" becomes.
   const productId = params.productId ?? '';
   const isEdit = productId !== '';
-  const businessId = Number(params.businessId);
+  const businessId = params.businessId ?? '';
 
   const [form, setForm] = useState<FormState>({
     productName: '',
@@ -47,6 +48,7 @@ export function ProductFormPage() {
     price: '',
     currency: 'USD',
     sku: '',
+    imageUrl: '',
     stockQuantity: '',
     status: 'draft',
   });
@@ -72,6 +74,7 @@ export function ProductFormPage() {
           price: p.price,
           currency: p.currency,
           sku: p.sku ?? '',
+          imageUrl: p.image_url ?? '',
           stockQuantity: p.is_stock_tracked ? String(p.stock_quantity) : '',
           status: p.status,
         });
@@ -114,6 +117,13 @@ export function ProductFormPage() {
     if (!/^[A-Z]{3}$/.test(form.currency)) {
       return { field: 'currency', message: t('product.errorCurrency') };
     }
+    if (form.imageUrl.trim() !== '') {
+      try {
+        new URL(form.imageUrl.trim());
+      } catch {
+        return { field: 'imageUrl', message: t('product.errorImageUrl') };
+      }
+    }
     if (form.stockQuantity.trim() !== '') {
       const stock = Number(form.stockQuantity);
       if (!Number.isInteger(stock) || stock < 0) {
@@ -143,6 +153,7 @@ export function ProductFormPage() {
         price: Number(form.price),
         currency: form.currency.toUpperCase(),
         sku: form.sku.trim() || null,
+        imageUrl: form.imageUrl.trim() || null,
         stockQuantity: form.stockQuantity.trim() === '' ? undefined : Number(form.stockQuantity),
         status: form.status,
       };
@@ -152,7 +163,7 @@ export function ProductFormPage() {
       } else {
         await productApi.create(businessId, payload);
       }
-      navigate('/dashboard/products');
+      navigate(`/dashboard/business/${businessId}/products`);
     } catch (error) {
       setIssue(toFieldIssue(error));
     } finally {
@@ -167,7 +178,7 @@ export function ProductFormPage() {
           icon={<Package className="w-8 h-8" />}
           title={t('common.loadFailed')}
           action={
-            <Button variant="outline" onClick={() => navigate('/dashboard/products')}>
+            <Button variant="outline" onClick={() => navigate(`/dashboard/business/${businessId}/products`)}>
               {t('product.backToList')}
             </Button>
           }
@@ -180,7 +191,7 @@ export function ProductFormPage() {
     <div>
       <button
         type="button"
-        onClick={() => navigate('/dashboard/products')}
+        onClick={() => navigate(`/dashboard/business/${businessId}/products`)}
         className="inline-flex items-center gap-1 text-sm text-navy-500 hover:text-navy-900 mb-4"
       >
         <ArrowLeft className="w-4 h-4 rtl:rotate-180" aria-hidden="true" />
@@ -272,6 +283,17 @@ export function ProductFormPage() {
               />
             </div>
 
+            {/* `imageUrl` is part of the server's schema (`z.string().url()`),
+                and the product row carries it back as `image_url`. */}
+            <Input
+              label={t('product.imageUrl')}
+              type="url"
+              value={form.imageUrl}
+              onChange={(e) => set('imageUrl', e.target.value)}
+              placeholder="https://example.com/product.jpg"
+              error={fieldError('imageUrl')}
+            />
+
             <div>
               <label htmlFor="product-status" className="block text-sm font-medium text-navy-700 mb-1.5">
                 {t('product.status')}
@@ -297,7 +319,7 @@ export function ProductFormPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/dashboard/products')}
+                onClick={() => navigate(`/dashboard/business/${businessId}/products`)}
                 disabled={saving}
               >
                 {t('common.cancel')}
