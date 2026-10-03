@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Building2, Save, Users, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { AlertCircle, Building2, Globe, Save, Shield, Users, XCircle } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -17,6 +18,7 @@ import type {
   BusinessProfilePatch,
   BusinessRecord,
   PublicCategory,
+  StaffBusinessProfile,
 } from '../types';
 
 interface FormState {
@@ -71,6 +73,81 @@ const EMPTY: FormState = {
  *     its rules in `lib/phone.ts`, so the canonical form is shown while typing
  *     and an unusable number is caught before the round trip.
  */
+
+interface BusinessStatusBannerProps {
+  profile: StaffBusinessProfile | null;
+}
+
+/**
+ * Shows the current business state, drawn from the staff read so it works while
+ * the business is still `pending` or has been `rejected`. Three cases are
+ * spelled out; anything else only reports the raw status label, with no claim
+ * about what a visitor can see.
+ */
+function BusinessStatusBanner({ profile }: BusinessStatusBannerProps) {
+  const { t } = useTranslation();
+  if (!profile) return null;
+
+  const isLive = profile.status === 'active' && profile.is_verified && profile.verification_status === 'verified';
+
+  if (isLive) {
+    return (
+      <div className="p-4 bg-success-50 border border-success-200 rounded-button flex items-start gap-3">
+        <Globe className="w-5 h-5 text-success-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-success-800">{t('settings.bannerLive')}</p>
+          <p className="text-sm text-success-700">{t('settings.bannerLiveBody')}</p>
+        </div>
+        <Link
+          to={`/business/${profile.business_slug}`}
+          className="ms-auto text-sm font-medium text-primary-700 hover:text-primary-800"
+        >
+          {t('settings.bannerLiveLink')}
+        </Link>
+      </div>
+    );
+  }
+
+  if (profile.status === 'rejected') {
+    return (
+      <div className="p-4 bg-error-50 border border-error-200 rounded-button flex items-start gap-3">
+        <XCircle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-error-800">{t('settings.bannerRejected')}</p>
+          <p className="text-sm text-error-700">{t('settings.bannerRejectedBody')}</p>
+          {profile.rejection_reason && (
+            <p className="mt-1 text-sm text-error-700">
+              <span className="font-medium">{t('settings.bannerRejectionReason')}</span> {profile.rejection_reason}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (profile.status === 'pending') {
+    return (
+      <div className="p-4 bg-warning-50 border border-warning-200 rounded-button flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-warning-800">{t('settings.bannerPending')}</p>
+          <p className="text-sm text-warning-700">{t('settings.bannerPendingBody')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // suspended / closed (or active but not yet verified): only the literal status
+  // is shown, so the UI never asserts a visibility it cannot confirm.
+  return (
+    <div className="p-4 bg-navy-50 border border-navy-200 rounded-button flex items-start gap-3">
+      <AlertCircle className="w-5 h-5 text-navy-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+      <Badge variant="info" size="sm">{t(`status.${profile.status}`)}</Badge>
+      <p className="text-sm text-navy-600">{t('settings.recordVerification')}: {t(`status.${profile.verification_status}`)}</p>
+    </div>
+  );
+}
+
 export function DashboardSettingsPage() {
   const { t } = useTranslation();
   const { user, businesses, currentBusiness, setCurrentBusiness } = useAuth();
@@ -84,6 +161,7 @@ export function DashboardSettingsPage() {
   const [issue, setIssue] = useState<FieldIssue | null>(null);
   const [saved, setSaved] = useState<BusinessRecord | null>(null);
   const [members, setMembers] = useState<BusinessMember[] | null>(null);
+  const [profile, setProfile] = useState<StaffBusinessProfile | null>(null);
 
   /**
    * The category list is reference data, so a failure here must not take the form
@@ -121,6 +199,7 @@ export function DashboardSettingsPage() {
         businessApi.getMembers(businessId).catch(() => null),
       ]);
       const profile = profileRes.data.data;
+      setProfile(profile);
       setForm({
         businessName: profile.business_name,
         businessDescription: profile.business_description ?? '',
@@ -244,7 +323,18 @@ export function DashboardSettingsPage() {
       if (form.email.trim() !== '') patch.email = form.email.trim();
 
       const res = await businessApi.update(businessId, patch);
-      setSaved(res.data.data);
+      const updated = res.data.data;
+      setSaved(updated);
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: updated.status,
+              verification_status: updated.verification_status,
+              updated_at: updated.updated_at,
+            }
+          : prev,
+      );
     } catch (error) {
       setIssue(toFieldIssue(error));
     } finally {
@@ -299,6 +389,8 @@ export function DashboardSettingsPage() {
         </div>
       )}
 
+      <BusinessStatusBanner profile={profile} />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <Card className="p-6">
@@ -340,6 +432,31 @@ export function DashboardSettingsPage() {
                 />
 
                 <div>
+                  <label htmlFor="settings-category" className="block text-sm font-medium text-navy-700 mb-1.5">
+                    {t('settings.category')}
+                  </label>
+                  <select
+                    id="settings-category"
+                    value={form.categoryId}
+                    onChange={(e) => set('categoryId', e.target.value)}
+                    className="w-full rounded-button border border-navy-300 px-3 py-2.5 bg-white text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">{t('settings.categoryAny')}</option>
+                    {(categories ?? []).map((category) => (
+                      <option key={category.category_id} value={category.category_id}>
+                        {category.category_name}
+                      </option>
+                    ))}
+                  </select>
+                  {fieldError('categoryId') && (
+                    <p className="mt-1.5 text-sm text-error-600" role="alert">
+                      {fieldError('categoryId')}
+                    </p>
+                  )}
+                  <p className="mt-1.5 text-sm text-navy-500">{t('settings.categoryHint')}</p>
+                </div>
+
+                <div>
                   <label htmlFor="settings-description" className="block text-sm font-medium text-navy-700 mb-1.5">
                     {t('settings.description')}
                   </label>
@@ -361,17 +478,29 @@ export function DashboardSettingsPage() {
                     onChange={(e) => set('phone', e.target.value)}
                     maxLength={20}
                     placeholder="+252 61 000 0000"
+                    helperText={phonePreview ? `${t('listBusiness.willStore')} ${phonePreview}` : t('listBusiness.phoneHint')}
                     error={fieldError('phone')}
                   />
                   <Input
-                    label={t('settings.email')}
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => set('email', e.target.value)}
-                    helperText={t('settings.emailNotReadable')}
-                    error={fieldError('email')}
+                    label={t('settings.whatsapp')}
+                    type="tel"
+                    value={form.whatsapp}
+                    onChange={(e) => set('whatsapp', e.target.value)}
+                    maxLength={20}
+                    placeholder="+252 61 000 0000"
+                    helperText={whatsappPreview ? `${t('listBusiness.willStore')} ${whatsappPreview}` : t('listBusiness.whatsappHint')}
+                    error={fieldError('whatsapp')}
                   />
                 </div>
+
+                <Input
+                  label={t('settings.email')}
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => set('email', e.target.value)}
+                  helperText={t('settings.emailNotReadable')}
+                  error={fieldError('email')}
+                />
 
                 <Input
                   label={t('settings.website')}

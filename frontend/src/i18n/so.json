@@ -474,6 +474,18 @@
     "errorEmail": "Gali meel khibrad, ama ka bannaan santuurka maran.",
     "errorUrl": "Gali URL oo dhammaysan oo ka bilaabma https://, ama ka bannaan santuurka maran.",
     "errorPhone": "Gali taleefan habraameed, tusaale +252900000000.",
+    "whatsapp": "WhatsApp",
+    "category": "Qaybta",
+    "categoryAny": "Oone qayb",
+    "categoryHint": "Ikhtiyaari.",
+    "bannerPending": "Ku jiraan dib u eedista",
+    "bannerPendingBody": "Ganacsigaagu wuxuu ku jiraan karaa dib u eedista; wuxuu muhiri doonaa buuga kadib marka qof ka tirsan koodda u xaqiijo.",
+    "bannerRejected": "La diriyay",
+    "bannerRejectedBody": "Ganacsigaaga waxaa la diriyay.",
+    "bannerRejectionReason": "Sabab:",
+    "bannerLive": "La daabacay",
+    "bannerLiveBody": "Ganacsigaagu wuxuu ku jiraan buuga agu u yidhaahdo, oo ku salaysan kululka.",
+    "bannerLiveLink": "Fiiriso bogga dadweynaha",
     "reload": "Dib u soo shaqee"
   },
   "orderStatus": {

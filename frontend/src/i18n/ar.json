@@ -495,6 +495,18 @@
     "errorEmail": "أدخل بريداً إلكترونياً صالحاً، أو اترك الحقل فارغاً.",
     "errorUrl": "أدخل رابطاً كاملاً يبدأ بـ https://، أو اترك الحقل فارغاً.",
     "errorPhone": "أدخل رقم هاتف بالصيغة الدولية، مثال +252900000000.",
+    "whatsapp": "واتساب",
+    "category": "القسم",
+    "categoryAny": "بدون قسم",
+    "categoryHint": "اختياري.",
+    "bannerPending": "قيد المراجعة",
+    "bannerPendingBody": "عملك في انتظار مراجعة. سيظهر في الدليل بمجرد اعتماد أحد أعضاء الفريق.",
+    "bannerRejected": "مرفوض",
+    "bannerRejectedBody": "تم رفض إدراج عملك.",
+    "bannerRejectionReason": "السبب:",
+    "bannerLive": "مباشرة في الدليل",
+    "bannerLiveBody": "عملك مدرج في الدليل ومرئي للزوار.",
+    "bannerLiveLink": "عرض الصفحة العامة",
     "reload": "إعادة التحميل"
   },
   "orderStatus": {

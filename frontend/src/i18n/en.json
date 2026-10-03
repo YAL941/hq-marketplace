@@ -474,6 +474,18 @@
     "errorEmail": "Enter a valid email address, or leave the box empty.",
     "errorUrl": "Enter a full URL starting with https://, or leave the box empty.",
     "errorPhone": "Enter a phone number in international format, for example +252900000000.",
+    "whatsapp": "WhatsApp",
+    "category": "Category",
+    "categoryAny": "No category",
+    "categoryHint": "Optional.",
+    "bannerPending": "Pending review",
+    "bannerPendingBody": "Your business is waiting for a review. It will appear in the directory once a team member approves it.",
+    "bannerRejected": "Rejected",
+    "bannerRejectedBody": "Your business submission was rejected.",
+    "bannerRejectionReason": "Reason:",
+    "bannerLive": "Live in the directory",
+    "bannerLiveBody": "Your business is listed in the directory and visible to visitors.",
+    "bannerLiveLink": "View public page",
     "reload": "Reload"
   },
   "orderStatus": {
