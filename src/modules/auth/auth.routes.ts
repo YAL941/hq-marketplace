@@ -63,7 +63,28 @@ function asBadRequest<T>(run: () => T): T {
     }
 }
 
+/**
+ * Normalises an optional phone field to E.164, or leaves it absent.
+ *
+ * A blank box and a missing key mean the same thing here — the business simply
+ * has no number on that channel yet — so both become null instead of failing.
+ * Anything that is present but unusable is a 400 carrying the field name, which
+ * is what lets a form with two number boxes point at the right one.
+ */
+function optionalPhone(value: string | null | undefined, field: 'phone' | 'whatsapp'): string | null {
+    if (value === undefined || value === null || value.trim() === '') return null;
+    try {
+        return normalisePhone(value);
+    } catch (error) {
+        if (error instanceof PhoneValidationError) {
+            throw badRequest(error.message, { field, reason: error.reason });
+        }
+        throw error;
+    }
+}
+
 const authLimiter = rateLimiter('auth');
+const writeLimiter = rateLimiter('write');
 
 export const authRoutes: Router = Router();
 
@@ -258,6 +279,7 @@ async function createBusinessWithOwner(
         district?: string | null;
         contactPhone?: string | null;
         contactEmail?: string | null;
+        whatsappNumber?: string | null;
     },
 ): Promise<{ business_id: string; business_name: string; business_slug: string; status: string }> {
     const slugBase = input.businessName
@@ -270,8 +292,8 @@ async function createBusinessWithOwner(
     const { rows } = await client.query<{ business_id: string; business_name: string; business_slug: string; status: string }>(
         `INSERT INTO businesses
             (business_name, business_slug, business_description, business_category_id, phone, email,
-             address, city, district, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+             address, city, district, whatsapp_number, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING business_id, business_name, business_slug, status`,
         [
             input.businessName,
@@ -283,6 +305,7 @@ async function createBusinessWithOwner(
             input.address ?? null,
             input.city ?? null,
             input.district ?? null,
+            input.whatsappNumber ?? null,
             input.userId,
         ],
     );
@@ -300,8 +323,21 @@ async function createBusinessWithOwner(
     return business;
 }
 
-/** Business onboarding: creates the business and its first (owning) member. */
-authRoutes.post('/businesses/register', authenticate, async (req, res, next) => {
+/**
+ * Business onboarding: creates the business and its first (owning) member.
+ *
+ * The `write` limiter is on this route for the same reason it is on order and
+ * review creation: it is authenticated, so it cannot be brute-forced, but it
+ * inserts two rows and mints a membership, and an unbounded loop of it from one
+ * account is a way to fill the businesses table.
+ *
+ * Phones are reduced to E.164 here rather than in the schema, because the
+ * database CHECK constraints expect that shape (`+?[0-9]{7,15}`) and a number
+ * stored any other way can never be dialled back. An unusable number is rejected
+ * with `details.field` so the form can put the message next to the box that
+ * caused it instead of showing one banner for the whole submission.
+ */
+authRoutes.post('/businesses/register', writeLimiter, authenticate, async (req, res, next) => {
     try {
         const userId = req.user!.id;
         const input = z
@@ -310,12 +346,16 @@ authRoutes.post('/businesses/register', authenticate, async (req, res, next) => 
                 businessCategoryId: z.number().int().positive().nullish(),
                 description: z.string().max(5000).nullish(),
                 phone: z.string().max(20).nullish(),
+                whatsapp: z.string().max(20).nullish(),
                 email: z.string().email().nullish(),
                 address: z.string().max(500).nullish(),
                 city: z.string().max(120).nullish(),
                 district: z.string().max(120).nullish(),
             })
             .parse(req.body);
+
+        const contactPhone = optionalPhone(input.phone, 'phone');
+        const whatsappNumber = optionalPhone(input.whatsapp, 'whatsapp');
 
         const result = await withTenant(contextFor(req), (client) =>
             createBusinessWithOwner(client, {
@@ -326,13 +366,17 @@ authRoutes.post('/businesses/register', authenticate, async (req, res, next) => 
                 address: input.address,
                 city: input.city,
                 district: input.district,
-                contactPhone: input.phone,
+                contactPhone,
+                whatsappNumber,
                 // An account registered by phone has no email, so the owner's
                 // phone is the only contact detail available here.
                 contactEmail: input.email ?? req.user!.email,
             }),
         );
 
+        // `status` is returned because it is the one field that tells the caller
+        // what happens next: a business created here is `pending`, and nothing
+        // in this response may suggest otherwise.
         res.status(201).json({ data: result });
     } catch (error) {
         if ((error as { code?: string }).code === '23505') {

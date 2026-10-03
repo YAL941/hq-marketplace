@@ -106,11 +106,32 @@ PATCH                 /api/business/:businessId/reviews/:reviewId/moderate
 PATCH                 /api/business/:businessId
 GET                   /api/business/:businessId/statistics
 GET|POST              /api/business/:businessId/members
+GET                   /api/business/:businessId
 ```
 
 The business context comes from the path or the `X-Business-Id` header. It is
 verified against `business_users` in the database before any query runs, and RLS
 rejects it a second time.
+
+`GET /api/business/:businessId` is the staff read: unlike
+`GET /api/businesses/:businessId` it has no visibility predicate, so it returns a
+`pending` or `rejected` business to its own members, including
+`status`, `verification_status`, `rejection_reason` and `verified_at`. The
+public read stays 404 for those, which is the point of the split.
+
+Platform admin (`platform_admin` role only; anyone else gets 403):
+
+```
+GET   /api/admin/businesses?status=pending|active|rejected&page&limit
+PATCH /api/admin/businesses/:businessId/verification
+```
+
+The verification decision body is `{ "decision": "approve" | "reject", "reason"?: string, "force"?: boolean }`.
+A rejection needs a reason of at least 5 characters. Approving sets `status`
+`active`, `verification_status` `verified`, `is_verified` true, `verified_at` to
+now and `verified_by` to the admin, and clears `rejection_reason`; rejecting sets
+`status` `rejected` and stores the reason. Deciding the same thing twice is a 409
+unless `force: true` says it was meant.
 
 ## Project layout
 

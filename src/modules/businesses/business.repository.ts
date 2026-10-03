@@ -407,6 +407,86 @@ export async function listCities(client: PoolClient): Promise<CityWithCount[]> {
 }
 
 /**
+ * The business as its own staff sees it, whatever state it is in.
+ *
+ * This is the read the owner dashboard needs and the public profile cannot
+ * provide: a business that is still `pending`, or that was `rejected`, is
+ * invisible to `getPublicBusinessProfile` by design, yet its owner has to be
+ * able to open it, edit it and be told why it is not listed.
+ *
+ * So the verification columns come back here, and PUBLIC_BUSINESS_PREDICATE is
+ * deliberately absent. What replaces it is the `businesses_staff_read` RLS
+ * policy, which allows the read only to a member of that business or a platform
+ * admin — so dropping the predicate here cannot widen anything: a caller who is
+ * neither gets zero rows from the database rather than a row from here.
+ *
+ * `created_by` and `verified_by` stay out. The owner does not need the internal
+ * account ids, and `verified_by` belongs to the admin surface, which has its
+ * own endpoint.
+ */
+export interface StaffBusinessProfile {
+    business_id: string;
+    business_name: string;
+    business_slug: string;
+    business_description: string | null;
+    business_category_id: string | null;
+    category_name: string | null;
+    category_slug: string | null;
+    phone: string | null;
+    whatsapp_number: string | null;
+    email: string | null;
+    website: string | null;
+    address: string | null;
+    city: string | null;
+    district: string | null;
+    logo_url: string | null;
+    cover_image_url: string | null;
+    /** Internal lifecycle state: pending, active, suspended, closed, rejected. */
+    status: string;
+    /** Verification decision: pending, verified, rejected. */
+    verification_status: string;
+    is_verified: boolean;
+    /** Why it was rejected. Null until a decision says otherwise. */
+    rejection_reason: string | null;
+    verified_at: Date | null;
+    created_at: Date;
+    updated_at: Date;
+}
+
+export async function getStaffBusiness(client: PoolClient, businessId: number): Promise<StaffBusinessProfile | null> {
+    const { rows } = await client.query<StaffBusinessProfile>(
+        `SELECT b.business_id,
+                b.business_name,
+                b.business_slug,
+                b.business_description,
+                b.business_category_id,
+                c.category_name,
+                c.category_slug,
+                b.phone,
+                b.whatsapp_number,
+                b.email,
+                b.website,
+                b.address,
+                b.city,
+                b.district,
+                b.logo_url,
+                b.cover_image_url,
+                b.status,
+                b.verification_status,
+                b.is_verified,
+                b.rejection_reason,
+                b.verified_at,
+                b.created_at,
+                b.updated_at
+           FROM businesses b
+           LEFT JOIN business_categories c ON c.category_id = b.business_category_id
+          WHERE b.business_id = $1`,
+        [businessId],
+    );
+    return rows[0] ?? null;
+}
+
+/**
  * Escapes the LIKE wildcards so a search for "50%" looks for that text instead
  * of matching everything.
  */

@@ -1,14 +1,21 @@
 ﻿import { Router } from 'express';
 import { z } from 'zod';
-import { forbidden, notFound, unauthorized } from '../../db/errors.js';
+import { badRequest, forbidden, notFound, unauthorized } from '../../db/errors.js';
 import { withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
+// The phone normaliser lives in the auth module because signup needed it first.
+// It is imported rather than copied on purpose: `businesses.phone` and
+// `businesses.whatsapp_number` are both CHECK-constrained to `^\+?[0-9]{7,15}$`,
+// so a second definition of "a valid number" here would be a second chance to
+// disagree with the first about what to store.
+import { normalisePhone, PhoneValidationError } from '../auth/phone.js';
 import {
     getOpeningHours,
     getPublicBusinessProfile,
     getPublicBusinessProfileBySlug,
+    getStaffBusiness,
     listCategories,
     listCities,
     listPublicBusinesses,
@@ -49,6 +56,7 @@ const updateSchema = z
         businessDescription: z.string().max(5000).nullish(),
         businessCategoryId: z.number().int().positive().nullish(),
         phone: z.string().max(20).nullish(),
+        whatsapp: z.string().max(20).nullish(),
         email: z.string().email().nullish(),
         website: z.string().url().max(300).nullish(),
         address: z.string().max(500).nullish(),
@@ -60,6 +68,30 @@ const updateSchema = z
         coverImageUrl: z.string().url().max(500).nullish(),
     })
     .refine((v) => Object.keys(v).length > 0, { message: 'Empty patch' });
+
+/**
+ * Reduces a submitted number to E.164, or to null when the field is cleared.
+ *
+ * Both number columns carry a CHECK constraint, so an un-normalised value is not
+ * a stored oddity but a rejected statement: without this the caller would get a
+ * 500 for typing a number the way everyone types one. Blank means "remove it",
+ * which is why null is passed through instead of being normalised.
+ */
+function normaliseOptionalNumber(value: unknown, field: 'phone' | 'whatsapp'): string | null {
+    if (value === null) return null;
+    if (typeof value !== 'string') {
+        throw badRequest(`${field} must be a string`, { field });
+    }
+    if (value.trim() === '') return null;
+    try {
+        return normalisePhone(value);
+    } catch (error) {
+        if (error instanceof PhoneValidationError) {
+            throw badRequest(error.message, { field, reason: error.reason });
+        }
+        throw error;
+    }
+}
 
 export const businessRoutes: Router = Router();
 
@@ -213,11 +245,17 @@ businessRoutes.patch('/business/:businessId', authenticate, resolveBusiness, asy
         const businessId = req.businessId!;
         const patch = updateSchema.parse(req.body) as Record<string, unknown>;
 
+        // Normalised before the column map is walked, so the value that reaches
+        // SQL is the one that satisfies the CHECK constraint.
+        if (patch['phone'] !== undefined) patch['phone'] = normaliseOptionalNumber(patch['phone'], 'phone');
+        if (patch['whatsapp'] !== undefined) patch['whatsapp'] = normaliseOptionalNumber(patch['whatsapp'], 'whatsapp');
+
         const columns: Record<string, string> = {
             businessName: 'business_name',
             businessDescription: 'business_description',
             businessCategoryId: 'business_category_id',
             phone: 'phone',
+            whatsapp: 'whatsapp_number',
             email: 'email',
             website: 'website',
             address: 'address',
@@ -259,6 +297,33 @@ businessRoutes.patch('/business/:businessId', authenticate, resolveBusiness, asy
             return rows[0];
         });
 
+        res.json({ data: business });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * The business as its own staff sees it.
+ *
+ * `GET /businesses/:businessId` answers 404 for a business that is not public
+ * yet, which is correct for a visitor and useless for the owner of a business
+ * that was registered five minutes ago and is still pending. This route is that
+ * missing read: same authentication and same membership check as every other
+ * `/business/:businessId` route, but no visibility predicate, so `pending` and
+ * `rejected` businesses come back with the reason attached.
+ *
+ * It is a GET on the same path as the PATCH below and carries the same tenant
+ * context, so what it returns is bounded twice: `resolveBusiness` refuses a
+ * caller who is not a member, and the `businesses_staff_read` policy returns
+ * nothing at all for one.
+ */
+businessRoutes.get('/business/:businessId', authenticate, resolveBusiness, async (req, res, next) => {
+    try {
+        if (!req.user) throw unauthorized();
+        const businessId = req.businessId!;
+        const business = await withTenant(contextFor(req, businessId), (client) => getStaffBusiness(client, businessId));
+        if (!business) throw notFound('Business not found');
         res.json({ data: business });
     } catch (error) {
         next(error);

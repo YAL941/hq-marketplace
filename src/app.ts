@@ -2,6 +2,7 @@ import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import { config } from './config.js';
+import { adminRoutes } from './modules/admin/admin.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { businessRoutes } from './modules/businesses/business.routes.js';
 import { locationRoutes } from './modules/locations/location.routes.js';
@@ -58,10 +59,16 @@ export function createApp(): Express {
                 'PATCH                 /api/business/:businessId',
                 'GET                   /api/business/:businessId/statistics',
                 'GET|POST              /api/business/:businessId/members',
+                'GET                   /api/business/:businessId',
+            ],
+            platformAdmin: [
+                'GET   /api/admin/businesses?status=pending|active|rejected&page&limit',
+                'PATCH /api/admin/businesses/:businessId/verification',
             ],
             note: 'Business staff routes need "Authorization: Bearer <token>" and the '
                 + 'business id in the path. The id in the X-Business-Id header is '
-                + 'verified against business_users; a mismatch is rejected.',
+                + 'verified against business_users; a mismatch is rejected. The '
+                + '/api/admin routes need the platform_admin role and nothing else does.',
         });
     });
 
@@ -81,6 +88,7 @@ export function createApp(): Express {
     app.use('/api', orderRoutes);
     app.use('/api', reviewRoutes);
     app.use('/api', locationRoutes);
+    app.use('/api', adminRoutes);
 
     app.use(notFoundHandler);
     app.use(errorHandler);
