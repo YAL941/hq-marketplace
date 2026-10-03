@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Menu, X, User, ShoppingBag, LayoutDashboard, ChevronDown, Store } from 'lucide-react';
+import { Menu, X, User, ShoppingBag, LayoutDashboard, ChevronDown, Store, Shield } from 'lucide-react';
 import { Logo } from '../branding/Logo';
 import { Button } from '../common/Button';
 import { SearchBar } from '../common/SearchBar';
@@ -17,7 +17,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
-    const { user, isAuthenticated, logout, businesses, currentBusiness, setCurrentBusiness } = useAuth();
+    const { user, isAuthenticated, logout, businesses, currentBusiness, setCurrentBusiness, hasPlatformRole } = useAuth();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -29,7 +29,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
       }
     };
 
-    const isDashboard = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/business/');
+    const isDashboard = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/business/') || location.pathname.startsWith('/admin');
     const isPublic = !isDashboard;
 
     return (
@@ -94,9 +94,15 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
                           ))}
                         </div>
                       )}
-                    </div>
-                  )}
-                </nav>
+                       </div>
+                     )}
+
+                     {hasPlatformRole('platform_admin') && (
+                       <Link to="/admin/businesses" className={cn('flex items-center text-sm font-medium transition-colors', location.pathname.startsWith('/admin') ? 'text-primary-600' : 'text-navy-600 hover:text-navy-900')}>
+                         <Shield className="w-4 h-4 inline me-1" /> {t('nav.admin')}
+                       </Link>
+                     )}
+                 </nav>
               )}
             </div>
 
@@ -199,14 +205,19 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
                   <Link to="/list-your-business" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button flex items-center gap-2">
                     <Store className="w-4 h-4" /> {t('nav.listYourBusiness')}
                   </Link>
-                  {currentBusiness && (
-                    <Link to="/dashboard" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button flex items-center gap-2">
-                      <LayoutDashboard className="w-4 h-4" /> {t('nav.dashboard')}
-                    </Link>
-                  )}
-                  <button onClick={logout} className="px-3 py-2 text-start text-error-600 hover:bg-error-50 rounded-button w-full">
-                    {t('nav.signOut')}
-                  </button>
+                   {currentBusiness && (
+                     <Link to="/dashboard" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button flex items-center gap-2">
+                       <LayoutDashboard className="w-4 h-4" /> {t('nav.dashboard')}
+                     </Link>
+                   )}
+                   {hasPlatformRole('platform_admin') && (
+                     <Link to="/admin/businesses" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button flex items-center gap-2">
+                       <Shield className="w-4 h-4" /> {t('nav.admin')}
+                     </Link>
+                   )}
+                   <button onClick={logout} className="px-3 py-2 text-start text-error-600 hover:bg-error-50 rounded-button w-full">
+                     {t('nav.signOut')}
+                   </button>
                 </>
               ) : (
                 <>

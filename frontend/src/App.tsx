@@ -1,6 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { ShieldX } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { MainLayout } from './components/layout/MainLayout';
+import { Button } from './components/common/Button';
 import { HomePage } from './pages/Home';
 import { ExplorePage } from './pages/Explore';
 import { CategoryPage } from './pages/CategoryPage';
@@ -16,6 +19,7 @@ import { DashboardAnalyticsPage } from './pages/DashboardAnalytics';
 import { DashboardCustomersPage } from './pages/DashboardCustomers';
 import { DashboardSettingsPage } from './pages/DashboardSettings';
 import { ListYourBusinessPage } from './pages/ListYourBusiness';
+import { AdminBusinessesPage } from './pages/AdminBusinesses';
 import { ProductCreatePage } from './pages/ProductCreate';
 import { ProductEditPage } from './pages/ProductEdit';
 import { ServiceCreatePage } from './pages/ServiceCreate';
@@ -37,6 +41,42 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   }
 
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+}
+
+function PlatformAdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading, hasPlatformRole } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  if (!hasPlatformRole('platform_admin')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center py-12">
+        <div className="max-w-md text-center">
+          <ShieldX className="w-12 h-12 text-error-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-navy-900 mb-2">{t('admin.forbiddenTitle')}</h1>
+          <p className="text-navy-500 mb-6">{t('admin.forbiddenBody')}</p>
+          <Button variant="outline" onClick={() => navigate('/')}>
+            {t('listYourBusiness.backHome')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }
 
 function BusinessRoute({ children }: { children: React.ReactNode }) {
@@ -109,7 +149,16 @@ function App() {
             it sits outside `/dashboard/business/:businessId`. The guard is the
             page's own — it redirects to the login screen and comes back here.
           */}
-          <Route path="/list-your-business" element={<MainLayout><ListYourBusinessPage /></MainLayout>} />
+           <Route path="/list-your-business" element={<MainLayout><ListYourBusinessPage /></MainLayout>} />
+
+           <Route
+             path="/admin/businesses"
+             element={
+               <PlatformAdminRoute>
+                 <MainLayout><AdminBusinessesPage /></MainLayout>
+               </PlatformAdminRoute>
+             }
+           />
 
           {/* Linked from the auth screens, so they exist rather than falling
               through to the home page and looking broken. */}

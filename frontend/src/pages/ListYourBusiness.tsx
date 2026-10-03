@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, BadgeCheck, CheckCircle2, Clock, Store } from 'lucide-react';
+import { AlertCircle, BadgeCheck, CheckCircle2, Clock, Store, XCircle } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
@@ -32,6 +32,10 @@ const EMPTY: FormState = {
   whatsapp: '',
   description: '',
 };
+
+type SubmitResult =
+  | { kind: 'pending'; businessId: string; businessName: string }
+  | { kind: 'verified'; businessId: string; businessName: string; slug: string };
 
 /**
  * "List your business".
@@ -66,7 +70,8 @@ export function ListYourBusinessPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [issue, setIssue] = useState<FieldIssue | null>(null);
-  const [created, setCreated] = useState<{ businessId: string; businessName: string } | null>(null);
+  const [submission, setSubmission] = useState<SubmitResult | null>(null);
+  const [rejectionBanner, setRejectionBanner] = useState<string | null>(null);
 
   /** The staff read of the business being completed, used to prefill the form. */
   const [profile, setProfile] = useState<StaffBusinessProfile | null>(null);
@@ -215,6 +220,7 @@ export function ListYourBusinessPage() {
 
     setSaving(true);
     setIssue(null);
+    setRejectionBanner(null);
     try {
       if (completeId) {
         // Complete mode never creates: it patches the business the URL names,
@@ -231,9 +237,27 @@ export function ListYourBusinessPage() {
           district: form.district.trim() || null,
           address: form.address.trim() || null,
         };
-        const res = await businessApi.update(completeId, patch);
-        const updated = res.data.data;
-        setCreated({ businessId: updated.business_id, businessName: updated.business_name });
+        await businessApi.update(completeId, patch);
+        // The PATCH response is a BusinessRecord and does not carry
+        // `rejection_reason`. The real state is therefore read back from the
+        // staff read, which also catches a status an admin changed during the
+        // edit; a verified business is never reported as pending.
+        const p = (await businessApi.getForBusiness(completeId)).data.data;
+        const live = p.status === 'active' && p.is_verified && p.verification_status === 'verified';
+        if (live) {
+          setSubmission({
+            kind: 'verified',
+            businessId: p.business_id,
+            businessName: p.business_name,
+            slug: p.business_slug,
+          });
+        } else if (p.status === 'rejected') {
+          // Keep the form editable and surface the reason; the owner can fix
+          // details and save again to request another review.
+          setRejectionBanner(p.rejection_reason ?? t('listBusiness.rejectedBodyFallback'));
+        } else {
+          setSubmission({ kind: 'pending', businessId: p.business_id, businessName: p.business_name });
+        }
       } else {
         // Create mode sends only fields with a value; an empty box is omitted,
         // not sent as an empty string, so the server stores null rather than ''.
@@ -252,7 +276,7 @@ export function ListYourBusinessPage() {
         // until it is refetched. Without this the sidebar would show no business
         // and the dashboard link on the success screen would go nowhere.
         await refreshUser();
-        setCreated({ businessId: business.business_id, businessName: business.business_name });
+        setSubmission({ kind: 'pending', businessId: business.business_id, businessName: business.business_name });
       }
     } catch (error) {
       setIssue(toFieldIssue(error));
@@ -261,7 +285,7 @@ export function ListYourBusinessPage() {
     }
   };
 
-  if (authLoading || (!isAuthenticated && !created)) {
+  if (authLoading || (!isAuthenticated && !submission)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary-600 border-t-transparent" />
@@ -269,7 +293,16 @@ export function ListYourBusinessPage() {
     );
   }
 
-  if (created) return <PendingVerification businessId={created.businessId} name={created.businessName} />;
+  if (submission?.kind === 'pending')
+    return <PendingVerification businessId={submission.businessId} name={submission.businessName} />;
+  if (submission?.kind === 'verified')
+    return (
+      <SavedConfirmation
+        businessId={submission.businessId}
+        name={submission.businessName}
+        slug={submission.slug}
+      />
+    );
 
   if (completeId && profileLoading) {
     return (
@@ -329,6 +362,16 @@ export function ListYourBusinessPage() {
               >
                 {issue.message || t('common.saveFailed')}
               </p>
+            )}
+
+            {rejectionBanner && (
+              <div
+                className="p-3 bg-error-50 border border-error-200 rounded-button flex items-start gap-3 text-error-700 text-sm"
+                role="alert"
+              >
+                <XCircle className="w-5 h-5 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                <span>{rejectionBanner}</span>
+              </div>
             )}
 
             <Input
@@ -538,6 +581,36 @@ function PendingVerification({ businessId, name }: { businessId: string; name: s
           </Link>
           <Link to="/">
             <Button variant="outline">{t('listBusiness.backHome')}</Button>
+          </Link>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/**
+ * Shown when a complete-mode save lands on a business that is already verified,
+ * i.e. an admin approved it while it was being edited. A verified business is
+ * never reported as pending.
+ */
+function SavedConfirmation({ businessId, name, slug }: { businessId: string; name: string; slug: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+      <Card className="p-8 text-center">
+        <div className="w-16 h-16 rounded-full bg-success-50 text-success-600 flex items-center justify-center mx-auto mb-6">
+          <CheckCircle2 className="w-8 h-8" aria-hidden="true" />
+        </div>
+
+        <h1 className="text-2xl sm:text-3xl font-bold text-navy-900 mb-3">{t('listBusiness.savedTitle')}</h1>
+        <p className="text-navy-600 mb-6">{t('listBusiness.savedBody', { name })}</p>
+
+        <div className="flex flex-wrap gap-3 justify-center">
+          <Link to={`/business/${slug}`}>
+            <Button>{t('listBusiness.viewPublic')}</Button>
+          </Link>
+          <Link to={`/dashboard/business/${businessId}`}>
+            <Button variant="outline">{t('listBusiness.goToDashboard')}</Button>
           </Link>
         </div>
       </Card>
