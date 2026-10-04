@@ -5,6 +5,7 @@ import { withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
+import { managedImageUrlSchema } from '../media/stored-image-url.js';
 // The phone normaliser lives in the auth module because signup needed it first.
 // It is imported rather than copied on purpose: `businesses.phone` and
 // `businesses.whatsapp_number` are both CHECK-constrained to `^\+?[0-9]{7,15}$`,
@@ -50,24 +51,34 @@ export interface BusinessRow {
     updated_at: Date;
 }
 
-const updateSchema = z
-    .object({
-        businessName: z.string().min(2).max(200).optional(),
-        businessDescription: z.string().max(5000).nullish(),
-        businessCategoryId: z.number().int().positive().nullish(),
-        phone: z.string().max(20).nullish(),
-        whatsapp: z.string().max(20).nullish(),
-        email: z.string().email().nullish(),
-        website: z.string().url().max(300).nullish(),
-        address: z.string().max(500).nullish(),
-        city: z.string().max(120).nullish(),
-        district: z.string().max(120).nullish(),
-        latitude: z.number().min(-90).max(90).nullish(),
-        longitude: z.number().min(-180).max(180).nullish(),
-        logoUrl: z.string().url().max(500).nullish(),
-        coverImageUrl: z.string().url().max(500).nullish(),
-    })
-    .refine((v) => Object.keys(v).length > 0, { message: 'Empty patch' });
+/**
+ * The profile PATCH schema.
+ *
+ * Built per request rather than module-level because `logoUrl` and
+ * `coverImageUrl` are checked against the business the route resolved: a managed
+ * path is only legal under `/uploads/<that id>/`, so the schema cannot exist
+ * before the id is known. See `modules/media/stored-image-url.ts`.
+ */
+function updateSchema(businessId: number) {
+    return z
+        .object({
+            businessName: z.string().min(2).max(200).optional(),
+            businessDescription: z.string().max(5000).nullish(),
+            businessCategoryId: z.number().int().positive().nullish(),
+            phone: z.string().max(20).nullish(),
+            whatsapp: z.string().max(20).nullish(),
+            email: z.string().email().nullish(),
+            website: z.string().url().max(300).nullish(),
+            address: z.string().max(500).nullish(),
+            city: z.string().max(120).nullish(),
+            district: z.string().max(120).nullish(),
+            latitude: z.number().min(-90).max(90).nullish(),
+            longitude: z.number().min(-180).max(180).nullish(),
+            logoUrl: managedImageUrlSchema(businessId),
+            coverImageUrl: managedImageUrlSchema(businessId),
+        })
+        .refine((v) => Object.keys(v).length > 0, { message: 'Empty patch' });
+}
 
 /**
  * Reduces a submitted number to E.164, or to null when the field is cleared.
@@ -243,7 +254,7 @@ businessRoutes.patch('/business/:businessId', authenticate, resolveBusiness, asy
     try {
         if (!req.user) throw unauthorized();
         const businessId = req.businessId!;
-        const patch = updateSchema.parse(req.body) as Record<string, unknown>;
+        const patch = updateSchema(businessId).parse(req.body) as Record<string, unknown>;
 
         // Normalised before the column map is walked, so the value that reaches
         // SQL is the one that satisfies the CHECK constraint.

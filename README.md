@@ -107,6 +107,9 @@ PATCH                 /api/business/:businessId
 GET                   /api/business/:businessId/statistics
 GET|POST              /api/business/:businessId/members
 GET                   /api/business/:businessId
+PUT|DELETE            /api/business/:businessId/logo
+PUT|DELETE            /api/business/:businessId/cover
+PUT|DELETE            /api/business/:businessId/products/:productId/image
 ```
 
 The business context comes from the path or the `X-Business-Id` header. It is
@@ -133,6 +136,114 @@ now and `verified_by` to the admin, and clears `rejection_reason`; rejecting set
 `status` `rejected` and stores the reason. Deciding the same thing twice is a 409
 unless `force: true` says it was meant.
 
+## Image uploads
+
+A business logo, a business cover and a product image. There is no schema
+change: `businesses.logo_url`, `businesses.cover_image_url` and
+`products.image_url` already existed and are still plain `TEXT`.
+
+```
+PUT    /api/business/:businessId/logo
+DELETE /api/business/:businessId/logo
+PUT    /api/business/:businessId/cover
+DELETE /api/business/:businessId/cover
+PUT    /api/business/:businessId/products/:productId/image
+DELETE /api/business/:businessId/products/:productId/image
+```
+
+`PUT` takes `multipart/form-data` with exactly one file in a field named
+`file`, and answers with the updated row, the same shape the matching `PATCH`
+returns. `DELETE` answers `204` and clears the column. Both require
+`Authorization: Bearer <token>`, business membership, and the permission the
+equivalent edit route already checks — `business.edit` for the logo and the
+cover, `products.edit` for a product image — and are rate limited with the same
+`write` profile (30/minute) as orders and reviews.
+
+### Limits and accepted formats
+
+| | limit | stored width |
+| --- | --- | --- |
+| logo | 2 MB | 512 px |
+| cover | 5 MB | 1600 px |
+| product image | 5 MB | 1200 px |
+
+Only **JPEG, PNG and WebP**, decided from the first bytes of the file and not
+from its name, its extension or its declared content type. SVG is refused
+outright. Anything over the ceiling, over 40 megapixels, animated or multi-page,
+empty, or not one of the three formats is a `400` whose body carries
+`details.field = "file"`.
+
+Everything that is accepted is rewritten before it is stored: EXIF orientation
+is applied and the orientation tag removed, all other metadata is dropped (sharp
+only keeps it when `.withMetadata()` is called, which this pipeline never
+does), the image is resized to the ceiling above without being enlarged, and the
+result is WebP. Nothing is cropped.
+
+### Stored URLs
+
+A stored value is a path, never a filesystem location and never an absolute
+URL:
+
+```
+/uploads/<businessId>/logo/<32 hex>.webp
+/uploads/<businessId>/cover/<32 hex>.webp
+/uploads/<businessId>/products/<productId>/<32 hex>.webp
+```
+
+The 32 hex characters are 16 bytes from the CSPRNG, so a name cannot be guessed
+and the original file name never reaches a URL. `PATCH /api/business/:businessId`
+and the product create/update bodies accept either such a path **under that
+business's own folder**, or an external `http`/`https` URL — anything else, and
+in particular a path under another business's folder, is a `400`.
+
+Replacing an image writes the new file first, updates the row in a transaction,
+and deletes the previous file only after that transaction commits. If any step
+fails the new file is removed and the row and the old file are left exactly as
+they were.
+
+`GET /uploads/<key>` serves the file as `image/webp` with a one year
+`immutable` cache (safe because a stored name is never reused) and
+`Cross-Origin-Resource-Policy: cross-origin`. Dotfiles are denied, a directory
+listing is not produced, and a missing key answers with the same `404` JSON body
+as any other missing route.
+
+### Storage: local now, S3 or R2 later
+
+`StorageProvider` (`src/modules/media/storage/`) is the only thing that knows
+where bytes live; routes never build a path themselves. `STORAGE_DRIVER=local`
+writes to `UPLOAD_DIR` and is the default, so a fresh clone serves uploads
+without editing `.env`. Adding a driver means a new class in that folder and a
+new value in the enum in `src/config.ts` — no route, no schema and no stored
+row changes.
+
+Local disk is a development answer, and it has two consequences worth stating
+before production:
+
+* **A container filesystem is ephemeral.** The directory has to be a mounted
+  volume, or uploaded images disappear on every deploy. This is the reason R2 or
+  S3 is the expected production answer rather than a preference.
+* **Several instances will not see each other's files.** One instance would
+  write an image another instance cannot serve, because the load balancer may
+  send the following `GET /uploads/...` to a different process.
+
+Because a row stores `/uploads/...` and never a host, moving to a bucket means
+new rows carry an absolute CDN URL and old rows keep working through whatever
+resolves the `/uploads/` prefix. Nothing has to be rewritten at migration time.
+
+### Environment
+
+| variable | default | meaning |
+| --- | --- | --- |
+| `STORAGE_DRIVER` | `local` | which `StorageProvider` stores images |
+| `UPLOAD_DIR` | `uploads` | root folder for stored images; relative paths resolve against the working directory, and the folder is git-ignored |
+| `UPLOAD_MAX_LOGO_BYTES` | `2097152` | logo ceiling |
+| `UPLOAD_MAX_COVER_BYTES` | `5242880` | cover ceiling |
+| `UPLOAD_MAX_PRODUCT_BYTES` | `5242880` | product image ceiling |
+| `UPLOAD_MAX_PIXELS` | `40000000` | decompression-bomb guard |
+
+All six are documented in [`.env.example`](.env.example) and all six have
+defaults, so the server boots and serves uploads without `.env` being edited.
+
 ## Project layout
 
 ```
@@ -142,6 +253,7 @@ db/seed/                (reserved for platform-owned seed data)
 src/db/                 pool, tenant context, migrator
 src/middleware/         auth, business resolution, error handling
 src/modules/            one folder per business capability
+src/modules/media/      upload routes, validation, image pipeline, storage
 tests/                  acceptance tests
 docs/                   schema, isolation and migration documentation
 ```

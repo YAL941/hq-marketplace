@@ -4,6 +4,7 @@ import { notFound } from '../../db/errors.js';
 import { withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
+import { optionalManagedImageUrlSchema } from '../media/stored-image-url.js';
 import {
     archiveProduct,
     createProduct,
@@ -22,21 +23,33 @@ const listQuerySchema = z.object({
     offset: z.coerce.number().int().min(0).optional(),
 });
 
-const createSchema = z.object({
-    productName: z.string().min(2).max(200),
-    categoryId: z.number().int().positive().nullish(),
-    description: z.string().max(5000).nullish(),
-    price: z.number().nonnegative(),
-    currency: z.string().length(3).regex(/^[A-Z]{3}$/).optional(),
-    sku: z.string().max(64).nullish(),
-    imageUrl: z.string().url().max(500).nullish(),
-    stockQuantity: z.number().int().nonnegative().optional(),
-    status: z.enum(['draft', 'active', 'inactive', 'archived']).optional(),
-});
+/**
+ * Product body schemas.
+ *
+ * Built per request because `imageUrl` is checked against the business the route
+ * resolved: a managed upload path is only legal under `/uploads/<that id>/`, so
+ * the schema cannot be a module constant. See
+ * `modules/media/stored-image-url.ts`.
+ */
+function createSchema(businessId: number) {
+    return z.object({
+        productName: z.string().min(2).max(200),
+        categoryId: z.number().int().positive().nullish(),
+        description: z.string().max(5000).nullish(),
+        price: z.number().nonnegative(),
+        currency: z.string().length(3).regex(/^[A-Z]{3}$/).optional(),
+        sku: z.string().max(64).nullish(),
+        imageUrl: optionalManagedImageUrlSchema(businessId),
+        stockQuantity: z.number().int().nonnegative().optional(),
+        status: z.enum(['draft', 'active', 'inactive', 'archived']).optional(),
+    });
+}
 
-const updateSchema = createSchema.partial().refine((v) => Object.keys(v).length > 0, {
-    message: 'Empty patch',
-});
+function updateSchema(businessId: number) {
+    return createSchema(businessId)
+        .partial()
+        .refine((v) => Object.keys(v).length > 0, { message: 'Empty patch' });
+}
 
 export const productRoutes: Router = Router();
 
@@ -68,7 +81,7 @@ productRoutes.get('/business/:businessId/products/:productId', authenticate, res
 productRoutes.post('/business/:businessId/products', authenticate, resolveBusiness, async (req, res, next) => {
     try {
         const businessId = req.businessId!;
-        const input = createSchema.parse(req.body);
+        const input = createSchema(businessId).parse(req.body);
         const ctx = contextFor(req, businessId);
         const product = await withTenant(ctx, (client) => createProduct(ctx, client, businessId, input));
         res.status(201).json({ data: product });
@@ -81,7 +94,7 @@ productRoutes.patch('/business/:businessId/products/:productId', authenticate, r
     try {
         const businessId = req.businessId!;
         const productId = Number(req.params['productId']);
-        const patch = updateSchema.parse(req.body) as Record<string, unknown>;
+        const patch = updateSchema(businessId).parse(req.body) as Record<string, unknown>;
         const ctx = contextFor(req, businessId);
         const product = await withTenant(ctx, (client) => updateProduct(client, businessId, productId, patch));
         if (!product) throw notFound('Product not found in this business');

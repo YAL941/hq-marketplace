@@ -6,6 +6,8 @@ import { adminRoutes } from './modules/admin/admin.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { businessRoutes } from './modules/businesses/business.routes.js';
 import { locationRoutes } from './modules/locations/location.routes.js';
+import { mediaRoutes } from './modules/media/media.routes.js';
+import { uploadRoot } from './modules/media/storage/local-disk.js';
 import { orderRoutes } from './modules/orders/order.routes.js';
 import { productRoutes } from './modules/products/product.routes.js';
 import { reviewRoutes } from './modules/reviews/review.routes.js';
@@ -18,6 +20,46 @@ export function createApp(): Express {
     app.use(helmet());
     app.use(cors({ origin: config.corsOrigins, credentials: true }));
     app.use(express.json({ limit: '1mb' }));
+
+    /**
+     * Uploaded images, served from disk.
+     *
+     * Mounted before the routers and with `fallthrough` left at its default, so
+     * a request for a file that does not exist carries on to the routers and
+     * ends at `notFoundHandler` with the same JSON body as every other missing
+     * route — and, just as importantly, `/api/...` never enters here at all.
+     *
+     * Three options are not cosmetic:
+     *
+     *   * `immutable` with a one year lifetime is safe because a stored name is
+     *     16 random bytes and is never reused: replacing a logo produces a new
+     *     URL rather than a new version of the old one, so no cache anywhere can
+     *     be holding the thing that just changed.
+     *   * `Cross-Origin-Resource-Policy: cross-origin` overrides helmet's
+     *     `same-origin` for this mount. Without it a development page on
+     *     :3000 silently fails to display an image served from :4000, because
+     *     an `<img>` request is `no-cors` and is filtered by CORP rather than
+     *     by CORS. CORS itself is irrelevant here: an image element never reads
+     *     a response body.
+     *   * `dotfiles: 'deny'`, `index: false` and `redirect: false` keep the
+     *     mount from serving `.env`, a directory listing, or turning a
+     *     misspelled key into a 301 that a client would follow to something
+     *     else.
+     */
+    app.use(
+        '/uploads',
+        express.static(uploadRoot(), {
+            index: false,
+            dotfiles: 'deny',
+            redirect: false,
+            acceptRanges: false,
+            maxAge: '365d',
+            immutable: true,
+            setHeaders: (res) => {
+                res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+            },
+        }),
+    );
 
     app.get('/health', async (_req, res) => {
         res.json({ status: 'ok', service: 'hq-marketplace', phase: 1 });
@@ -60,6 +102,9 @@ export function createApp(): Express {
                 'GET                   /api/business/:businessId/statistics',
                 'GET|POST              /api/business/:businessId/members',
                 'GET                   /api/business/:businessId',
+                'PUT|DELETE            /api/business/:businessId/logo',
+                'PUT|DELETE            /api/business/:businessId/cover',
+                'PUT|DELETE            /api/business/:businessId/products/:productId/image',
             ],
             platformAdmin: [
                 'GET   /api/admin/businesses?status=pending|active|rejected&page&limit',
@@ -68,7 +113,9 @@ export function createApp(): Express {
             note: 'Business staff routes need "Authorization: Bearer <token>" and the '
                 + 'business id in the path. The id in the X-Business-Id header is '
                 + 'verified against business_users; a mismatch is rejected. The '
-                + '/api/admin routes need the platform_admin role and nothing else does.',
+                + '/api/admin routes need the platform_admin role and nothing else does. '
+                + 'Image uploads are multipart/form-data with one field named "file"; '
+                + 'JPEG, PNG and WebP only, and the stored URL is served from /uploads.',
         });
     });
 
@@ -89,6 +136,7 @@ export function createApp(): Express {
     app.use('/api', reviewRoutes);
     app.use('/api', locationRoutes);
     app.use('/api', adminRoutes);
+    app.use('/api', mediaRoutes);
 
     app.use(notFoundHandler);
     app.use(errorHandler);

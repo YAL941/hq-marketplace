@@ -27,6 +27,37 @@ const envSchema = z.object({
      * while signed in, which turns a same-origin assumption into a false one.
      */
     CORS_ORIGIN: z.string().default('http://localhost:5173'),
+
+    /**
+     * Where uploaded images are stored.
+     *
+     * `local` writes to a folder on this machine and is the only driver that
+     * exists today; it is also the default, so a fresh clone serves uploads
+     * without anyone having to edit `.env` first. Adding S3 or Cloudflare R2
+     * later means adding a value here and an implementation of
+     * `StorageProvider`, not touching a route.
+     */
+    STORAGE_DRIVER: z.enum(['local']).default('local'),
+    /**
+     * Root folder for stored images. A relative value is resolved against the
+     * process working directory, which is the project root for `npm run dev`
+     * and for `npm start`. The public URL of a stored file is always
+     * `/uploads/<businessId>/<slot>/<name>`, independently of this path: the
+     * folder is an implementation detail and must never leak into a database
+     * row, or moving the folder would break every stored URL.
+     */
+    UPLOAD_DIR: z.string().min(1).default('uploads'),
+
+    /** Upload ceilings, in bytes. The API is the only place these are enforced. */
+    UPLOAD_MAX_LOGO_BYTES: z.coerce.number().int().positive().default(2 * 1024 * 1024),
+    UPLOAD_MAX_COVER_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024),
+    UPLOAD_MAX_PRODUCT_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024),
+    /**
+     * Decompression-bomb guard. A 5 MB file can expand to gigabytes of pixels,
+     * so the pixel count is checked after the header is read and before any
+     * resize is attempted.
+     */
+    UPLOAD_MAX_PIXELS: z.coerce.number().int().positive().default(40_000_000),
 });
 
 /** The Vite dev server, used when CORS_ORIGIN is unset or unusable. */
