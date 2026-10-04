@@ -174,6 +174,23 @@
     "showingRange": "Showing {{from}}–{{to}}",
     "noResultsRange": "Nothing to show"
   },
+  "upload": {
+    "label": "Image",
+    "hint": "JPG, PNG or WebP, up to {{max}}",
+    "choose": "Choose image",
+    "replace": "Replace",
+    "remove": "Remove",
+    "uploading": "Uploading...",
+    "progress": "{{percent}}% uploaded",
+    "unsupportedType": "That file type is not accepted. Use JPG, PNG or WebP.",
+    "tooLarge": "That image is larger than {{max}}.",
+    "tooLargeDimensions": "That image has too large dimensions.",
+    "failed": "Upload failed",
+    "removeFailed": "Could not remove the image",
+    "current": "Current image",
+    "empty": "No image yet",
+    "externalNotice": "This is an external link, so it cannot be removed from here."
+  },
   "status": {
     "active": "Active",
     "pending": "Pending",

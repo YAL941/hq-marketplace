@@ -174,6 +174,23 @@
     "showingRange": "Waxaa la muuqiyay {{from}}–{{to}}",
     "noResultsRange": "Wax la muuqin karo ma jiro"
   },
+  "upload": {
+    "label": "Sawirka",
+    "hint": "JPG, PNG ama WebP, ugu dhexeeyaa {{max}}",
+    "choose": "Sawir dooro",
+    "replace": "Beddel",
+    "remove": "Ka bixi",
+    "uploading": "Waa la soo rarayaa...",
+    "progress": "{{percent}}% waa la soo raray",
+    "unsupportedType": "Nooca faylku ma la oggololmo. Isticmaal JPG, PNG ama WebP.",
+    "tooLarge": "Sawirku wuxuu ka weyn yahay {{max}}.",
+    "tooLargeDimensions": "Cabbirka sawirku waa aad u weyn.",
+    "failed": "Soo raridda sawirku way fahiilay",
+    "removeFailed": "Bixinta sawirku way fahiilay",
+    "current": "Sawirka hadda",
+    "empty": "Sawir ma jiro",
+    "externalNotice": "Kani waa link dibadeed, sidaas darteed laga ma bixin karo halkaas."
+  },
   "status": {
     "active": "Filo",
     "pending": "Sugaya",

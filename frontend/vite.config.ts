@@ -16,6 +16,20 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
+      /*
+       * Uploaded images.
+       *
+       * The API stores an image as the path `/uploads/<businessId>/...`, and
+       * the database keeps that path verbatim so the row survives a change of
+       * storage driver. Serving the folder from this dev server as well is what
+       * makes the path work unchanged in the browser: without this entry the
+       * page would ask Vite for `/uploads/...`, get the SPA fallback instead of
+       * an image, and every logo would render broken.
+       */
+      '/uploads': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
     },
   },
 });

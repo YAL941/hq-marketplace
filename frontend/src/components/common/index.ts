@@ -1,6 +1,7 @@
 import { StatsCard } from './StatsCard';
 import { Button } from './Button';
 import { Input } from './Input';
+import { ImageUpload } from './ImageUpload';
 import { Card } from './Card';
 import { Badge } from './Badge';
 import { RatingStars } from './RatingStars';
@@ -13,6 +14,7 @@ export {
   StatsCard,
   Button,
   Input,
+  ImageUpload,
   Card,
   Badge,
   RatingStars,

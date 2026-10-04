@@ -83,6 +83,29 @@ export function truncate(text: string, length: number): string {
   return text.slice(0, length).trim() + '...';
 }
 
+/**
+ * A byte count as the largest file size a person can read at a glance.
+ *
+ * Upload limits are shown to the user before they pick a file, so this is
+ * deliberately binary (1024-based): the number next to it is the same one in
+ * `UPLOAD_LIMITS`, and a "2.5 MB" ceiling shown next to a "2 MB" comparison
+ * would make the mismatch look like a bug. Megabytes and up keep one decimal,
+ * kilobytes drop it — "1.5 KB" is not a precision anyone needs, but "1 KB" for a
+ * 1024-byte file is.
+ */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB'];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const decimals = value < 10 ? 1 : 0;
+  return `${Number(value.toFixed(decimals))} ${units[unit]}`;
+}
+
 export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
     active: 'bg-success-500',

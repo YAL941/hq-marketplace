@@ -119,7 +119,13 @@ export interface ApiErrorBody {
   error?: {
     code?: string;
     message?: string;
-    details?: { field?: string; reason?: string } | string;
+    /**
+     * Per-field context. Typed as a loose record rather than a fixed shape
+     * because the upload routes report `maxBytes` alongside `field`, which the
+     * other schemas do not: a typed union here would mean the file-too-large
+     * message cannot name the ceiling the server actually enforced.
+     */
+    details?: ({ field?: string; reason?: string; maxBytes?: number } & Record<string, unknown>) | string;
   };
 }
 
@@ -136,6 +142,8 @@ export interface FieldIssue {
   /** Server code, e.g. CONFLICT / BAD_REQUEST / UNAUTHORIZED. */
   code?: string;
   status?: number;
+  /** The ceiling the server enforced, on a FILE_TOO_LARGE upload refusal. */
+  maxBytes?: number;
   message: string;
 }
 
@@ -157,6 +165,10 @@ export function toFieldIssue(error: unknown): FieldIssue {
       field,
       code: body?.error?.code,
       status,
+      maxBytes:
+        details && typeof details === 'object' && typeof details.maxBytes === 'number'
+          ? details.maxBytes
+          : undefined,
       message: body?.error?.message ?? '',
     };
   }
@@ -433,6 +445,79 @@ export const adminApi = {
 
   decideVerification: (businessId: Id, data: VerificationInput) =>
     api.patch<ApiResponse<VerificationDecision>>(`/admin/businesses/${businessId}/verification`, data),
+};
+
+/**
+ * Image uploads.
+ *
+ * The three uploads and their three removals are the only calls in this file
+ * that do not send JSON, and the two details below are what make them work.
+ *
+ * **`Content-Type` is deleted, not set.** The shared axios instance declares
+ * `application/json` as a default header. Left in place it would be sent on a
+ * FormData request without the multipart boundary the server needs to find the
+ * file, and the upload would arrive as one unparseable part. Passing
+ * `'multipart/form-data'` explicitly is the more commonly seen fix and it is
+ * also wrong here: the value still has no boundary, because only the browser
+ * knows where it put one. Removing the header entirely is what lets the browser
+ * set it correctly.
+ *
+ * **The field is named `file`**, which is the single name the API reads. A
+ * `FormData` field name is part of the contract, not a label, so it is a
+ * constant rather than something derived from `kind`.
+ *
+ * Each upload answers with the updated row, the same body the matching PATCH
+ * returns, so the caller updates its state from the response instead of
+ * re-reading. Each removal answers 204 with no body.
+ *
+ * The verb is PUT, not POST, and not by accident: the route replaces the stored
+ * file and the column in one step, so uploading twice for the same slot is one
+ * overwrite rather than a second file. That also means the request is not
+ * idempotent in the naive sense — it consumes a write-rate token every time —
+ * which is the server's choice and is why there is no client-side retry here.
+ */
+const UPLOAD_FIELD = 'file';
+
+function uploadRequest<T>(url: string, file: File, onUploadProgress?: (percent: number) => void) {
+  const form = new FormData();
+  form.append(UPLOAD_FIELD, file, file.name);
+
+  return api.put<ApiResponse<T>>(url, form, {
+    headers: { 'Content-Type': undefined },
+    onUploadProgress: (event) => {
+      // `total` is undefined when the browser cannot tell (some mobile
+      // browsers, chunked bodies). Reporting 100 optimistically would make the
+      // bar jump to the end and back, so the caller is told nothing instead.
+      if (!onUploadProgress || !event.total) return;
+      onUploadProgress(Math.round((event.loaded / event.total) * 100));
+    },
+  });
+}
+
+export const mediaApi = {
+  /** PUT /business/:businessId/logo — `business.edit` required. */
+  uploadLogo: (businessId: Id, file: File, onUploadProgress?: (percent: number) => void) =>
+    uploadRequest<BusinessRecord>(`/business/${businessId}/logo`, file, onUploadProgress),
+
+  /** PUT /business/:businessId/cover — `business.edit` required. */
+  uploadCover: (businessId: Id, file: File, onUploadProgress?: (percent: number) => void) =>
+    uploadRequest<BusinessRecord>(`/business/${businessId}/cover`, file, onUploadProgress),
+
+  /** PUT /business/:businessId/products/:productId/image — `products.edit` required. */
+  uploadProductImage: (
+    businessId: Id,
+    productId: Id,
+    file: File,
+    onUploadProgress?: (percent: number) => void,
+  ) => uploadRequest<Product>(`/business/${businessId}/products/${productId}/image`, file, onUploadProgress),
+
+  /** DELETE, 204 with no body. Only removes a file this API produced. */
+  removeLogo: (businessId: Id) => api.delete(`/business/${businessId}/logo`),
+
+  removeCover: (businessId: Id) => api.delete(`/business/${businessId}/cover`),
+
+  removeProductImage: (businessId: Id, productId: Id) =>
+    api.delete(`/business/${businessId}/products/${productId}/image`),
 };
 
 export default api;

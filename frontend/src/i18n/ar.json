@@ -177,6 +177,23 @@
     "showingRange": "عرض {{from}}–{{to}}",
     "noResultsRange": "لا شيء للعرض"
   },
+  "upload": {
+    "label": "الصورة",
+    "hint": "JPG أو PNG أو WebP، بحد أقصى {{max}}",
+    "choose": "اختر صورة",
+    "replace": "استبدال",
+    "remove": "إزالة",
+    "uploading": "جارٍ الرفع...",
+    "progress": "تم رفع {{percent}}%",
+    "unsupportedType": "نوع الملف غير مدعوم. استخدم JPG أو PNG أو WebP.",
+    "tooLarge": "حجم الصورة يتجاوز {{max}}.",
+    "tooLargeDimensions": "أبعاد الصورة كبيرة جدًا.",
+    "failed": "فشل رفع الصورة",
+    "removeFailed": "تعذر حذف الصورة",
+    "current": "الصورة الحالية",
+    "empty": "لا توجد صورة بعد",
+    "externalNotice": "هذا رابط خارجي، لذا لا يمكن حذفه من هنا."
+  },
   "status": {
     "active": "نشط",
     "pending": "قيد الانتظار",
