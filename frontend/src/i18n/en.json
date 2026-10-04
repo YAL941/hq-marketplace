@@ -187,6 +187,8 @@
     "tooLargeDimensions": "That image has too large dimensions.",
     "failed": "Upload failed",
     "removeFailed": "Could not remove the image",
+    "uploaded": "Image uploaded",
+    "removed": "Image removed",
     "current": "Current image",
     "empty": "No image yet",
     "externalNotice": "This is an external link, so it cannot be removed from here."
@@ -217,7 +219,9 @@
     "generic": "Something went wrong",
     "notFound": "Not found",
     "network": "Could not reach the server. Check your connection.",
-    "unknown": "An unknown error occurred"
+    "unknown": "An unknown error occurred",
+    "forbidden": "You do not have permission to do that.",
+    "rateLimited": "Too many attempts. Wait a moment, then try again."
   },
   "relativeTime": {
     "justNow": "Just now",
@@ -479,6 +483,7 @@
     "district": "District",
     "logoUrl": "Logo URL",
     "coverImageUrl": "Cover image URL",
+    "imageLinkOption": "Use an image link instead",
     "savedAt": "Saved on {{date}}",
     "savedRecordTitle": "What the server returned",
     "recordStatus": "status",

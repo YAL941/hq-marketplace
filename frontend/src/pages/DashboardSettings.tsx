@@ -5,13 +5,14 @@ import { AlertCircle, Building2, Globe, Save, Shield, Users, XCircle } from 'luc
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
+import { ImageUpload } from '../components/common/ImageUpload';
 import { Badge } from '../components/common/Badge';
 import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
 import { Avatar } from '../components/layout/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { businessApi, directoryApi, toFieldIssue, type FieldIssue } from '../services/api';
-import { formatDate } from '../lib/utils';
+import { formatDate, cn } from '../lib/utils';
 import { normalisePhone } from '../lib/phone';
 import type {
   BusinessMember,
@@ -148,6 +149,46 @@ function BusinessStatusBanner({ profile }: BusinessStatusBannerProps) {
   );
 }
 
+interface Toast {
+  id: number;
+  message: string;
+  kind: 'success' | 'error';
+}
+
+/**
+ * A transient confirmation, following the pattern already used on the admin
+ * screen rather than introducing a second notification system for one page.
+ *
+ * An upload is the case that needs it: the preview updates in place, so without
+ * this there is no confirmation that anything reached the server at all, and a
+ * user who then reloads has no reason to expect the change to have survived.
+ */
+function Toast({ toast, onRemove }: { toast: Toast; onRemove: () => void }) {
+  return (
+    <div
+      className={cn(
+        'fixed bottom-4 start-4 max-w-sm rounded-card border px-4 py-3 shadow-card text-sm',
+        toast.kind === 'success'
+          ? 'bg-success-50 text-success-700 border-success-200'
+          : 'bg-error-50 text-error-700 border-error-200',
+      )}
+    >
+      {toast.message}
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute end-2 top-2 text-navy-400 hover:text-navy-600"
+        aria-label="Dismiss"
+      >
+        x
+      </button>
+    </div>
+  );
+}
+
+/** Which of the two image columns a link edit refers to. */
+type ImageSlot = 'logo' | 'cover';
+
 export function DashboardSettingsPage() {
   const { t } = useTranslation();
   const { user, businesses, currentBusiness, setCurrentBusiness } = useAuth();
@@ -162,6 +203,34 @@ export function DashboardSettingsPage() {
   const [saved, setSaved] = useState<BusinessRecord | null>(null);
   const [members, setMembers] = useState<BusinessMember[] | null>(null);
   const [profile, setProfile] = useState<StaffBusinessProfile | null>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  /**
+   * Whether the person typed in a link for that slot during this visit.
+   *
+   * An upload or a removal writes the column on the server immediately, which
+   * makes the form's copy of it stale by definition. Sending it again on the
+   * next Save would overwrite the new file with the old value, so the PATCH
+   * carries these two fields only while this says the link was deliberately
+   * edited here.
+   */
+  const [linkEdited, setLinkEdited] = useState<Record<ImageSlot, boolean>>({ logo: false, cover: false });
+  /**
+   * Which upload widgets have a request in flight, tracked per slot.
+   *
+   * Per slot rather than one shared flag because the two widgets are
+   * independent: with a single boolean, a logo that finished would report
+   * `false` while the cover was still uploading, re-enabling Save in the middle
+   * of an upload. Deriving the page-wide value from this keeps that impossible.
+   */
+  const [mediaBusyBySlot, setMediaBusyBySlot] = useState<Record<ImageSlot, boolean>>({ logo: false, cover: false });
+  const mediaBusy = mediaBusyBySlot.logo || mediaBusyBySlot.cover;
+
+  const showToast = useCallback((message: string, kind: 'success' | 'error') => {
+    const timer = window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== timer));
+    }, 4000);
+    setToasts((current) => [...current, { id: Number(timer), message, kind }]);
+  }, []);
 
   /**
    * The category list is reference data, so a failure here must not take the form
@@ -191,6 +260,10 @@ export function DashboardSettingsPage() {
     setIssue(null);
     setSaved(null);
     setForm(EMPTY);
+    // A reload discards whatever the link boxes held, so their dirty flags go
+    // with them. Leaving a flag set would make the next Save overwrite the
+    // freshly loaded column with a value the person has not seen since.
+    setLinkEdited({ logo: false, cover: false });
     try {
       const [profileRes, membersRes] = await Promise.all([
         // The staff read, not the public profile: it is the only one that
@@ -232,6 +305,38 @@ export function DashboardSettingsPage() {
     setSaved(null);
   };
 
+  /**
+   * Typing a link marks that slot as deliberately edited, which is the only
+   * thing that lets the next Save carry it.
+   */
+  const setLink = (key: 'logoUrl' | 'coverImageUrl', value: string) => {
+    set(key, value);
+    setLinkEdited((prev) => ({ ...prev, [key === 'logoUrl' ? 'logo' : 'cover']: true }));
+  };
+
+  /**
+   * Adopts a value the server has just written, in both places that hold it.
+   *
+   * An upload answers with the updated row and a removal answers 204, so in each
+   * case the new column value is known rather than needing a re-read. It is
+   * written to the form *and* to the loaded profile together, because the form
+   * is what a later Save would send and the profile is what the banner and any
+   * re-render read; updating one alone is how a stale value comes back and
+   * silently reverts the image.
+   *
+   * The dirty flag is cleared as well: the server now holds this value, so it
+   * is no longer a pending edit to be submitted.
+   */
+  const applyStoredUrl = (slot: ImageSlot, value: string | null) => {
+    setForm((prev) => (slot === 'logo' ? { ...prev, logoUrl: value ?? '' } : { ...prev, coverImageUrl: value ?? '' }));
+    setProfile((prev) =>
+      prev ? (slot === 'logo' ? { ...prev, logo_url: value } : { ...prev, cover_image_url: value }) : prev,
+    );
+    setLinkEdited((prev) => ({ ...prev, [slot]: false }));
+    setSaved(null);
+    setIssue(null);
+  };
+
   const fieldError = (field: FieldIssue['field']) =>
     issue && issue.field === field ? issue.message || t('common.saveFailed') : undefined;
 
@@ -270,6 +375,12 @@ export function DashboardSettingsPage() {
       return { field: 'email', message: t('settings.errorEmail') };
     }
     for (const key of ['website', 'logoUrl', 'coverImageUrl'] as const) {
+      // An image column the person never touched holds whatever the server wrote,
+      // which after an upload is a `/uploads/...` path — not a URL `new URL`
+      // accepts. Validating it anyway would fail a form over a value the person
+      // cannot see in the box they would have to fix it in.
+      const slot = key === 'logoUrl' ? 'logo' : key === 'coverImageUrl' ? 'cover' : null;
+      if (slot && !linkEdited[slot]) continue;
       const value = form[key].trim();
       if (value === '') continue;
       try {
@@ -317,18 +428,37 @@ export function DashboardSettingsPage() {
         address: form.address.trim() || null,
         city: form.city.trim() || null,
         district: form.district.trim() || null,
-        logoUrl: form.logoUrl.trim() || null,
-        coverImageUrl: form.coverImageUrl.trim() || null,
       };
       if (form.email.trim() !== '') patch.email = form.email.trim();
+
+      // The two image columns are the exception to "send everything". They are
+      // written by the upload routes themselves, so including them here — even
+      // with the value this page was just handed — would be a second, redundant
+      // write of data the server already has, and would revert an upload if this
+      // form's copy were ever one request behind. Only a deliberate link edit
+      // goes in the payload.
+      if (linkEdited.logo) patch.logoUrl = form.logoUrl.trim() || null;
+      if (linkEdited.cover) patch.coverImageUrl = form.coverImageUrl.trim() || null;
 
       const res = await businessApi.update(businessId, patch);
       const updated = res.data.data;
       setSaved(updated);
+      // The PATCH response is the whole row, so the two image columns come back
+      // authoritative here too. Adopting them keeps the form from holding a
+      // value the server has already moved on from, whichever way the request
+      // was built.
+      setForm((prev) => ({
+        ...prev,
+        logoUrl: updated.logo_url ?? '',
+        coverImageUrl: updated.cover_image_url ?? '',
+      }));
+      setLinkEdited({ logo: false, cover: false });
       setProfile((prev) =>
         prev
           ? {
               ...prev,
+              logo_url: updated.logo_url,
+              cover_image_url: updated.cover_image_url,
               status: updated.status,
               verification_status: updated.verification_status,
               updated_at: updated.updated_at,
@@ -336,7 +466,20 @@ export function DashboardSettingsPage() {
           : prev,
       );
     } catch (error) {
-      setIssue(toFieldIssue(error));
+      const failure = toFieldIssue(error);
+      // A 403 here means the account may edit the business but not this
+      // permission; a 429 means the shared write budget is spent. Both are
+      // reported in the page's language and as a toast, because the inline
+      // banner sits above the fields the person was looking at. Anything else
+      // keeps the server's own wording, which is already written for a reader.
+      const message =
+        failure.status === 403
+          ? t('errors.forbidden')
+          : failure.status === 429
+            ? t('errors.rateLimited')
+            : failure.message || t('common.saveFailed');
+      setIssue({ ...failure, message });
+      showToast(message, 'error');
     } finally {
       setSaving(false);
     }
@@ -536,27 +679,53 @@ export function DashboardSettingsPage() {
                   />
                 </div>
 
-                <Input
-                  label={t('settings.logoUrl')}
-                  type="url"
-                  value={form.logoUrl}
-                  onChange={(e) => set('logoUrl', e.target.value)}
-                  error={fieldError('logoUrl')}
-                />
-                <Input
-                  label={t('settings.coverImageUrl')}
-                  type="url"
-                  value={form.coverImageUrl}
-                  onChange={(e) => set('coverImageUrl', e.target.value)}
-                  error={fieldError('coverImageUrl')}
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {(['logo', 'cover'] as const).map((slot) => (
+                    <div key={slot} className="min-w-0">
+                      <ImageUpload
+                        kind={slot}
+                        businessId={businessId}
+                        shape={slot === 'logo' ? 'square' : 'wide'}
+                        value={slot === 'logo' ? form.logoUrl : form.coverImageUrl}
+                        onChange={(value) => applyStoredUrl(slot, value)}
+                        // Locked while the PATCH is in flight, and the Save button
+                        // is locked while an upload is: either order of the same
+                        // two writes must not overlap, or the last one to land
+                        // silently wins.
+                        disabled={saving}
+                        onBusyChange={(busy) => setMediaBusyBySlot((prev) => ({ ...prev, [slot]: busy }))}
+                        // The widget reports (kind, message); the page's own
+                        // toast helper takes them the other way round.
+                        onNotify={(kind, message) => showToast(message, kind)}
+                      />
+                      {/* The URL box stays, behind a disclosure. Uploading is the
+                          easy path but not the only one — an owner whose logo
+                          already lives on a CDN, or who wants to point at a file
+                          that has not been uploaded yet, needs to type one. */}
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-xs text-navy-500 hover:text-navy-700">
+                          {t('settings.imageLinkOption')}
+                        </summary>
+                        <div className="mt-2">
+                          <Input
+                            label={slot === 'logo' ? t('settings.logoUrl') : t('settings.coverImageUrl')}
+                            type="url"
+                            value={slot === 'logo' ? form.logoUrl : form.coverImageUrl}
+                            onChange={(e) => setLink(slot === 'logo' ? 'logoUrl' : 'coverImageUrl', e.target.value)}
+                            error={fieldError(slot === 'logo' ? 'logoUrl' : 'coverImageUrl')}
+                          />
+                        </div>
+                      </details>
+                    </div>
+                  ))}
+                </div>
 
                 <div className="flex flex-wrap gap-3 pt-2">
-                  <Button type="submit" loading={saving}>
+                  <Button type="submit" loading={saving} disabled={mediaBusy}>
                     <Save className="w-4 h-4 me-2" aria-hidden="true" />
                     {t('common.save')}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => void load()} disabled={saving}>
+                  <Button type="button" variant="outline" onClick={() => void load()} disabled={saving || mediaBusy}>
                     {t('settings.reload')}
                   </Button>
                 </div>
@@ -637,6 +806,14 @@ export function DashboardSettingsPage() {
           </Card>
         </div>
       </div>
+
+      {toasts.map((toast) => (
+        <Toast
+          key={toast.id}
+          toast={toast}
+          onRemove={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}
+        />
+      ))}
     </div>
   );
 }

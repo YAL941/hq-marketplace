@@ -1,7 +1,8 @@
-import { ChangeEvent, useId, useRef, useState } from 'react';
+import { ChangeEvent, useEffect, useId, useRef, useState } from 'react';
 import i18n from '../../i18n';
 import { cn, formatBytes } from '../../lib/utils';
 import {
+  describeMediaIssue,
   isAcceptableImageType,
   isManagedUpload,
   resolveMediaUrl,
@@ -41,6 +42,24 @@ export interface ImageUploadProps {
   /** `square` for a logo, `wide` for a cover or a product photo. */
   shape?: 'square' | 'wide';
   className?: string;
+  /**
+   * Called for every finished request, successful or not.
+   *
+   * A parent uses this for a toast. Failures are reported both here and inline,
+   * on purpose: the inline message sits next to the button that caused it, and
+   * the toast is what makes a 403 or a 429 noticeable when the upload happened
+   * above the fold or the user had scrolled away.
+   */
+  onNotify?: (kind: 'success' | 'error', message: string) => void;
+  /**
+   * Reports whether a request is in flight.
+   *
+   * The widget needs this from the parent because the race it prevents is
+   * between two siblings: a PATCH saving the whole profile must not land while
+   * an upload is replacing a column the same PATCH is about to write, and the
+   * upload buttons must not be live while that PATCH is in flight.
+   */
+  onBusyChange?: (busy: boolean) => void;
 }
 
 /**
@@ -67,6 +86,8 @@ export function ImageUpload({
   disabled,
   shape = 'square',
   className,
+  onNotify,
+  onBusyChange,
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -83,6 +104,23 @@ export function ImageUpload({
   // rather than offering one that would fail or, worse, clear somebody else's
   // asset.
   const canRemove = isManagedUpload(value);
+  const inFlight = busy || removing;
+
+  // Reported upward rather than read by the parent, because the parent cannot
+  // see inside this component. `inFlight` is the single value both the buttons
+  // and the notification depend on, so the two can never disagree.
+  useEffect(() => {
+    onBusyChange?.(inFlight);
+  }, [inFlight, onBusyChange]);
+
+  /**
+   * One place where a message is both shown inline and handed to the parent, so
+   * a failure can never be reported to one and hidden from the other.
+   */
+  function fail(message: string) {
+    setError(message);
+    onNotify?.('error', message);
+  }
 
   function pick() {
     if (locked) return;
@@ -92,10 +130,7 @@ export function ImageUpload({
 
   async function send(file: File, onProgress: (p: number) => void) {
     if (kind === 'product') {
-      if (productId === undefined) {
-        setError(i18n.t('upload.failed'));
-        return;
-      }
+      if (productId === undefined) throw new Error('productId is required for a product image');
       const res = await mediaApi.uploadProductImage(businessId, productId, file, onProgress);
       return res.data.data;
     }
@@ -117,33 +152,28 @@ export function ImageUpload({
     setError(null);
 
     if (!isAcceptableImageType(file)) {
-      setError(i18n.t('upload.unsupportedType'));
+      // The picker already filters these, so reaching here means the file came
+      // from somewhere else — a drag-and-drop, or a browser that ignored
+      // `accept`. Refusing it here costs nothing; the server would refuse it too.
+      fail(i18n.t('upload.unsupportedType'));
       return;
     }
     if (file.size > limit) {
-      setError(i18n.t('upload.tooLarge', { max: formatBytes(limit) }));
+      fail(i18n.t('upload.tooLarge', { max: formatBytes(limit) }));
       return;
     }
 
     setBusy(true);
     setPercent(0);
     try {
-      const row = (await send(file, setPercent)) as Record<string, string | null> | undefined;
+      // `send` returns either a business row or a product row depending on the slot;
+      // `unknown` is the honest bridge, since both are read only through the one
+      // column name this slot uses.
+      const row = (await send(file, setPercent)) as unknown as Record<string, string | null> | undefined;
       onChange(row?.[STORED_FIELD[kind]] ?? null);
+      onNotify?.('success', i18n.t('upload.uploaded'));
     } catch (caught) {
-      const issue = toFieldIssue(caught);
-      // The server's message is English and the page may be Somali, so each
-      // code the upload routes emit is translated here; anything unrecognised
-      // falls back to the server text rather than to a generic string, which is
-      // what makes a future code still readable instead of a bare "failed".
-      const max = issue.maxBytes ?? limit;
-      const byCode: Record<string, string> = {
-        UNSUPPORTED_IMAGE_TYPE: i18n.t('upload.unsupportedType'),
-        FILE_TOO_LARGE: i18n.t('upload.tooLarge', { max: formatBytes(max) }),
-        IMAGE_TOO_LARGE: i18n.t('upload.tooLargeDimensions'),
-      };
-      const fallback = issue.message || i18n.t('upload.failed');
-      setError(issue.code ? byCode[issue.code] ?? fallback : fallback);
+      fail(describeMediaIssue(toFieldIssue(caught), limit));
     } finally {
       setBusy(false);
       setPercent(null);
@@ -156,10 +186,7 @@ export function ImageUpload({
     setRemoving(true);
     try {
       if (kind === 'product') {
-        if (productId === undefined) {
-          setError(i18n.t('upload.removeFailed'));
-          return;
-        }
+        if (productId === undefined) throw new Error('productId is required to remove a product image');
         await mediaApi.removeProductImage(businessId, productId);
       } else if (kind === 'logo') {
         await mediaApi.removeLogo(businessId);
@@ -170,9 +197,9 @@ export function ImageUpload({
       // than fetched: the slot was emptied, and only a managed path could reach
       // this branch.
       onChange(null);
+      onNotify?.('success', i18n.t('upload.removed'));
     } catch (caught) {
-      const issue = toFieldIssue(caught);
-      setError(issue.message || i18n.t('upload.removeFailed'));
+      fail(describeMediaIssue(toFieldIssue(caught), limit) || i18n.t('upload.removeFailed'));
     } finally {
       setRemoving(false);
     }

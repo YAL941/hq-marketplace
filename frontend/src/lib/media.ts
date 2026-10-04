@@ -18,6 +18,10 @@
  * it already carries a full URL, with nothing in the UI having to be rewritten.
  */
 
+import i18n from '../i18n';
+import type { FieldIssue } from '../services/api';
+import { formatBytes } from './utils';
+
 /** The origin/prefix a stored path is resolved against. Empty means same origin. */
 const MEDIA_BASE = (import.meta.env.VITE_MEDIA_BASE ?? '').replace(/\/+$/, '');
 
@@ -98,4 +102,44 @@ export const UPLOAD_ACCEPT = 'image/jpeg,image/png,image/webp';
  */
 export function isAcceptableImageType(file: File): boolean {
   return file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/webp';
+}
+
+/**
+ * Turns a failed media request into a sentence in the active language.
+ *
+ * The server's messages are English and specific, which is the right default:
+ * an unrecognised code still produces readable text rather than a bare "failed".
+ * The four codes that recur on these routes are translated instead, because they
+ * are the ones a person sees most and are the least self-explanatory in a
+ * language they are reading.
+ *
+ * `fallbackBytes` is the ceiling this client knew about, used only when the
+ * server did not send one. When it does send `maxBytes`, that number wins: the
+ * message then names the limit that was actually enforced rather than the one
+ * that happened to be compiled into the bundle.
+ */
+export function describeMediaIssue(issue: FieldIssue, fallbackBytes: number): string {
+  const serverText = issue.message || i18n.t('upload.failed');
+  const ceiling = formatBytes(issue.maxBytes ?? fallbackBytes);
+
+  switch (issue.code) {
+    case 'UNSUPPORTED_IMAGE_TYPE':
+      return i18n.t('upload.unsupportedType');
+    case 'FILE_TOO_LARGE':
+      return i18n.t('upload.tooLarge', { max: ceiling });
+    case 'IMAGE_TOO_LARGE':
+      return i18n.t('upload.tooLargeDimensions');
+    case 'RATE_LIMITED':
+      return i18n.t('errors.rateLimited');
+    default:
+      // 403 is checked before `code` because the permission middleware and the
+      // business resolver emit it under different codes (`FORBIDDEN` and
+      // `UNAUTHORIZED`-adjacent paths), and both mean the same thing here: this
+      // account may not change this image. A pending or rejected business is
+      // still editable by its staff, so this is about the account's role, not
+      // about the business being visible.
+      if (issue.status === 403) return i18n.t('errors.forbidden');
+      if (issue.status === 429) return i18n.t('errors.rateLimited');
+      return serverText;
+  }
 }

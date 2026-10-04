@@ -187,6 +187,8 @@
     "tooLargeDimensions": "Cabbirka sawirku waa aad u weyn.",
     "failed": "Soo raridda sawirku way fahiilay",
     "removeFailed": "Bixinta sawirku way fahiilay",
+    "uploaded": "Sawirku waa la soo raray",
+    "removed": "Sawirku waa la bixiyay",
     "current": "Sawirka hadda",
     "empty": "Sawir ma jiro",
     "externalNotice": "Kani waa link dibadeed, sidaas darteed laga ma bixin karo halkaas."
@@ -217,7 +219,9 @@
     "generic": "Wax qaldan ayaa dhacay",
     "notFound": "Lama helin",
     "network": "Server-ka lama gaari karin. Xiriiriadda hubi.",
-    "unknown": "Khalad aan la aqoon ayaa dhacay"
+    "unknown": "Khalad aan la aqoon ayaa dhacay",
+    "forbidden": "Ma haysato ogolaansho si sidaas ugu sameeyso.",
+    "rateLimited": "Isku day badan. Sug dhawr daqiiqo, kadib isku day mar kale."
   },
   "relativeTime": {
     "justNow": "Hadda",
@@ -479,6 +483,7 @@
     "district": "Xaafid",
     "logoUrl": "URL-ka astaanta",
     "coverImageUrl": "URL-ka sawirka buuge",
+    "imageLinkOption": "Isticmaal link sawir",
     "savedAt": "Waa la keydiyay {{date}}",
     "savedRecordTitle": "Waxa server-ku ku celiyay",
     "recordStatus": "status",
