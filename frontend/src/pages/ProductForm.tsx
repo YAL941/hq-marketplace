@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Package } from 'lucide-react';
+import { ArrowLeft, Image as ImageIcon, Package } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
+import { ImageUpload } from '../components/common/ImageUpload';
+import { Toast, useToasts } from '../components/common/Toast';
 import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
 import { productApi, toFieldIssue, type FieldIssue } from '../services/api';
-import type { CatalogueStatus, Id, Product } from '../types';
+import type { CatalogueStatus, Id, Product, ProductInput } from '../types';
 
 const STATUSES: CatalogueStatus[] = ['draft', 'active', 'inactive', 'archived'];
 
@@ -56,6 +58,27 @@ export function ProductFormPage() {
   const [saving, setSaving] = useState(false);
   const [issue, setIssue] = useState<FieldIssue | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  /**
+   * The row as the server last confirmed it.
+   *
+   * Kept beside the form rather than inside it because an upload writes the
+   * column on its own: once it has, the form's copy of `imageUrl` is stale, and
+   * a Save that sent it would put the previous value back. Both are written
+   * together by `applyStoredUrl`.
+   */
+  const [product, setProduct] = useState<Product | null>(null);
+  /**
+   * Whether the person typed a link rather than uploading.
+   *
+   * `imageUrl` goes into the PATCH only while this is true. An upload has
+   * already written it, so sending the form's value again would be a redundant
+   * write of data the server has — and, one request later, a revert.
+   */
+  const [linkEdited, setLinkEdited] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  /** Set after a create, to offer the move to the edit page. */
+  const [createdProductId, setCreatedProductId] = useState<Id | null>(null);
+  const { toasts, show: showToast, dismiss } = useToasts();
 
   useEffect(() => {
     if (!isEdit) return;
@@ -68,6 +91,7 @@ export function ProductFormPage() {
         const res = await productApi.getForBusiness(businessId, productId);
         if (cancelled) return;
         const p: Product = res.data.data;
+        setProduct(p);
         setForm({
           productName: p.product_name,
           description: p.description ?? '',
@@ -95,6 +119,26 @@ export function ProductFormPage() {
     setIssue(null);
   };
 
+  const setLink = (value: string) => {
+    set('imageUrl', value);
+    setLinkEdited(true);
+  };
+
+  /**
+   * Adopts an image value the server has just written.
+   *
+   * The upload route answers with the updated product, so the new column value
+   * is known and there is nothing to re-fetch. Both copies are updated together:
+   * the form is what a later Save would send, the row is what the rest of the
+   * screen reads, and updating one alone is how a stale value comes back.
+   */
+  const applyStoredUrl = (value: string | null) => {
+    setForm((prev) => ({ ...prev, imageUrl: value ?? '' }));
+    setProduct((prev) => (prev ? { ...prev, image_url: value } : prev));
+    setLinkEdited(false);
+    setIssue(null);
+  };
+
   const fieldError = (field: FieldIssue['field']) =>
     issue && issue.field === field ? issue.message || t('common.saveFailed') : undefined;
 
@@ -117,7 +161,10 @@ export function ProductFormPage() {
     if (!/^[A-Z]{3}$/.test(form.currency)) {
       return { field: 'currency', message: t('product.errorCurrency') };
     }
-    if (form.imageUrl.trim() !== '') {
+    // Only judged when it was typed here. A stored `/uploads/...` path is not a
+    // URL `new URL` accepts, and failing the form over a value the person never
+    // entered would be a fault in the check, not in the form.
+    if (linkEdited && form.imageUrl.trim() !== '') {
       try {
         new URL(form.imageUrl.trim());
       } catch {
@@ -147,25 +194,51 @@ export function ProductFormPage() {
       // Empty optional fields are sent as null rather than '', because the
       // schema is `nullish` and an empty string fails a length rule on some
       // columns.
-      const payload = {
+      const payload: ProductInput = {
         productName: form.productName.trim(),
         description: form.description.trim() || null,
         price: Number(form.price),
         currency: form.currency.toUpperCase(),
         sku: form.sku.trim() || null,
-        imageUrl: form.imageUrl.trim() || null,
         stockQuantity: form.stockQuantity.trim() === '' ? undefined : Number(form.stockQuantity),
         status: form.status,
       };
 
+      // The upload route owns this column. Sending it again from the form would
+      // duplicate a write the server already made, and would revert the image if
+      // this copy were ever behind.
+      if (linkEdited) payload.imageUrl = form.imageUrl.trim() || null;
+
       if (isEdit) {
-        await productApi.update(businessId, productId, payload);
+        const res = await productApi.update(businessId, productId, payload);
+        const updated = res.data.data;
+        // The response is the whole row, so the image column comes back
+        // authoritative and both copies are realigned to it.
+        setProduct(updated);
+        setForm((prev) => ({ ...prev, imageUrl: updated.image_url ?? '' }));
+        setLinkEdited(false);
+        navigate(`/dashboard/business/${businessId}/products`);
       } else {
-        await productApi.create(businessId, payload);
+        const res = await productApi.create(businessId, payload);
+        const created = res.data.data;
+        setProduct(created);
+        setForm((prev) => ({ ...prev, imageUrl: created.image_url ?? '' }));
+        setLinkEdited(false);
+        // The row now exists, which is what the upload route needs, so the next
+        // screen can offer to go and use it instead of leaving the person to
+        // find the row in the list themselves.
+        setCreatedProductId(created.product_id);
       }
-      navigate(`/dashboard/business/${businessId}/products`);
     } catch (error) {
-      setIssue(toFieldIssue(error));
+      const failure = toFieldIssue(error);
+      const message =
+        failure.status === 403
+          ? t('errors.forbidden')
+          : failure.status === 429
+            ? t('errors.rateLimited')
+            : failure.message || t('common.saveFailed');
+      setIssue({ ...failure, message });
+      showToast(message, 'error');
     } finally {
       setSaving(false);
     }
@@ -202,7 +275,33 @@ export function ProductFormPage() {
         {isEdit ? t('product.editTitle') : t('product.createTitle')}
       </h1>
 
-      <Card className="p-6 max-w-2xl">
+      {/* Shown instead of the form once a create has landed. The upload route is
+          addressed by product id, so the photo can only be added on the edit
+          screen — the row has to exist first. */}
+      {createdProductId && (
+        <Card className="p-6 max-w-2xl">
+          <p className="font-semibold text-success-700">{t('product.createdTitle')}</p>
+          <p className="text-sm text-navy-600 mt-1 mb-4">{t('product.createdBody')}</p>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={() =>
+                navigate(`/dashboard/business/${businessId}/products/${createdProductId}/edit`)
+              }
+            >
+              <ImageIcon className="w-4 h-4" aria-hidden="true" />
+              {t('product.addPhoto')}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/dashboard/business/${businessId}/products`)}
+            >
+              {t('product.backToList')}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      <Card className={`p-6 max-w-2xl ${createdProductId ? 'hidden' : ''}`}>
         {loading ? (
           <div className="space-y-4">
             {[1, 2, 3, 4].map((i) => (
@@ -283,16 +382,48 @@ export function ProductFormPage() {
               />
             </div>
 
-            {/* `imageUrl` is part of the server's schema (`z.string().url()`),
-                and the product row carries it back as `image_url`. */}
-            <Input
-              label={t('product.imageUrl')}
-              type="url"
-              value={form.imageUrl}
-              onChange={(e) => set('imageUrl', e.target.value)}
-              placeholder="https://example.com/product.jpg"
-              error={fieldError('imageUrl')}
-            />
+            {/* The upload route is `/business/:businessId/products/:productId/image`, so a
+                product that has not been created yet has no id to address it
+                with. Rather than hide the control — which reads as a missing
+                feature — it is shown disabled and says why. */}
+            <div>
+              <span className="block text-sm font-medium text-navy-700 mb-1.5">
+                {t('product.imageUrl')}
+              </span>
+              <ImageUpload
+                kind="product"
+                businessId={businessId}
+                productId={productId}
+                shape="square"
+                // The server-confirmed column wins whenever the link is not being
+                // typed into, so what is previewed is what is actually stored
+                // rather than a form copy that could be one request behind.
+                value={linkEdited ? form.imageUrl : (product?.image_url ?? form.imageUrl)}
+                onChange={applyStoredUrl}
+                // Save is held while an upload is in flight, and this widget is
+                // held while Save is: both write the same column, and whichever
+                // landed second would otherwise win without saying so.
+                disabled={saving || !isEdit}
+                hint={isEdit ? undefined : t('product.imageSaveFirst')}
+                onBusyChange={setMediaBusy}
+                onNotify={(kind, message) => showToast(message, kind)}
+              />
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs text-navy-500 hover:text-navy-700">
+                  {t('product.imageLinkOption')}
+                </summary>
+                <div className="mt-2">
+                  <Input
+                    label={t('product.imageUrl')}
+                    type="url"
+                    value={form.imageUrl}
+                    onChange={(e) => setLink(e.target.value)}
+                    placeholder="https://example.com/product.jpg"
+                    error={fieldError('imageUrl')}
+                  />
+                </div>
+              </details>
+            </div>
 
             <div>
               <label htmlFor="product-status" className="block text-sm font-medium text-navy-700 mb-1.5">
@@ -313,14 +444,14 @@ export function ProductFormPage() {
             </div>
 
             <div className="flex flex-wrap gap-3 pt-2">
-              <Button type="submit" loading={saving}>
+              <Button type="submit" loading={saving} disabled={mediaBusy}>
                 {isEdit ? t('common.save') : t('product.create')}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => navigate(`/dashboard/business/${businessId}/products`)}
-                disabled={saving}
+                disabled={saving || mediaBusy}
               >
                 {t('common.cancel')}
               </Button>
@@ -328,6 +459,10 @@ export function ProductFormPage() {
           </form>
         )}
       </Card>
+
+      {toasts.map((toast) => (
+        <Toast key={toast.id} toast={toast} onRemove={() => dismiss(toast.id)} />
+      ))}
     </div>
   );
 }

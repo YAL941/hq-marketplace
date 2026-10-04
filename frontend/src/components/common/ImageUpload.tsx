@@ -43,6 +43,14 @@ export interface ImageUploadProps {
   shape?: 'square' | 'wide';
   className?: string;
   /**
+   * Replaces the format-and-size line.
+   *
+   * Used when the widget is shown but cannot be used yet — a product that has no
+   * id cannot be uploaded to, and the useful thing to say there is why, rather
+   * than a ceiling that would only tempt someone to try.
+   */
+  hint?: string;
+  /**
    * Called for every finished request, successful or not.
    *
    * A parent uses this for a toast. Failures are reported both here and inline,
@@ -86,6 +94,7 @@ export function ImageUpload({
   disabled,
   shape = 'square',
   className,
+  hint,
   onNotify,
   onBusyChange,
 }: ImageUploadProps) {
@@ -269,7 +278,9 @@ export function ImageUpload({
 
       {!percent && busy && <span className="text-xs text-navy-500">{i18n.t('upload.uploading')}</span>}
 
-      <p className="text-xs text-navy-500">{i18n.t('upload.hint', { max: formatBytes(limit) })}</p>
+      <p className="text-xs text-navy-500">
+        {hint ?? i18n.t('upload.hint', { max: formatBytes(limit) })}
+      </p>
 
       {!canRemove && preview && <p className="text-xs text-navy-500">{i18n.t('upload.externalNotice')}</p>}
 

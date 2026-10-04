@@ -6,13 +6,14 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { ImageUpload } from '../components/common/ImageUpload';
+import { Toast, useToasts } from '../components/common/Toast';
 import { Badge } from '../components/common/Badge';
 import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
 import { Avatar } from '../components/layout/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { businessApi, directoryApi, toFieldIssue, type FieldIssue } from '../services/api';
-import { formatDate, cn } from '../lib/utils';
+import { formatDate } from '../lib/utils';
 import { normalisePhone } from '../lib/phone';
 import type {
   BusinessMember,
@@ -149,43 +150,6 @@ function BusinessStatusBanner({ profile }: BusinessStatusBannerProps) {
   );
 }
 
-interface Toast {
-  id: number;
-  message: string;
-  kind: 'success' | 'error';
-}
-
-/**
- * A transient confirmation, following the pattern already used on the admin
- * screen rather than introducing a second notification system for one page.
- *
- * An upload is the case that needs it: the preview updates in place, so without
- * this there is no confirmation that anything reached the server at all, and a
- * user who then reloads has no reason to expect the change to have survived.
- */
-function Toast({ toast, onRemove }: { toast: Toast; onRemove: () => void }) {
-  return (
-    <div
-      className={cn(
-        'fixed bottom-4 start-4 max-w-sm rounded-card border px-4 py-3 shadow-card text-sm',
-        toast.kind === 'success'
-          ? 'bg-success-50 text-success-700 border-success-200'
-          : 'bg-error-50 text-error-700 border-error-200',
-      )}
-    >
-      {toast.message}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="absolute end-2 top-2 text-navy-400 hover:text-navy-600"
-        aria-label="Dismiss"
-      >
-        x
-      </button>
-    </div>
-  );
-}
-
 /** Which of the two image columns a link edit refers to. */
 type ImageSlot = 'logo' | 'cover';
 
@@ -203,7 +167,6 @@ export function DashboardSettingsPage() {
   const [saved, setSaved] = useState<BusinessRecord | null>(null);
   const [members, setMembers] = useState<BusinessMember[] | null>(null);
   const [profile, setProfile] = useState<StaffBusinessProfile | null>(null);
-  const [toasts, setToasts] = useState<Toast[]>([]);
   /**
    * Whether the person typed in a link for that slot during this visit.
    *
@@ -224,13 +187,7 @@ export function DashboardSettingsPage() {
    */
   const [mediaBusyBySlot, setMediaBusyBySlot] = useState<Record<ImageSlot, boolean>>({ logo: false, cover: false });
   const mediaBusy = mediaBusyBySlot.logo || mediaBusyBySlot.cover;
-
-  const showToast = useCallback((message: string, kind: 'success' | 'error') => {
-    const timer = window.setTimeout(() => {
-      setToasts((current) => current.filter((toast) => toast.id !== timer));
-    }, 4000);
-    setToasts((current) => [...current, { id: Number(timer), message, kind }]);
-  }, []);
+  const { toasts, show: showToast, dismiss } = useToasts();
 
   /**
    * The category list is reference data, so a failure here must not take the form
@@ -808,11 +765,7 @@ export function DashboardSettingsPage() {
       </div>
 
       {toasts.map((toast) => (
-        <Toast
-          key={toast.id}
-          toast={toast}
-          onRemove={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}
-        />
+        <Toast key={toast.id} toast={toast} onRemove={() => dismiss(toast.id)} />
       ))}
     </div>
   );

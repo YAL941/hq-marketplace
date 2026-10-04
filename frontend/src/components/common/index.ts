@@ -2,6 +2,7 @@ import { StatsCard } from './StatsCard';
 import { Button } from './Button';
 import { Input } from './Input';
 import { ImageUpload } from './ImageUpload';
+import { Toast, useToasts } from './Toast';
 import { Card } from './Card';
 import { Badge } from './Badge';
 import { RatingStars } from './RatingStars';
@@ -15,6 +16,8 @@ export {
   Button,
   Input,
   ImageUpload,
+  Toast,
+  useToasts,
   Card,
   Badge,
   RatingStars,

@@ -37,6 +37,15 @@ export function DashboardProductsPage() {
   const [busyId, setBusyId] = useState<Id | null>(null);
   const pager = useOffsetPager(PAGE_SIZE, { filterKey: `${search}|${status}` });
 
+  /**
+   * Re-reads the current page of products.
+   *
+   * This is also what makes a just-uploaded thumbnail appear: the edit screen is
+   * a different route, so returning to the list unmounts this component and the
+   * mount effect runs again. No full page reload is involved, and no cache has
+   * to be busted — every upload is written to a fresh random filename, so the
+   * image URL itself is new and cannot be a stale hit.
+   */
   const load = useCallback(async () => {
     if (!businessId) return;
     setLoading(true);
