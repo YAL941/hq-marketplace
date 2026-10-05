@@ -155,7 +155,7 @@ type ImageSlot = 'logo' | 'cover';
 
 export function DashboardSettingsPage() {
   const { t } = useTranslation();
-  const { user, businesses, currentBusiness, setCurrentBusiness } = useAuth();
+  const { user, businesses, currentBusiness, refreshBusinessLogo, setCurrentBusiness } = useAuth();
   const businessId = currentBusiness?.business_id ?? '';
 
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -292,6 +292,10 @@ export function DashboardSettingsPage() {
     setLinkEdited((prev) => ({ ...prev, [slot]: false }));
     setSaved(null);
     setIssue(null);
+    // The header and the sidebar read the logo from the auth context, which
+    // fetched it before this change. Without this they would keep showing the
+    // previous logo until the next full reload.
+    if (slot === 'logo') void refreshBusinessLogo();
   };
 
   const fieldError = (field: FieldIssue['field']) =>
@@ -397,6 +401,10 @@ export function DashboardSettingsPage() {
       if (linkEdited.logo) patch.logoUrl = form.logoUrl.trim() || null;
       if (linkEdited.cover) patch.coverImageUrl = form.coverImageUrl.trim() || null;
 
+      // Read before the flags are cleared below. The `logoUrl` this request just
+      // carried is the one thing the context has not seen yet.
+      const savedLogoLink = linkEdited.logo;
+
       const res = await businessApi.update(businessId, patch);
       const updated = res.data.data;
       setSaved(updated);
@@ -410,6 +418,7 @@ export function DashboardSettingsPage() {
         coverImageUrl: updated.cover_image_url ?? '',
       }));
       setLinkEdited({ logo: false, cover: false });
+      if (savedLogoLink) void refreshBusinessLogo();
       setProfile((prev) =>
         prev
           ? {

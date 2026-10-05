@@ -11,6 +11,7 @@ import { Button } from '../components/common/Button';
 import { RatingStars } from '../components/common/RatingStars';
 import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { ErrorState } from '../components/common/ErrorState';
+import { SmartImage } from '../components/common/SmartImage';
 import { businessApi } from '../services/api';
 import { cn, formatDate, formatRelativeTime } from '../lib/utils';
 import type { Location, PublicBusinessProfile, PublicReview } from '../types';
@@ -149,23 +150,39 @@ export function BusinessProfilePage() {
     <div className="min-h-screen bg-navy-50">
       <div className="bg-white border-b border-navy-200">
         <div className="relative h-48 sm:h-64 bg-navy-100 overflow-hidden">
-          {business.cover_image_url ? (
-            <img src={business.cover_image_url} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-100 to-primary-200">
-              <Tag className="w-16 h-16 text-primary-300" />
-            </div>
-          )}
+          {/*
+            The one image in the app that is not lazy: it is the first thing on
+            the page, and deferring it would trade the visitor's first impression
+            for bandwidth they did not ask to save. The logo below is eager for
+            the same reason — it overlaps this one, so both are in the first
+            viewport.
+          */}
+          <SmartImage
+            value={business.cover_image_url}
+            width={1200}
+            height={400}
+            eager
+            className="w-full h-full object-cover"
+            fallback={
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-100 to-primary-200">
+                <Tag className="w-16 h-16 text-primary-300" />
+              </div>
+            }
+          />
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-12 pb-6">
             <div className="w-24 h-24 rounded-2xl bg-white border-4 border-white shadow-card flex items-center justify-center overflow-hidden flex-shrink-0">
-              {business.logo_url ? (
-                <img src={business.logo_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <Tag className="w-10 h-10 text-primary-300" />
-              )}
+              {/* Beside the `<h1>` with the same name, so decorative. */}
+              <SmartImage
+                value={business.logo_url}
+                width={96}
+                height={96}
+                eager
+                className="w-full h-full object-cover"
+                fallback={<Tag className="w-10 h-10 text-primary-300" />}
+              />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">

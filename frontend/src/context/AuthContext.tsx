@@ -1,8 +1,8 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useState, useEffect, ReactNode } from 'react';
 import type {
   User, AuthMeResponse, BusinessMembership, LoginResponse, RegisterPayload, RegisterResponse, AccountRole, Id,
 } from '../types';
-import { authApi, setAuthToken } from '../services/api';
+import { authApi, businessApi, setAuthToken } from '../services/api';
 
 /** The two places a signed-in person can land. */
 const TOKEN_KEY = 'hq_token';
@@ -21,6 +21,23 @@ interface AuthContextType {
   platformRoles: string[];
   businesses: BusinessMembership[];
   currentBusiness: BusinessMembership | null;
+  /**
+   * The current business's logo, as the database holds it.
+   *
+   * It lives here rather than in the header and the sidebar because
+   * `/auth/me` does not publish a logo — a membership carries a name and a slug
+   * only — so the value has to come from the staff read. The header and the
+   * sidebar render at the same time, so fetching it once and sharing it is what
+   * keeps that to a single request rather than two.
+   */
+  currentBusinessLogo: string | null;
+  /**
+   * Re-reads that logo.
+   *
+   * Called after an upload or a removal, so the chrome reflects a new image
+   * without the person having to reload the page.
+   */
+  refreshBusinessLogo: () => Promise<void>;
   isLoading: boolean;
   isAuthenticated: boolean;
   /**
@@ -45,7 +62,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [platformRoles, setPlatformRoles] = useState<string[]>([]);
   const [businesses, setBusinesses] = useState<BusinessMembership[]>([]);
   const [currentBusiness, setCurrentBusiness] = useState<BusinessMembership | null>(null);
+  const [currentBusinessLogo, setCurrentBusinessLogo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  /**
+   * The staff read for the current business, used only for its logo.
+   *
+   * A failure here is swallowed rather than surfaced. A logo is decoration: it is
+   * not worth an error banner, and letting it reject would be indistinguishable
+   * from the sign-in having failed, which is why it does not go through the path
+   * that clears the token.
+   */
+  const refreshBusinessLogo = useCallback(async () => {
+    const id = currentBusiness?.business_id;
+    if (!id) {
+      setCurrentBusinessLogo(null);
+      return;
+    }
+    try {
+      const res = await businessApi.getForBusiness(id);
+      setCurrentBusinessLogo(res.data.data.logo_url ?? null);
+    } catch {
+      setCurrentBusinessLogo(null);
+    }
+  }, [currentBusiness?.business_id]);
+
+  useEffect(() => {
+    void refreshBusinessLogo();
+  }, [refreshBusinessLogo]);
 
   /**
    * Stores the token for this session, or for good.
@@ -191,6 +235,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       platformRoles,
       businesses,
       currentBusiness,
+      currentBusinessLogo,
+      refreshBusinessLogo,
       isLoading,
       isAuthenticated: !!user,
       login,

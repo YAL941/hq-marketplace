@@ -6,6 +6,7 @@ import {
   LayoutDashboard, ShoppingBag, Users, Package, Truck, Star, BarChart3, Settings, ChevronRight, LogOut,
 } from 'lucide-react';
 import { Logo } from '../branding/Logo';
+import { SmartImage } from '../common/SmartImage';
 import { useAuth } from '../../context/AuthContext';
 import type { Id } from '../../types';
 import { Avatar } from './Avatar';
@@ -37,7 +38,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
-    const { user, businesses, currentBusiness, logout, setCurrentBusiness } = useAuth();
+    const { user, businesses, currentBusiness, currentBusinessLogo, logout, setCurrentBusiness } = useAuth();
     const [collapsed, setCollapsed] = useState(false);
 
     /**
@@ -120,8 +121,16 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                 {businesses.length > 1 ? t('sidebar.switchBusiness') : t('sidebar.currentBusiness')}
               </label>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-sg bg-primary-100 flex items-center justify-center flex-shrink-0">
-                  <ShoppingBag className="w-4 h-4 text-primary-600" aria-hidden="true" />
+                {/* 32px here: the row has room for it, and it is the only place
+                    the logo is shown at a size a person can recognise. */}
+                <div className="w-8 h-8 rounded-sg bg-primary-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <SmartImage
+                    value={currentBusinessLogo}
+                    width={32}
+                    height={32}
+                    className="w-8 h-8 object-cover"
+                    fallback={<ShoppingBag className="w-4 h-4 text-primary-600" aria-hidden="true" />}
+                  />
                 </div>
                 {businesses.length > 1 ? (
                   <select
@@ -157,9 +166,15 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                 to={businessHome(currentBusiness.business_id)}
                 title={currentBusiness.business_name}
                 aria-label={`${t('sidebar.currentBusiness')}: ${currentBusiness.business_name}`}
-                className="w-10 h-10 rounded-sg bg-primary-100 flex items-center justify-center"
+                className="w-10 h-10 rounded-sg bg-primary-100 flex items-center justify-center overflow-hidden"
               >
-                <ShoppingBag className="w-4 h-4 text-primary-600" aria-hidden="true" />
+                <SmartImage
+                  value={currentBusinessLogo}
+                  width={40}
+                  height={40}
+                  className="w-10 h-10 object-cover"
+                  fallback={<ShoppingBag className="w-4 h-4 text-primary-600" aria-hidden="true" />}
+                />
               </NavLink>
             </div>
           )}

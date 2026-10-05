@@ -7,6 +7,7 @@ import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { Badge } from '../components/common/Badge';
 import { OffsetPagerView, StaffListLayout, useOffsetPager } from '../components/common/OffsetPager';
+import { SmartImage } from '../components/common/SmartImage';
 import { productApi } from '../services/api';
 import { formatCurrency, formatDate } from '../lib/utils';
 import type { CatalogueStatus, Id, Product } from '../types';
@@ -157,12 +158,19 @@ export function DashboardProductsPage() {
           {items.map((product) => (
             <Card key={product.product_id} padding="none" className="p-4">
               <div className="flex flex-wrap items-center gap-4">
+                {/*
+                  The 56×56 box is fixed, and these intrinsic dimensions match it,
+                  so the row does not resize when the photo arrives. `alt` is
+                  empty because the product name sits beside it.
+                */}
                 <div className="w-14 h-14 rounded-card bg-navy-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {product.image_url ? (
-                    <img src={product.image_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <Package className="w-6 h-6 text-navy-400" aria-hidden="true" />
-                  )}
+                  <SmartImage
+                    value={product.image_url}
+                    width={56}
+                    height={56}
+                    className="w-full h-full object-cover"
+                    fallback={<Package className="w-6 h-6 text-navy-400" aria-hidden="true" />}
+                  />
                 </div>
 
                 <div className="flex-1 min-w-0">

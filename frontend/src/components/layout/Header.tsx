@@ -7,6 +7,7 @@ import { Menu, X, User, ShoppingBag, LayoutDashboard, ChevronDown, Store, Shield
 import { Logo } from '../branding/Logo';
 import { Button } from '../common/Button';
 import { SearchBar } from '../common/SearchBar';
+import { SmartImage } from '../common/SmartImage';
 import { Avatar } from './Avatar';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -17,7 +18,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
-    const { user, isAuthenticated, logout, businesses, currentBusiness, setCurrentBusiness, hasPlatformRole } = useAuth();
+    const { user, isAuthenticated, logout, businesses, currentBusiness, currentBusinessLogo, setCurrentBusiness, hasPlatformRole } = useAuth();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -77,8 +78,23 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
                         onClick={() => setBusinessMenuOpen(!businessMenuOpen)}
                         className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-navy-700 hover:text-navy-900 rounded-button hover:bg-navy-100 transition-colors"
                       >
-                        <ShoppingBag className="w-4 h-4" />
-                        {currentBusiness.business_name}
+                        <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
+                    {/*
+                      24px, at the small end of the range the design uses for
+                      chrome. It sits next to the business name, so `alt` is empty
+                      and the ShoppingBag icon stands in until there is a logo.
+                      Lazy here: the header is sticky and this changes with the
+                      business, but it is never the reason a visitor stayed.
+                    */}
+                    <SmartImage
+                      value={currentBusinessLogo}
+                      width={24}
+                      height={24}
+                      className="w-6 h-6 rounded-sg object-cover"
+                      fallback={<ShoppingBag className="w-4 h-4 text-navy-500" aria-hidden="true" />}
+                    />
+                  </div>
+                  {currentBusiness.business_name}
                         <ChevronDown className="w-4 h-4" />
                       </button>
                       {businessMenuOpen && (
