@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 
 const envSchema = z.object({
@@ -27,6 +28,27 @@ const envSchema = z.object({
      * while signed in, which turns a same-origin assumption into a false one.
      */
     CORS_ORIGIN: z.string().default('http://localhost:5173'),
+
+    /**
+     * How many reverse-proxy hops sit in front of the API, i.e. what
+     * `express`'s `trust proxy` is set to.
+     *
+     * This is the single most consequential value in this file for a deployment.
+     * With `0` every request that arrives through Caddy looks like it came from
+     * `127.0.0.1`, so every rate limiter collapses onto one shared counter: ten
+     * failed sign-ins from anyone would lock out every visitor on the site. With
+     * `1` the client address is taken from `X-Forwarded-For` and the limiters
+     * count people instead of counting the proxy.
+     *
+     * It is a hop count and not `true` on purpose. `true` means "trust the
+     * `X-Forwarded-For` chain as far as it goes", which is only safe when
+     * nothing but your own proxy can reach the port — with the API listening on
+     * `127.0.0.1` that happens to hold, but if it is ever exposed the header
+     * becomes attacker-controlled and the limiters can be walked around by
+     * inventing one. A number states how many hops are actually trusted, so the
+     * last one before the app is the one that counts.
+     */
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).optional(),
 
     /**
      * Where uploaded images are stored.
@@ -158,6 +180,113 @@ function assertProductionSecret(name: string, value: string | undefined, minLeng
     );
 }
 
+/**
+ * Refuses to let the API boot with a value that is a deployment mistake only in
+ * production, where the same value is either harmless or fatal.
+ *
+ * Each guard below exists because its failure mode is silent. That is the
+ * common thread: none of these misconfigurations produces an error, a stack
+ * trace or a failed request. The server starts, serves traffic, and quietly
+ * does the wrong thing — which is exactly why they are refused outright rather
+ * than warned about.
+ */
+
+/**
+ * The admin password is a real credential in production.
+ *
+ * `PGPASSWORD` is the schema owner's password, the one role that bypasses row
+ * level security and can do anything to any table. It is checked here with the
+ * same rule as `APP_DB_PASSWORD` for a reason: `change-me` is the value in
+ * `.env.example`, and a deployment that copies the file and edits only the
+ * fields it thinks it needs leaves the highest-privilege credential in the
+ * project at its documented placeholder.
+ */
+function assertProductionAdminPassword(value: string | undefined): void {
+    assertProductionSecret('PGPASSWORD', value, 16);
+}
+
+/**
+ * The API and the migrations must not run as the same database role.
+ *
+ * Everything this project is built on — a role that cannot see other tenants'
+ * rows — depends on those two being different identities. When
+ * `APP_DB_USER` is left pointing at `PGUSER`, the application quietly becomes
+ * the schema owner, and the policies stop being consulted on every query while
+ * every request still returns `200`.
+ *
+ * This is the cheap half of that guard, caught at config time with a message
+ * that can still be read by whoever is deploying. `assertAppRoleIsSafe()` in
+ * `src/db/pool.ts` is the authoritative half: it asks the database rather than
+ * trusting the environment, and therefore also catches a role that is unsafe for
+ * a reason nobody wrote down here, such as BYPASSRLS.
+ */
+function assertSeparateDbRoles(appUser: string, adminUser: string): void {
+    if (appUser === adminUser) {
+        throw new Error(
+            `Refusing to start: APP_DB_USER and PGUSER are both "${appUser}".\n`
+            + `  The API must connect as a role that the database filters with row level\n`
+            + `  security, not as the role that owns the tables. As the owner, every policy\n`
+            + `  is bypassed: requests still succeed and still return other businesses' rows.\n`
+            + `  Keep PGUSER as the migration role and let APP_DB_USER be the role created by:\n`
+            + `    npm run db:grants`,
+        );
+    }
+}
+
+/**
+ * Uploads live at an absolute path in production.
+ *
+ * A relative `UPLOAD_DIR` resolves against the process working directory, which
+ * is the project root under `npm start` and something else entirely under a
+ * service manager. Nothing fails when that happens: the first upload creates
+ * the folder wherever the process happens to be, and the images already stored
+ * under the previous location are simply gone — with no error, because the URLs
+ * in the database still resolve to files that no longer exist.
+ */
+function assertAbsoluteUploadDir(value: string): void {
+    if (isAbsolute(value)) return;
+
+    throw new Error(
+        `Refusing to start: UPLOAD_DIR is "${value}", which is a relative path.\n`
+        + `  In production it is resolved against the working directory of whatever starts\n`
+        + `  the process, and that differs between a shell, systemd and a container. Stored\n`
+        + `  images would then be written somewhere that is not where the old ones are.\n`
+        + `  Use an absolute path, and mount it as its own volume:\n`
+        + `    UPLOAD_DIR=/var/lib/hq-marketplace/uploads`,
+    );
+}
+
+/**
+ * The proxy topology has to be stated, not guessed.
+ *
+ * `TRUST_PROXY_HOPS` has no default that is right, only defaults that are right
+ * for someone else's deployment, and both of the plausible values are dangerous
+ * in opposite directions:
+ *
+ *   * too low — every request through the proxy appears to come from `127.0.0.1`,
+ *     so all visitors share one rate-limit counter and one of them can lock
+ *     everyone else out.
+ *   * too high — `X-Forwarded-For` is trusted further back than the number of
+ *     proxies that actually set it, so a caller can invent their own address and
+ *     walk around every limiter.
+ *
+ * Neither produces an error. So in production the value has to be a decision.
+ */
+function assertExplicitTrustProxyHops(value: number | undefined): void {
+    if (value !== undefined) return;
+
+    throw new Error(
+        'Refusing to start: TRUST_PROXY_HOPS is not set.\n'
+        + '  It has no safe default, because both of the likely mistakes are silent:\n'
+        + '    0  every request through your proxy looks like 127.0.0.1, so all visitors\n'
+        + '       share one rate-limit counter and one of them can lock out the rest;\n'
+        + '    too high  X-Forwarded-For is trusted further back than the proxies that set\n'
+        + '       it, so a caller can forge their address and walk around the limiters.\n'
+        + '  Count the proxies between the internet and this process. For a single\n'
+        + '  Caddy/nginx in front of the API: TRUST_PROXY_HOPS=1',
+    );
+}
+
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
@@ -168,6 +297,10 @@ if (!parsed.success) {
 if (parsed.data.NODE_ENV === 'production') {
     assertProductionSecret('JWT_SECRET', parsed.data.JWT_SECRET, 32);
     assertProductionSecret('APP_DB_PASSWORD', parsed.data.APP_DB_PASSWORD, 16);
+    assertProductionAdminPassword(parsed.data.PGPASSWORD);
+    assertSeparateDbRoles(parsed.data.APP_DB_USER, parsed.data.PGUSER);
+    assertAbsoluteUploadDir(parsed.data.UPLOAD_DIR);
+    assertExplicitTrustProxyHops(parsed.data.TRUST_PROXY_HOPS);
 }
 
 export const config = {
@@ -175,6 +308,17 @@ export const config = {
     isProduction: parsed.data.NODE_ENV === 'production',
     isTest: parsed.data.NODE_ENV === 'test',
     corsOrigins: parseCorsOrigins(parsed.data.CORS_ORIGIN, parsed.data.NODE_ENV === 'production'),
+    /**
+     * Resolved here rather than defaulted in the schema, because the default
+     * depends on the environment and that is not expressible in one `z.default()`:
+     * a developer running the API directly has no proxy at all, while production
+     * is expected to sit behind exactly one.
+     *
+     * Production never reaches the fallback — `assertExplicitTrustProxyHops()`
+     * has already refused to start by then. The `1` below is therefore only
+     * ever the answer for a development run that happens to set the variable.
+     */
+    trustProxyHops: parsed.data.TRUST_PROXY_HOPS ?? (parsed.data.NODE_ENV === 'production' ? 1 : 0),
 } as const;
 
 export type AppConfig = typeof config;

@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { businessRoutes } from './modules/businesses/business.routes.js';
+import { healthRoutes } from './modules/health/health.routes.js';
 import { locationRoutes } from './modules/locations/location.routes.js';
 import { mediaRoutes } from './modules/media/media.routes.js';
 import { uploadRoot } from './modules/media/storage/local-disk.js';
@@ -12,12 +13,43 @@ import { orderRoutes } from './modules/orders/order.routes.js';
 import { productRoutes } from './modules/products/product.routes.js';
 import { reviewRoutes } from './modules/reviews/review.routes.js';
 import { serviceRoutes } from './modules/services/service.routes.js';
+import { setUploadContentSecurityPolicy, withApiContentSecurityPolicy } from './middleware/csp.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 
-export function createApp(): Express {
+export interface CreateAppOptions {
+    /**
+     * Overrides `TRUST_PROXY_HOPS`, which exists so the trust behaviour can be
+     * exercised from a test without re-reading the environment, the module
+     * having been loaded once already.
+     */
+    trustProxyHops?: number;
+}
+
+export function createApp(options: CreateAppOptions = {}): Express {
     const app = express();
 
+    /**
+     * Tells express how far to trust `X-Forwarded-For`, and it has to come first:
+     * every later middleware that reads `req.ip` — which is every rate limiter
+     * here — reads whatever this produced.
+     *
+     * Left unset (the value is `false`), every request through a reverse proxy
+     * arrives looking like it came from the proxy itself. That does not merely
+     * lose the client address in a log: the limiters key on `req.ip`, so all
+     * traffic shares one counter and one abusive client can lock out every
+     * visitor on the site.
+     */
+    app.set('trust proxy', options.trustProxyHops ?? config.trustProxyHops);
+
     app.use(helmet());
+    /**
+     * helmet's default policy is written for a service that renders HTML, so it
+     * is replaced rather than merely extended. This API returns JSON, and stored
+     * uploads are user-supplied bytes served from this origin — both are covered
+     * in `src/middleware/csp.ts`, where the two policies and the reason they
+     * differ are explained.
+     */
+    app.use(withApiContentSecurityPolicy());
     app.use(cors({ origin: config.corsOrigins, credentials: true }));
     app.use(express.json({ limit: '1mb' }));
 
@@ -57,11 +89,25 @@ export function createApp(): Express {
             immutable: true,
             setHeaders: (res) => {
                 res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+                setUploadContentSecurityPolicy(res);
             },
         }),
     );
 
-    app.get('/health', async (_req, res) => {
+    /**
+     * Liveness and readiness, mounted before the routers.
+     *
+     * Before, so that neither endpoint is subject to a rate limiter. A probe runs
+     * every few seconds from every instance; if it spent the same budget as a
+     * user, it would be the thing that caused the outage it exists to detect.
+     */
+    app.use(healthRoutes());
+
+    /**
+     * Kept for the deployment that already uses it, and now an alias for
+     * `/healthz` rather than a separate thing to keep in step.
+     */
+    app.get('/health', (_req, res) => {
         res.json({ status: 'ok', service: 'hq-marketplace', phase: 1 });
     });
 
@@ -124,6 +170,8 @@ export function createApp(): Express {
             service: 'OmniHQ API',
             phase: 1,
             health: '/health',
+            liveness: '/healthz',
+            readiness: '/readyz',
             index: '/api',
         });
     });
