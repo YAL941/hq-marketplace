@@ -43,6 +43,9 @@ npm run db:grants      # create/refresh the application role and its privileges
 npm run preflight      # everything that can be checked without starting the API
 ```
 
+Then promote the first administrator — see "The first administrator" below. It
+cannot be done by the seed, and the API has no endpoint for it.
+
 `npm run preflight` is the step that catches a bad deployment on your machine
 rather than on the box. It exits non-zero if anything is wrong, so it works as a
 deploy gate:
@@ -139,16 +142,48 @@ does not apply to a 404, where there are no user-supplied bytes to contain.
 
 ## Health checks
 
-Two endpoints, answering two different questions:
+Three endpoints. All of them are unconditional — none are gated on the
+environment — because removing an endpoint a monitor already polls is how an
+existing uptime check starts reporting a false outage, and a monitor cannot be
+reconfigured in the same minute as a deploy.
 
-| Endpoint | Question | Depends on the database |
-| --- | --- | --- |
-| `GET /healthz` | is this process able to serve HTTP? | no |
-| `GET /readyz` | can it actually serve requests? | yes, answers `503` when not |
+| Endpoint | Question | Depends on the database | Use for |
+| --- | --- | --- | --- |
+| `GET /health` | same as `/healthz`; kept for the deployment already using it | no | **uptime monitoring, Caddy health check** |
+| `GET /healthz` | is this process able to serve HTTP? | no | orchestrator **liveness** probe |
+| `GET /readyz` | can it actually serve requests? | yes, `503` when not | orchestrator **readiness** probe |
 
-Point your orchestrator's **liveness** probe at `/healthz` and its **readiness**
-probe at `/readyz`. Getting this backwards is expensive: a liveness probe that
-depends on the database makes a database outage restart every API process at
+### Which one to use
+
+- **Uptime monitoring (external, from outside the host): `GET /health`.** It is
+  dependency-free, so a database outage does not make your monitor page you for
+  an API that is still answering HTTP. It is also the endpoint older Caddyfiles
+  and health checks already point at.
+- **Caddy: `GET /health`**, for the same reason. Caddy sits in front of the
+  process, so what it should ask is "is this process up", not "is the database
+  reachable" — the latter belongs to the load balancer's readiness routing, and
+  an unhealthy database should not take the proxy out of rotation.
+
+  ```caddyfile
+  example.com {
+      reverse_proxy localhost:4000 {
+          health_uri /health
+          health_interval 30s
+          health_timeout 5s
+      }
+  }
+  ```
+
+  With a health_uri set, Caddy only sends traffic to instances it considers up.
+  Note that `/readyz` would also work there, but it makes the proxy drop a
+  perfectly healthy process whenever the database blinks.
+- **Orchestrator liveness probe: `GET /healthz`.** If the process is unable to
+  serve HTTP at all, restart it.
+- **Orchestrator readiness probe: `GET /readyz`.** If the process cannot reach
+  the database, take it out of rotation but do not restart it.
+
+Getting liveness and readiness the wrong way round is expensive. A liveness probe
+that depends on the database makes a database outage restart every API process at
 once, which discards warm connections and turns a recoverable dependency problem
 into a fleet-wide crash loop.
 
@@ -239,6 +274,82 @@ are refusals rather than warnings:
 
 Outside production the database-role check warns instead of refusing, so a fresh
 development setup runs without ceremony.
+
+## The route index
+
+`GET /api` returns a complete map of every endpoint, its required auth level, and
+which header belongs to which role. It is available in development and test, and
+it answers `404` in production.
+
+Not because a 404 hides anything from somebody determined — the route names are
+in this document, in the source, and in any client that has called the API. It is
+because the index is a ready-made inventory of the privileged surface, and it
+drifts out of date silently: nothing requires a new route to update it, so in
+production it is as likely to be misleading as it is to be useful.
+
+`GET /` still answers in production and reports `"index": null`, so a client can
+tell "this build has no index" from an older response that omitted the field.
+
+## The first administrator
+
+A deployment has exactly one first administrator, and there is no way to create
+one from a script. That is deliberate: an account has to come from a real
+registration, so its password is one a person chose and hashed by the registration
+endpoint, rather than one written into a shell history by a deploy script.
+
+`db:promote-admin` and `db:revoke-admin` grant and revoke the `platform_admin`
+role for an account that already exists. Neither accepts a password, because
+there is no legitimate case for one — registration is the only way to set a
+password, and keeping it that way is what stops this script from becoming a
+backdoor.
+
+### Procedure
+
+```bash
+# 1. Register through the site, as a person would.
+#    POST /api/auth/register, or the sign-up form. Note the address used.
+
+# 2. See what promoting them would do. Nothing is written without --yes.
+npm run db:promote-admin -- you@example.com
+
+# 3. Apply it.
+npm run db:promote-admin -- you@example.com --yes
+```
+
+Step 2 is not a formality. It prints the account it found by name and asks for
+`--yes`, so running the command to see what it does cannot promote anyone, and a
+typo in the address is visible before it becomes a real role.
+
+Confirm the account was found: an address with no account is an error, not an
+empty success, and the script will tell you to register first.
+
+### Handing the role over, and taking it back
+
+```bash
+# promote somebody else — the role is not exclusive, both accounts hold it
+npm run db:promote-admin -- colleague@example.com --yes
+
+# take it back
+npm run db:revoke-admin -- colleague@example.com --yes
+```
+
+Both are idempotent, so a re-run after an uncertain deploy is safe: a second
+promotion reports "nothing to change" and exits `0`, and so does revoking from
+someone who was never an admin. Neither is an error, because a script that fails
+on "already in the requested state" gets wrapped in retries and a `set -e` loop.
+
+### What these scripts will not do
+
+- **create an account** — an unknown address is refused
+- **set or reset a password** — there is no option that takes one
+- **touch the account itself** — a promotion changes one row in
+  `user_platform_roles` and leaves `users` alone, so it cannot lock anyone out
+- **revoke anything else** — the delete is scoped to the `platform_admin` role id,
+  so a `customer` role and any business memberships survive
+
+They connect as the OWNER role, not as `hq_app`, because this is a
+platform-level operation and the application role is subject to the very policies
+this role sits outside of.
 
 ## Rate limiting
 
