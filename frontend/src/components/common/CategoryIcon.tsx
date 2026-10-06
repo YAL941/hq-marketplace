@@ -1,7 +1,7 @@
 import {
-  BedDouble, Building2, Car, Gem, GraduationCap, HeartPulse, Leaf, Monitor, MoreHorizontal,
-  PawPrint, Pill, Shirt, ShoppingBag, Sparkles, Stethoscope, Store, Truck, Utensils, Wrench,
-  Briefcase, type LucideIcon,
+  BedDouble, Building2, Car, CircleEllipsis, Gem, GraduationCap, HeartPulse, Landmark, Leaf, Monitor,
+  PawPrint, Pill, Plane, Shirt, ShoppingBag, Sparkles, Stethoscope, Store, Truck,
+  Utensils, Wifi, Wrench, Zap, Briefcase, type LucideIcon,
 } from 'lucide-react';
 
 /**
@@ -37,11 +37,18 @@ const SLUG_ICONS: Record<string, LucideIcon> = {
   technology: Monitor,
   'beauty-wellness': Sparkles,
   'local-products': Shirt,
+  'clinics-laboratories': Stethoscope,
   automotive: Car,
+  'construction-real-estate': Building2,
+  'finance-insurance': Landmark,
+  'telecom-internet': Wifi,
+  'travel-tourism': Plane,
   animals: PawPrint,
   'home-services': Wrench,
+  'water-energy': Zap,
+  'ngo-community-services': HeartPulse,
   books: Building2,
-  other: MoreHorizontal,
+  other: CircleEllipsis,
 };
 
 /** The single icon size, chosen so every line icon has the same optical weight. */

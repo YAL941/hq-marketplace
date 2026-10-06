@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, AtSign, Lock, AlertCircle } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Logo } from '../components/branding/Logo';
@@ -20,6 +20,7 @@ import { toFieldIssue, type FieldIssue } from '../services/api';
 export function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
 
   const [formData, setFormData] = useState({ identifier: '', password: '' });
@@ -72,7 +73,11 @@ export function LoginPage() {
       const { role } = await login(identifier, formData.password, remember);
       // A business owner has somewhere to work; a customer does not, and the
       // directory is the point of the account.
-      navigate(role === 'business_owner' ? '/dashboard' : '/', { replace: true });
+      const next = searchParams.get('next');
+      const destination = next?.startsWith('/') && !next.startsWith('//')
+        ? next
+        : role === 'business_owner' ? '/dashboard' : '/';
+      navigate(destination, { replace: true });
     } catch (error) {
       setIssue(toFieldIssue(error));
     } finally {

@@ -7,6 +7,9 @@ import { Button } from './components/common/Button';
 import { HomePage } from './pages/Home';
 import { ExplorePage } from './pages/Explore';
 import { CategoryPage } from './pages/CategoryPage';
+import { CategoriesPage } from './pages/Categories';
+import { FavoritesPage } from './pages/Favorites';
+import { FavoritesProvider } from './context/FavoritesContext';
 import { BusinessProfilePage } from './pages/BusinessProfile';
 import { LoginPage } from './pages/Login';
 import { RegisterPage } from './pages/Register';
@@ -45,6 +48,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function PlatformAdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, hasPlatformRole } = useAuth();
+  const { t } = useTranslation();
+  const navigate = useNavigate();
 
   if (isLoading) {
     return (
@@ -57,9 +62,6 @@ function PlatformAdminRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-
-  const { t } = useTranslation();
-  const navigate = useNavigate();
 
   if (!hasPlatformRole('platform_admin')) {
     return (
@@ -135,11 +137,13 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Routes>
+        <FavoritesProvider>
+          <Routes>
           {/* Public Routes */}
           <Route path="/" element={<MainLayout><HomePage /></MainLayout>} />
           <Route path="/explore" element={<MainLayout><ExplorePage /></MainLayout>} />
-          <Route path="/categories" element={<MainLayout><ExplorePage /></MainLayout>} />
+          <Route path="/categories" element={<MainLayout><CategoriesPage /></MainLayout>} />
+          <Route path="/favorites" element={<MainLayout><FavoritesPage /></MainLayout>} />
           <Route path="/categories/:category" element={<MainLayout><CategoryPage /></MainLayout>} />
           <Route path="/business/:businessSlug" element={<MainLayout><BusinessProfilePage /></MainLayout>} />
           <Route path="/login" element={<MainLayout><LoginPage /></MainLayout>} />
@@ -316,7 +320,8 @@ function App() {
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          </Routes>
+        </FavoritesProvider>
       </BrowserRouter>
     </AuthProvider>
   );

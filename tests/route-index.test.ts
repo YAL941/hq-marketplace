@@ -87,6 +87,8 @@ describe('the route index, GET /api', () => {
         assert.equal(res.body.service, 'OmniHQ');
         assert.ok(Array.isArray(res.body.public), 'the index should group routes by auth level');
         assert.ok(res.body.public.length > 0);
+        assert.ok(res.body.authenticated.includes('GET  /api/favorites'));
+        assert.ok(res.body.authenticated.includes('PUT|DELETE /api/favorites/:businessId'));
     });
 
     it('is a 404 in production', async () => {

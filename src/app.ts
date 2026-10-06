@@ -6,6 +6,7 @@ import { adminRoutes } from './modules/admin/admin.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { businessRoutes } from './modules/businesses/business.routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
+import { favoriteRoutes } from './modules/favorites/favorite.routes.js';
 import { locationRoutes } from './modules/locations/location.routes.js';
 import { mediaRoutes } from './modules/media/media.routes.js';
 import { uploadRoot } from './modules/media/storage/local-disk.js';
@@ -159,6 +160,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
                         'GET  /api/orders/mine',
                         'POST /api/orders/mine/:orderId/cancel',
                         'POST /api/reviews',
+                        'GET  /api/favorites',
+                        'PUT|DELETE /api/favorites/:businessId',
                     ],
                     businessStaff: [
                         'GET|POST|PATCH|DELETE /api/business/:businessId/products[/:productId]',
@@ -205,6 +208,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
     });
 
     app.use('/api', authRoutes);
+    app.use('/api', favoriteRoutes);
     app.use('/api', businessRoutes);
     app.use('/api', productRoutes);
     app.use('/api', serviceRoutes);

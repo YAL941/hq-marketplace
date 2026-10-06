@@ -13,6 +13,7 @@
     "db:rollback": "tsx scripts/migrate.ts down",
     "db:status": "tsx scripts/migrate.ts status",
     "db:grants": "tsx scripts/apply-grants.ts",
+    "db:seed:demo": "tsx scripts/seed-demo-marketplace.ts",
     "db:promote-admin": "tsx scripts/admin-role.ts promote",
     "db:revoke-admin": "tsx scripts/admin-role.ts revoke",
     "db:setup": "npm run db:create && npm run db:migrate && npm run db:grants && npm run db:seed",

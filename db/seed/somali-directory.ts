@@ -37,38 +37,45 @@ export interface SeedCategory {
  * The six categories the marketplace ships with.
  *
  * `restaurants` and `hotels` already exist from the 004 seed data and are
- * updated in place. The other four are created here. Categories seeded by 004
- * that are not in this list are deactivated rather than deleted, because
- * `businesses.business_category_id` is ON DELETE RESTRICT and a delete would
- * fail on any business still pointing at it.
+ * updated in place. Categories seeded by 004 that are not in this list are
+ * deactivated rather than deleted, because `businesses.business_category_id`
+ * is ON DELETE RESTRICT and a delete would fail on any business still pointing
+ * at it.
  */
 export const SEED_CATEGORIES: SeedCategory[] = [
     { slug: 'restaurants', name: 'Restaurants', description: 'Restaurants, cafés and takeaway kitchens', icon: 'utensils', sortOrder: 10 },
     { slug: 'hospitals', name: 'Hospitals', description: 'Hospitals, clinics and medical centres', icon: 'hospital', sortOrder: 20 },
     { slug: 'pharmacies', name: 'Pharmacies', description: 'Pharmacies and chemists', icon: 'pill', sortOrder: 30 },
-    { slug: 'wedding-halls', name: 'Wedding Halls', description: 'Wedding halls, event venues and conference centres', icon: 'calendar', sortOrder: 40 },
+    { slug: 'wedding-halls', name: 'Wedding Halls', description: 'Wedding halls and event venues', icon: 'calendar', sortOrder: 40 },
     { slug: 'hotels', name: 'Hotels', description: 'Hotels, guesthouses and short-stay apartments', icon: 'bed', sortOrder: 50 },
     { slug: 'shops', name: 'Shops', description: 'Retail shops, supermarkets and markets', icon: 'shopping-bag', sortOrder: 60 },
+    { slug: 'healthcare', name: 'Healthcare', description: 'Clinics, laboratories and other healthcare providers', icon: 'heart-pulse', sortOrder: 70 },
+    { slug: 'grocery-retail', name: 'Grocery & Retail', description: 'Groceries, supermarkets and general retail', icon: 'shopping-bag', sortOrder: 80 },
+    { slug: 'events-venues', name: 'Events & Venues', description: 'Event spaces, conference centres and venues', icon: 'calendar', sortOrder: 90 },
+    { slug: 'agriculture', name: 'Agriculture & Livestock', description: 'Farms, livestock, fisheries and agriculture suppliers', icon: 'leaf', sortOrder: 100 },
+    { slug: 'education', name: 'Education & Training', description: 'Schools, universities, training centres and tutors', icon: 'graduation-cap', sortOrder: 110 },
+    { slug: 'transportation', name: 'Transport & Delivery', description: 'Transport, delivery, logistics and vehicle hire', icon: 'truck', sortOrder: 120 },
+    { slug: 'professional-services', name: 'Professional Services', description: 'Legal, accounting, consulting and marketing services', icon: 'briefcase', sortOrder: 130 },
+    { slug: 'technology', name: 'Technology & Electronics', description: 'IT, software, electronics sales and repair', icon: 'monitor', sortOrder: 140 },
+    { slug: 'beauty-wellness', name: 'Beauty & Wellness', description: 'Salons, spas, fitness and wellness providers', icon: 'sparkles', sortOrder: 150 },
+    { slug: 'local-products', name: 'Local Products & Crafts', description: 'Local makers, handmade goods and crafts', icon: 'shirt', sortOrder: 160 },
+    { slug: 'clinics-laboratories', name: 'Clinics & Laboratories', description: 'Medical clinics, diagnostic centres and laboratories', icon: 'stethoscope', sortOrder: 170 },
+    { slug: 'automotive', name: 'Automotive & Repairs', description: 'Vehicle sales, garages, parts and repairs', icon: 'car', sortOrder: 180 },
+    { slug: 'construction-real-estate', name: 'Construction & Real Estate', description: 'Construction, property sales, rentals and management', icon: 'building', sortOrder: 190 },
+    { slug: 'finance-insurance', name: 'Finance & Insurance', description: 'Financial services, money transfer and insurance', icon: 'landmark', sortOrder: 200 },
+    { slug: 'telecom-internet', name: 'Telecom & Internet', description: 'Telecommunications, mobile services and internet providers', icon: 'wifi', sortOrder: 210 },
+    { slug: 'travel-tourism', name: 'Travel & Tourism', description: 'Travel agencies, tour operators and tourism services', icon: 'plane', sortOrder: 220 },
+    { slug: 'home-services', name: 'Home Services', description: 'Cleaning, plumbing, electrical and home maintenance', icon: 'wrench', sortOrder: 230 },
+    { slug: 'water-energy', name: 'Water & Energy', description: 'Water, electricity, solar and energy services', icon: 'zap', sortOrder: 240 },
+    { slug: 'ngo-community-services', name: 'NGOs & Community Services', description: 'Nonprofits, charities and community organisations', icon: 'heart-handshake', sortOrder: 250 },
+    { slug: 'other', name: 'Other', description: 'Businesses that do not fit another category', icon: 'circle-ellipsis', sortOrder: 999 },
 ];
 
 /**
- * Categories 004 seeded that this seed does not own.
- *
- * Deactivated so the public directory shows the six above and nothing else.
- * A future migration may drop them once no business references them.
+ * Kept empty so running the seed does not hide categories maintained by a
+ * migration or referenced by existing businesses.
  */
-export const RETIRED_CATEGORY_SLUGS = [
-    'healthcare',
-    'grocery-retail',
-    'events-venues',
-    'agriculture',
-    'education',
-    'transportation',
-    'professional-services',
-    'technology',
-    'beauty-wellness',
-    'local-products',
-];
+export const RETIRED_CATEGORY_SLUGS: string[] = [];
 
 export interface SeedHours {
     /** 0 = Sunday .. 6 = Saturday, matching Date#getDay(). */
@@ -144,7 +151,7 @@ const HALL_HOURS: SeedDayHours[] = WEEKDAYS.map((day) => (
     day === 0 ? { day, open: null } : { day, open: '10:00', close: '22:00' }
 ));
 
-export const SEED_BUSINESSES: SeedBusiness[] = [
+const DEMO_BUSINESSES: SeedBusiness[] = [
     {
         name: 'Lila Restaurant',
         slug: 'lila-restaurant-mogadishu',
@@ -382,6 +389,10 @@ export const SEED_BUSINESSES: SeedBusiness[] = [
     },
 ];
 
+/** Fake businesses are excluded by default; opt in only for local demos. */
+export const SEED_BUSINESSES: SeedBusiness[] =
+    process.env['SEED_DEMO_BUSINESSES'] === 'true' ? DEMO_BUSINESSES : [];
+
 /**
  * Six invented reviewers, shared across the directory.
  *
@@ -431,6 +442,18 @@ export const LEGACY_BUSINESS_SLUGS = [
     'abc-clinic-homs',
     'city-pharmacy-1',
     'new-tech-store',
+    'lila-restaurant-mogadishu',
+    'mogadishu-general-hospital',
+    'baab-qurugo-pharmacy',
+    'sabriga-wedding-hall',
+    'hargeisa-star-restaurant',
+    'quraysh-pharmacy-hargeisa',
+    'kismayo-grand-hotel',
+    'jubba-shopping-centre',
+    'bosaso-medical-centre',
+    'bosaso-wedding-palace',
+    'baidoa-community-hospital',
+    'garowe-fresh-mart',
 ];
 
 /** Users the previous seed created, likewise. */
@@ -440,4 +463,3 @@ export const LEGACY_USER_EMAILS = [
     'ali@hq.test',
     'sara@hq.test',
 ];
-

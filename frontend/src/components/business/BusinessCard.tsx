@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '../common/Badge';
 import { RatingStars } from '../common/RatingStars';
 import { Card } from '../common/Card';
 import { SmartImage } from '../common/SmartImage';
-import { Link } from 'react-router-dom';
-import { ArrowRight, MapPin, Tag } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowRight, Heart, MapPin, Tag } from 'lucide-react';
 import { CategoryIcon } from '../common/CategoryIcon';
+import { Toast, useToasts } from '../common/Toast';
+import { useAuth } from '../../context/AuthContext';
+import { useFavorites } from '../../context/FavoritesContext';
 import type { PublicBusinessCard } from '../../types';
 
 interface BusinessCardProps {
@@ -23,15 +27,38 @@ interface BusinessCardProps {
  */
 export function BusinessCard({ business, compact = false }: BusinessCardProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
+  const { ids, isLoading: favoritesLoading, toggle } = useFavorites();
+  const { toasts, show, dismiss } = useToasts();
+  const [savingFavorite, setSavingFavorite] = useState(false);
+  const isFavorite = ids.has(business.business_id);
   const hasRating = business.average_rating !== null && business.review_count > 0;
   // Routing is by slug everywhere: it is stable across a rename and it is what
   // the public URL is expected to look like.
   const href = `/business/${business.business_slug}`;
 
+  const handleFavorite = async () => {
+    if (!isAuthenticated) {
+      const next = `${location.pathname}${location.search}`;
+      navigate(`/login?next=${encodeURIComponent(next)}`);
+      return;
+    }
+    setSavingFavorite(true);
+    try {
+      await toggle(business);
+    } catch {
+      show(t('favorites.actionError'), 'error');
+    } finally {
+      setSavingFavorite(false);
+    }
+  };
+
   return (
     <Card padding="none" className="overflow-hidden flex flex-col h-full">
-      <Link to={href} className="block group" tabIndex={-1} aria-hidden="true">
-        <div className="relative aspect-video w-full bg-navy-100 overflow-hidden">
+      <div className="relative aspect-video w-full bg-navy-100 overflow-hidden">
+        <Link to={href} className="absolute inset-0 block group" tabIndex={-1} aria-hidden="true">
           {/*
             16:9 is the frame's own ratio, so these intrinsic dimensions only
             reserve the space until the bytes land. A card is not the first thing
@@ -48,24 +75,34 @@ export function BusinessCard({ business, compact = false }: BusinessCardProps) {
               </div>
             }
           />
-          <div className="absolute top-3 end-3 flex gap-1.5">
-            {business.is_featured && (
-              <Badge variant="info" size="sm" className="shadow-soft">
-                {t('business.featured')}
-              </Badge>
-            )}
-            {business.is_open_now !== undefined && (
-              <Badge
-                variant={business.is_open_now ? 'success' : 'default'}
-                size="sm"
-                className="shadow-soft"
-              >
-                {business.is_open_now ? t('business.openNow') : t('business.closedNow')}
-              </Badge>
-            )}
-          </div>
+        </Link>
+        <div className="absolute top-3 end-3 flex gap-1.5 pointer-events-none">
+          {business.is_featured && (
+            <Badge variant="info" size="sm" className="shadow-soft">
+              {t('business.featured')}
+            </Badge>
+          )}
+          {business.is_open_now !== undefined && (
+            <Badge
+              variant={business.is_open_now ? 'success' : 'default'}
+              size="sm"
+              className="shadow-soft"
+            >
+              {business.is_open_now ? t('business.openNow') : t('business.closedNow')}
+            </Badge>
+          )}
         </div>
-      </Link>
+        <button
+          type="button"
+          onClick={() => void handleFavorite()}
+          disabled={savingFavorite || (isAuthenticated && favoritesLoading)}
+          aria-label={t(isFavorite ? 'favorites.remove' : 'favorites.save', { name: business.business_name })}
+          aria-pressed={isFavorite}
+          className="absolute top-3 start-3 z-10 rounded-full bg-white/95 p-2 text-primary-600 shadow-soft transition-colors hover:bg-white disabled:opacity-60"
+        >
+          <Heart className="h-5 w-5" fill={isFavorite ? 'currentColor' : 'none'} aria-hidden="true" />
+        </button>
+      </div>
 
       <div className="flex-1 p-4 flex flex-col" style={{ minHeight: 0 }}>
         <div className="flex items-start gap-3 mb-3">
@@ -138,6 +175,9 @@ export function BusinessCard({ business, compact = false }: BusinessCardProps) {
           </Link>
         </div>
       </div>
+      {toasts.map((toast) => (
+        <Toast key={toast.id} toast={toast} onRemove={() => dismiss(toast.id)} />
+      ))}
     </Card>
   );
 }

@@ -1,7 +1,7 @@
 # OmniHQ — Phase 1
 
-Database architecture and multi-business data isolation.
-No UI, no marketplace redesign: this phase is the data foundation only.
+Marketplace directory and multi-business data isolation, with a customer-facing
+web frontend and a business-owner dashboard.
 
 ## What is implemented
 
@@ -12,6 +12,8 @@ No UI, no marketplace redesign: this phase is the data foundation only.
 - `business_users` membership table: one user can belong to many businesses with different roles.
 - Catalogue (`products`, `services`), branches (`business_locations`), commerce
   (`orders`, `order_items`), `reviews`, and a derived statistics layer.
+- Public directory pages for search, category browsing, and account-synced
+  business favorites.
 - **Data isolation enforced in PostgreSQL** through Row Level Security, in addition to
   `WHERE business_id = ...` in every repository query.
 - Migration runner with per-migration rollback scripts and a schema-change ledger.
@@ -40,10 +42,35 @@ npm run dev
 | 1 | `db:create` | creates `hq_marketplace` and `hq_marketplace_test` |
 | 2 | `db:migrate` | applies `db/migrations/*.sql` in order, each in a transaction |
 | 3 | `db:grants` | creates the `hq_app` role and grants it **non-owner** privileges |
-| 4 | `db:seed` | development fixtures only |
+| 4 | `db:seed` | categories and local admin; fictional listings are opt-in |
 
 Step 3 matters: the API must connect as `hq_app`, not as the table owner. Only a
 non-owner role is subject to RLS.
+
+The directory seed does not create fictional businesses by default, so public
+business counts start at zero until businesses are actually listed and
+verified. To populate a local demo directory, run:
+
+```bash
+SEED_DEMO_BUSINESSES=true npm run db:seed
+```
+
+In PowerShell, run `$env:SEED_DEMO_BUSINESSES='true'; npm.cmd run db:seed`.
+Never enable demo listings in production.
+
+To add the explicitly labelled Nertu Fashion demo shop, its sample outfit
+photo, and nine demo orders covering every order status, run this only against
+a local development database:
+
+```bash
+NERTU_DEMO_PASSWORD='choose-a-password-at-least-12-characters' \
+  npm run db:seed:demo -- /path/to/product-image.jpg
+```
+
+The demo owner signs in as `nertu.owner@example.test`; the sample customer
+signs in as `nertu.customer@example.test`. Both use the password supplied in
+`NERTU_DEMO_PASSWORD`. The product price is a demo placeholder, not a real
+quote. Do not run this seed in production.
 
 ## Tests
 
@@ -90,6 +117,7 @@ POST /api/auth/register       POST /api/auth/login      GET /api/auth/me
 POST /api/businesses/register
 POST /api/orders              GET  /api/orders/mine     POST /api/orders/mine/:id/cancel
 POST /api/reviews
+GET  /api/favorites           PUT|DELETE /api/favorites/:businessId
 ```
 
 Business staff (membership + permission checked by the database):

@@ -291,6 +291,26 @@
     "emptyDescription": "Tan qayb ma jirto buugga.",
     "backToExplore": "Dib u noqo baaridda"
   },
+  "categories": {
+    "title": "Qaybaha eeg",
+    "subtitle": "Dooro qayb si aad u hesho ganacsiyada bixiya waxa aad u baahan tahay.",
+    "businessCount_one": "Hal ganacsi",
+    "businessCount_other": "{{count}} ganacsi",
+    "emptyTitle": "Weli qaybo ma jiraan",
+    "emptyDescription": "Qaybuhu halkan ayay ka muuqan doonaan marka ganacsiyo la diiwaangeliyo."
+  },
+  "favorites": {
+    "title": "Ganacsiyada aad jeceshahay",
+    "subtitle": "Ganacsiyada aad ku kaydsatay akoonkaaga.",
+    "signInTitle": "Soo gal si aad u aragto kuwa aad jeceshahay",
+    "signInDescription": "Ganacsiyada ku kaydi akoonkaaga si aad qalab kasta uga hesho.",
+    "emptyTitle": "Weli waxba ma kaydsan",
+    "emptyDescription": "Riix wadnaha kaarka ganacsiga si aad halkan ugu kaydsato.",
+    "explore": "Ganacsiyada baar",
+    "save": "Ku kaydi {{name}} kuwa la jeclado",
+    "remove": "Ka saar {{name}} kuwa la jeclado",
+    "actionError": "Lama cusboonaysiin kuwa aad jeceshahay. Mar kale isku day."
+  },
   "home": {
     "heroTitle": "Hel ganacsi kasta oo Soomaaliya, hal meel.",
     "heroSubtitle": "Raadi buugga magaca, qaybta ama magaalada, kadibna wacii ama fariin ganacsiga.",

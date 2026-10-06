@@ -291,6 +291,26 @@
     "emptyDescription": "This category does not exist in the directory.",
     "backToExplore": "Back to explore"
   },
+  "categories": {
+    "title": "Browse categories",
+    "subtitle": "Choose a category to discover businesses offering what you need.",
+    "businessCount_one": "{{count}} business",
+    "businessCount_other": "{{count}} businesses",
+    "emptyTitle": "No categories yet",
+    "emptyDescription": "Categories will appear here when businesses are listed."
+  },
+  "favorites": {
+    "title": "Your favorites",
+    "subtitle": "Businesses you have saved to your account.",
+    "signInTitle": "Sign in to see your favorites",
+    "signInDescription": "Save businesses to your account and find them again on any device.",
+    "emptyTitle": "No favorites yet",
+    "emptyDescription": "Save a business with the heart button and it will appear here.",
+    "explore": "Explore businesses",
+    "save": "Save {{name}} to favorites",
+    "remove": "Remove {{name}} from favorites",
+    "actionError": "We couldn't update your favorites. Please try again."
+  },
   "home": {
     "heroTitle": "Find every business in Somalia, in one place.",
     "heroSubtitle": "Search the directory by name, category or city, then call or message the business directly.",

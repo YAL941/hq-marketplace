@@ -108,6 +108,7 @@ const REVIEW_AGGREGATE = `
 `;
 
 export interface DirectoryQuery {
+    businessIds?: string[];
     city?: string;
     categoryId?: number;
     categorySlug?: string;
@@ -136,6 +137,10 @@ export async function listPublicBusinesses(
     if (query.city !== undefined) {
         params.push(query.city);
         conditions.push(`b.city = $${params.length}`);
+    }
+    if (query.businessIds !== undefined) {
+        params.push(query.businessIds);
+        conditions.push(`b.business_id = ANY($${params.length}::bigint[])`);
     }
     if (query.categoryId !== undefined) {
         params.push(query.categoryId);

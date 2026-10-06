@@ -32,6 +32,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
 
     const isDashboard = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/business/') || location.pathname.startsWith('/admin');
     const isPublic = !isDashboard;
+    const isLoginPage = location.pathname === '/login';
 
     return (
       <header
@@ -53,7 +54,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
                 <Logo to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="sm" className="[&>span:last-child]:hidden" />
               </div>
 
-              {isPublic && (
+              {isPublic && !isLoginPage && (
                 <nav className="hidden md:flex items-center gap-6" aria-label={t('nav.mainNavigation')}>
                   <Link to="/explore" className={cn('text-sm font-medium transition-colors', location.pathname === '/explore' ? 'text-primary-600' : 'text-navy-600 hover:text-navy-900')}>
                     {t('nav.explore')}
@@ -122,16 +123,19 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
               )}
             </div>
 
-            <div className="flex-1 max-w-xl mx-8 hidden lg:block">
-              <SearchBar
-                value={searchQuery}
-                onChange={setSearchQuery}
-                onSearch={handleSearch}
-                placeholder={t('search.placeholder')}
-              />
-            </div>
+            {!isLoginPage && (
+              <div className="flex-1 max-w-xl mx-8 hidden lg:block">
+                <SearchBar
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  onSearch={handleSearch}
+                  placeholder={t('search.placeholder')}
+                />
+              </div>
+            )}
 
-            <div className="flex items-center gap-3">
+            {!isLoginPage && (
+              <div className="flex items-center gap-3">
               {isPublic && (
                 <>
                   <Link to="/login" className="hidden sm:block px-4 py-2 text-sm font-medium text-navy-700 hover:text-navy-900 transition-colors">
@@ -198,11 +202,12 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {mobileMenuOpen && (
+        {!isLoginPage && mobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-navy-100 animate-slide-down">
             <div className="px-4 sm:px-6 mb-3 lg:hidden">
               <SearchBar

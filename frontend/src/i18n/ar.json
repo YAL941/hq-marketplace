@@ -303,6 +303,29 @@
     "emptyDescription": "هذا القسم غير موجود في الدليل.",
     "backToExplore": "العودة إلى الاستكشاف"
   },
+  "categories": {
+    "title": "تصفّح الأقسام",
+    "subtitle": "اختر قسماً لاكتشاف المنشآت التي تقدم ما تحتاجه.",
+    "businessCount_one": "منشأة واحدة",
+    "businessCount_two": "منشأتان",
+    "businessCount_few": "{{count}} منشآت",
+    "businessCount_many": "{{count}} منشأة",
+    "businessCount_other": "{{count}} منشأة",
+    "emptyTitle": "لا توجد أقسام بعد",
+    "emptyDescription": "ستظهر الأقسام هنا عند إدراج المنشآت."
+  },
+  "favorites": {
+    "title": "منشآتي المفضلة",
+    "subtitle": "المنشآت التي حفظتها في حسابك.",
+    "signInTitle": "سجّل الدخول لعرض مفضلاتك",
+    "signInDescription": "احفظ المنشآت في حسابك لتعود إليها من أي جهاز.",
+    "emptyTitle": "لا توجد مفضلات بعد",
+    "emptyDescription": "اضغط على رمز القلب في بطاقة المنشأة لحفظها هنا.",
+    "explore": "استكشف المنشآت",
+    "save": "أضف {{name}} إلى المفضلة",
+    "remove": "أزل {{name}} من المفضلة",
+    "actionError": "تعذر تحديث المفضلة. حاول مرة أخرى."
+  },
   "home": {
     "heroTitle": "اعثر على كل منشأة في الصومال، في مكان واحد.",
     "heroSubtitle": "ابحث في الدليل بالاسم أو الفئة أو المدينة، ثم اتصل بالمنشأة أو راسلها مباشرة.",

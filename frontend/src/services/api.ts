@@ -309,6 +309,13 @@ export const directoryApi = {
   cities: () => api.get<ApiResponse<PublicCity[]>>('/cities'),
 };
 
+/** Account-scoped saved businesses; every route requires authentication. */
+export const favoriteApi = {
+  list: () => api.get<ApiResponse<PublicBusinessCard[]>>('/favorites'),
+  save: (businessId: string) => api.put('/favorites/' + encodeURIComponent(businessId)),
+  remove: (businessId: string) => api.delete('/favorites/' + encodeURIComponent(businessId)),
+};
+
 // Products API
 export const productApi = {
   /** GET /products — the public catalogue. Anonymous. */

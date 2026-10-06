@@ -105,58 +105,60 @@ async function main(): Promise<void> {
             [platformAdmin, adminRoleId],
         );
 
-        const customerRoleId = await roleId(client, 'customer', 'platform');
-        const ownerRoleId = await roleId(client, 'business_owner', 'business');
-
-        // One reviewer account each. reviews_business_user_unique allows one
-        // review per (business, user), so a business draws from this pool and
-        // no reviewer ever appears twice against the same business.
-        const reviewerIds: number[] = [];
-        for (const reviewer of SEED_REVIEWERS) {
-            reviewerIds.push(await upsertUser(client, reviewer.email, reviewer.fullName));
-            summary.createdUsers += 1;
-        }
-
-        const ownerIds: number[] = [];
-        for (const owner of SEED_OWNERS) {
-            ownerIds.push(await upsertUser(client, owner.email, owner.fullName));
-            summary.createdUsers += 1;
-        }
         summary.createdUsers += 1; // the platform admin
 
-        for (const [index, business] of SEED_BUSINESSES.entries()) {
-            const ownerId = ownerIds[index % ownerIds.length]!;
-            const businessId = await insertBusiness(client, business);
-            summary.createdBusinesses += 1;
+        if (SEED_BUSINESSES.length > 0) {
+            const customerRoleId = await roleId(client, 'customer', 'platform');
+            const ownerRoleId = await roleId(client, 'business_owner', 'business');
 
-            await client.query(
-                `INSERT INTO business_users (business_id, user_id, role_id, status, joined_at)
-                 VALUES ($1, $2, $3, 'active', now())
-                 ON CONFLICT (business_id, user_id, role_id) DO NOTHING`,
-                [businessId, ownerId, ownerRoleId],
-            );
-
-            summary.createdHours += await insertOpeningHours(client, businessId, business.hours);
-
-            for (const review of business.reviews) {
-                const { rows } = await client.query(
-                    `INSERT INTO reviews (business_id, user_id, rating, review_text, status)
-                     VALUES ($1, $2, $3, $4, 'published')
-                     ON CONFLICT (business_id, user_id) DO NOTHING
-                     RETURNING review_id`,
-                    [businessId, reviewerIds[review.reviewer]!, review.rating, review.text],
-                );
-                if (rows.length > 0) summary.createdReviews += 1;
+            // Demo accounts are only created when fictional demo listings are
+            // explicitly enabled with SEED_DEMO_BUSINESSES=true.
+            const reviewerIds: number[] = [];
+            for (const reviewer of SEED_REVIEWERS) {
+                reviewerIds.push(await upsertUser(client, reviewer.email, reviewer.fullName));
+                summary.createdUsers += 1;
             }
-        }
 
-        // Reviewers are customers of the platform, which is what makes their
-        // review of a business meaningful.
-        for (const reviewerId of reviewerIds) {
-            await client.query(
-                `INSERT INTO user_platform_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-                [reviewerId, customerRoleId],
-            );
+            const ownerIds: number[] = [];
+            for (const owner of SEED_OWNERS) {
+                ownerIds.push(await upsertUser(client, owner.email, owner.fullName));
+                summary.createdUsers += 1;
+            }
+
+            for (const [index, business] of SEED_BUSINESSES.entries()) {
+                const ownerId = ownerIds[index % ownerIds.length]!;
+                const businessId = await insertBusiness(client, business);
+                summary.createdBusinesses += 1;
+
+                await client.query(
+                    `INSERT INTO business_users (business_id, user_id, role_id, status, joined_at)
+                     VALUES ($1, $2, $3, 'active', now())
+                     ON CONFLICT (business_id, user_id, role_id) DO NOTHING`,
+                    [businessId, ownerId, ownerRoleId],
+                );
+
+                summary.createdHours += await insertOpeningHours(client, businessId, business.hours);
+
+                for (const review of business.reviews) {
+                    const { rows } = await client.query(
+                        `INSERT INTO reviews (business_id, user_id, rating, review_text, status)
+                         VALUES ($1, $2, $3, $4, 'published')
+                         ON CONFLICT (business_id, user_id) DO NOTHING
+                         RETURNING review_id`,
+                        [businessId, reviewerIds[review.reviewer]!, review.rating, review.text],
+                    );
+                    if (rows.length > 0) summary.createdReviews += 1;
+                }
+            }
+
+            // Reviewers are customers of the platform, which makes their
+            // reviews meaningful within the demo directory.
+            for (const reviewerId of reviewerIds) {
+                await client.query(
+                    `INSERT INTO user_platform_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+                    [reviewerId, customerRoleId],
+                );
+            }
         }
 
         // Refreshing every business at once is a platform-admin operation:

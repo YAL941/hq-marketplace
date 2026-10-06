@@ -15,8 +15,8 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
     const exploreLinks = [
       { to: '/explore', label: t('footer.allBusinesses') },
       { to: '/categories', label: t('nav.categories') },
-      { to: '#', label: t('footer.topRated') },
-      { to: '#', label: t('footer.newBusinesses') },
+      { to: '/explore?sort=rating', label: t('footer.topRated') },
+      { to: '/explore?sort=newest', label: t('footer.newBusinesses') },
     ];
     const categoryLinks = [
       { to: '/categories/healthcare', label: t('footer.healthcare') },
