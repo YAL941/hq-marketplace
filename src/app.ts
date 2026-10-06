@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { businessRoutes } from './modules/businesses/business.routes.js';
+import { nearbyRoutes } from './modules/businesses/nearby.routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { favoriteRoutes } from './modules/favorites/favorite.routes.js';
 import { locationRoutes } from './modules/locations/location.routes.js';
@@ -59,7 +60,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
      *
      * Mounted before the routers and with `fallthrough` left at its default, so
      * a request for a file that does not exist carries on to the routers and
-     * ends at `notFoundHandler` with the same JSON body as every other missing
+     * ends at notFoundHandler with the same JSON body as every other missing
      * route — and, just as importantly, `/api/...` never enters here at all.
      *
      * Three options are not cosmetic:
@@ -138,59 +139,60 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
     if (!isProduction) {
         app.get('/api', (_req, res) => {
-                    res.json({
-                        service: 'OmniHQ',
-                        phase: 1,
-                        scope: 'database architecture + multi-business data isolation',
-                    public: [
-                        'GET  /api/businesses',
-                        'GET  /api/businesses/:businessId',
-                        'GET  /api/businesses/slug/:businessSlug',
-                        'GET  /api/businesses/:businessId/locations',
-                        'GET  /api/products',
-                        'GET  /api/services',
-                        'GET  /api/reviews',
-                    ],
-                    authenticated: [
-                        'POST /api/auth/register',
-                        'POST /api/auth/login',
-                        'GET  /api/auth/me',
-                        'POST /api/businesses/register',
-                        'POST /api/orders',
-                        'GET  /api/orders/mine',
-                        'POST /api/orders/mine/:orderId/cancel',
-                        'POST /api/reviews',
-                        'GET  /api/favorites',
-                        'PUT|DELETE /api/favorites/:businessId',
-                    ],
-                    businessStaff: [
-                        'GET|POST|PATCH|DELETE /api/business/:businessId/products[/:productId]',
-                        'GET|POST|PATCH         /api/business/:businessId/services[/:serviceId]',
-                        'GET|POST|PATCH         /api/business/:businessId/locations[/:locationId]',
-                        'GET                   /api/business/:businessId/orders[/:orderId]',
-                        'PATCH                 /api/business/:businessId/orders/:orderId/status',
-                        'GET                   /api/business/:businessId/reviews',
-                        'POST                  /api/business/:businessId/reviews/:reviewId/respond',
-                        'PATCH                 /api/business/:businessId/reviews/:reviewId/moderate',
-                        'PATCH                 /api/business/:businessId',
-                        'GET                   /api/business/:businessId/statistics',
-                        'GET|POST              /api/business/:businessId/members',
-                        'GET                   /api/business/:businessId',
-                        'PUT|DELETE            /api/business/:businessId/logo',
-                        'PUT|DELETE            /api/business/:businessId/cover',
-                        'PUT|DELETE            /api/business/:businessId/products/:productId/image',
-                    ],
-                    platformAdmin: [
-                        'GET   /api/admin/businesses?status=pending|active|rejected&page&limit',
-                        'PATCH /api/admin/businesses/:businessId/verification',
-                    ],
-                    note: 'Business staff routes need "Authorization: Bearer <token>" and the '
-                        + 'business id in the path. The id in the X-Business-Id header is '
-                        + 'verified against business_users; a mismatch is rejected. The '
-                        + '/api/admin routes need the platform_admin role and nothing else does. '
-                        + 'Image uploads are multipart/form-data with one field named "file"; '
-                        + 'JPEG, PNG and WebP only, and the stored URL is served from /uploads.',
-                });
+            res.json({
+                service: 'OmniHQ',
+                phase: 1,
+                scope: 'database architecture + multi-business data isolation',
+                public: [
+                    'GET  /api/businesses',
+                    'GET  /api/businesses/nearby?lat&lng&radiusKm',
+                    'GET  /api/businesses/:businessId',
+                    'GET  /api/businesses/slug/:businessSlug',
+                    'GET  /api/businesses/:businessId/locations',
+                    'GET  /api/products',
+                    'GET  /api/services',
+                    'GET  /api/reviews',
+                ],
+                authenticated: [
+                    'POST /api/auth/register',
+                    'POST /api/auth/login',
+                    'GET  /api/auth/me',
+                    'POST /api/businesses/register',
+                    'POST /api/orders',
+                    'GET  /api/orders/mine',
+                    'POST /api/orders/mine/:orderId/cancel',
+                    'POST /api/reviews',
+                    'GET  /api/favorites',
+                    'PUT|DELETE /api/favorites/:businessId',
+                ],
+                businessStaff: [
+                    'GET|POST|PATCH|DELETE /api/business/:businessId/products[/:productId]',
+                    'GET|POST|PATCH         /api/business/:businessId/services[/:serviceId]',
+                    'GET|POST|PATCH         /api/business/:businessId/locations[/:locationId]',
+                    'GET                   /api/business/:businessId/orders[/:orderId]',
+                    'PATCH                 /api/business/:businessId/orders/:orderId/status',
+                    'GET                   /api/business/:businessId/reviews',
+                    'POST                  /api/business/:businessId/reviews/:reviewId/respond',
+                    'PATCH                 /api/business/:businessId/reviews/:reviewId/moderate',
+                    'PATCH                 /api/business/:businessId',
+                    'GET                   /api/business/:businessId/statistics',
+                    'GET|POST              /api/business/:businessId/members',
+                    'GET                   /api/business/:businessId',
+                    'PUT|DELETE            /api/business/:businessId/logo',
+                    'PUT|DELETE            /api/business/:businessId/cover',
+                    'PUT|DELETE            /api/business/:businessId/products/:productId/image',
+                ],
+                platformAdmin: [
+                    'GET   /api/admin/businesses?status=pending|active|rejected&page&limit',
+                    'PATCH /api/admin/businesses/:businessId/verification',
+                ],
+                note: 'Business staff routes need "Authorization: Bearer <token>" and the '
+                    + 'business id in the path. The id in the X-Business-Id header is '
+                    + 'verified against business_users; a mismatch is rejected. The '
+                    + '/api/admin routes need the platform_admin role and nothing else does. '
+                    + 'Image uploads are multipart/form-data with one field named "file"; '
+                    + 'JPEG, PNG and WebP only, and the stored URL is served from /uploads.',
+            });
         });
     }
 
@@ -209,6 +211,9 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
     app.use('/api', authRoutes);
     app.use('/api', favoriteRoutes);
+    // Mounted before businessRoutes: /businesses/nearby would otherwise be
+    // captured as a :businessId by the directory router's path parameters.
+    app.use('/api', nearbyRoutes);
     app.use('/api', businessRoutes);
     app.use('/api', productRoutes);
     app.use('/api', serviceRoutes);
