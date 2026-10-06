@@ -17,6 +17,8 @@ web frontend and a business-owner dashboard.
 - **Data isolation enforced in PostgreSQL** through Row Level Security, in addition to
   `WHERE business_id = ...` in every repository query.
 - Migration runner with per-migration rollback scripts and a schema-change ledger.
+- **Nearby search**: public, location-aware directory listing ordered by
+  distance from the caller, with radius and optional filters.
 
 Documentation: [`docs/01-schema.md`](docs/01-schema.md), [`docs/02-data-isolation.md`](docs/02-data-isolation.md),
 [`docs/03-migration-safety.md`](docs/03-migration-safety.md).
@@ -82,7 +84,9 @@ The suite creates its own fixtures in `hq_marketplace_test` and covers the eight
 required scenarios: product ownership, cross-business denial (API **and** raw SQL
 with no `WHERE` clause), owner isolation, public directory visibility, order
 creation with frozen prices, review isolation, multiple branches, and duplicate
-business names.
+business names. The nearby search adds a ninth group: distance ordering, radius
+filtering, multi-branch deduplication at the closest branch, public visibility
+of the result set, and input validation.
 
 ## Migrations
 
@@ -105,10 +109,46 @@ Public:
 
 ```
 GET  /api/businesses
+GET  /api/businesses/nearby
 GET  /api/businesses/:businessId
 GET  /api/businesses/:businessId/locations
 GET  /api/products            GET /api/services        GET /api/reviews
 ```
+
+### Nearby search
+
+`GET /api/businesses/nearby?lat&lng&radiusKm[&city&categoryId&q&page&limit]`
+
+Returns public businesses ordered by distance from `(lat, lng)`, one row per
+business, `distance_km` in the row and the origin echoed in `meta`. The
+distance of a multi-branch business is the distance of its closest active
+branch, never an average.
+
+| parameter | range | default | notes |
+| --- | --- | --- | --- |
+| `lat` | -90..90 | required | caller latitude |
+| `lng` | -180..180 | required | caller longitude |
+| `radiusKm` | 0.1..100 | 5 | inclusive maximum distance |
+| `city` | 1..120 chars | — | case-insensitive exact match on the branch city |
+| `categoryId` | positive int | — | same category filter as the directory |
+| `q` | 1..80 chars | — | same name search semantics as the directory |
+| `page`, `limit` | 1..10000 / 1..50 | 1 / 20 | same caps as every public list |
+
+Implementation notes:
+
+- Coordinates are the `DOUBLE PRECISION` columns that already exist on
+  `business_locations`; no PostGIS, no geohash, no second source of truth for
+  a branch's position. Migration `013` adds the indexes that make the query
+  cheap: a bounding-box index and a join helper, both partial over active
+  branches with coordinates.
+- The bounding box is a prefilter only: the exact law-of-cosines distance is
+  what excludes a branch near a corner of the box.
+- Visibility is the same promise as the rest of the directory:
+  `app_business_is_public` in the `WHERE`, and row level security answering
+  again underneath. A pending business with a perfectly placed branch is
+  invisible.
+- The route is mounted before the directory router, so `/businesses/nearby`
+  is not captured as a `:businessId`.
 
 Authenticated:
 
