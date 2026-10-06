@@ -24,11 +24,7 @@ const EARTH_RADIUS_KM = 6371.0088;
 /** Kilometres per degree of latitude, constant to well under 1% everywhere. */
 const KM_PER_DEGREE_LAT = 110.574;
 
-/**
- * Maximum radius a caller may ask for. A city directory is not a
- * country-wide search; above ~100 km the nearest ordering stops
- * meaning anything and the bounding box stops prefiltering.
- */
+/** Max radius. Above ~100 km the nearest ordering stops being useful. */
 export const MAX_RADIUS_KM = 100;
 
 export const nearbyQuerySchema = z
@@ -45,3 +41,40 @@ export const nearbyQuerySchema = z
     .strict();
 
 export type NearbyQueryInput = z.infer<typeof nearbyQuerySchema>;
+
+/**
+ * Law-of-cosines distance in km as an SQL expression. One string shared
+ * by count and page queries so distance logic cannot drift between them.
+ * Coordinates embedded have passed zod number validation.
+ */
+export function distanceSql(lat: number, lng: number): string {
+    return `${EARTH_RADIUS_KM} * acos(least(1, greatest(-1,
+        cos(radians(${lat})) * cos(radians(bl.latitude))
+            * cos(radians(bl.longitude) - radians(${lng}))
+        + sin(radians(${lat})) * sin(radians(bl.latitude))
+    )))`;
+}
+
+/**
+ * Bounding box around the caller, a prefilter before exact distances.
+ * Longitude delta is widened by 1/cos(lat) because longitude degrees
+ * shrink towards the poles, and clamped at 180.
+ */
+export function boundingBox(input: NearbyQueryInput): {
+    minLat: number;
+    maxLat: number;
+    minLng: number;
+    maxLng: number;
+} {
+    const latDelta = input.radiusKm / KM_PER_DEGREE_LAT;
+    const lngDelta = Math.min(
+        180,
+        input.radiusKm / (KM_PER_DEGREE_LAT * Math.max(Math.cos((input.lat * Math.PI) / 180), 0.01)),
+    );
+    return {
+        minLat: input.lat - latDelta,
+        maxLat: input.lat + latDelta,
+        minLng: input.lng - lngDelta,
+        maxLng: input.lng + lngDelta,
+    };
+}
