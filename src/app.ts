@@ -11,6 +11,7 @@ import { favoriteRoutes } from './modules/favorites/favorite.routes.js';
 import { locationRoutes } from './modules/locations/location.routes.js';
 import { mediaRoutes } from './modules/media/media.routes.js';
 import { uploadRoot } from './modules/media/storage/local-disk.js';
+import { notificationRoutes } from './modules/notifications/notification.routes.js';
 import { orderRoutes } from './modules/orders/order.routes.js';
 import { productRoutes } from './modules/products/product.routes.js';
 import { reviewRoutes } from './modules/reviews/review.routes.js';
@@ -164,6 +165,9 @@ export function createApp(options: CreateAppOptions = {}): Express {
                     'POST /api/reviews',
                     'GET  /api/favorites',
                     'PUT|DELETE /api/favorites/:businessId',
+                    'GET  /api/notifications?unreadOnly&limit&offset',
+                    'PATCH /api/notifications/:notificationId/read',
+                    'POST /api/notifications/read-all',
                 ],
                 businessStaff: [
                     'GET|POST|PATCH|DELETE /api/business/:businessId/products[/:productId]',
@@ -220,6 +224,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
     app.use('/api', orderRoutes);
     app.use('/api', reviewRoutes);
     app.use('/api', locationRoutes);
+    app.use('/api', notificationRoutes);
     app.use('/api', adminRoutes);
     app.use('/api', mediaRoutes);
 
