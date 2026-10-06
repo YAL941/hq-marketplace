@@ -32,7 +32,7 @@ let customerToken: string;
 let staffToken: string;
 let outsiderToken: string;
 let orderId: number;
-let notificationId: number;
+let businessId: number;
 
 before(async () => {
     app = (await import('../src/app.js')).createApp();
@@ -61,9 +61,9 @@ before(async () => {
          VALUES ('Notif Test Shop', 'notif-test-shop', 'Test address', 'active', 'verified', TRUE, now())
          RETURNING business_id`,
     );
-    const businessId = Number(businesses[0]!.business_id);
+    businessId = Number(businesses[0]!.business_id);
 
-    // Staff membership: reuse the seeded owner role for simplicity.
+    // Staff membership with the seeded owner role.
     const { rows: roles } = await adminPool.query<{ role_id: string }>(
         `SELECT role_id FROM roles WHERE role_key = 'business_owner'`,
     );
@@ -78,17 +78,8 @@ before(async () => {
     staffToken = signAccessToken({ id: staffId, email: 'notif-staff@hq.test', isPlatformAdmin: false });
     outsiderToken = signAccessToken({ id: outsiderId, email: 'notif-outsider@hq.test', isPlatformAdmin: false });
 
-    // An order the staff member will update through the real endpoint.
-    const orderRes = await request(app)
-        .post('/api/orders')
-        .set('Authorization', `Bearer ${customerToken}`)
-        .send({
-            businessId,
-            items: [{ productId: null, serviceId: null }],
-        })
-        .catch(() => null);
-    // The real creation path requires an actual product; fall back to a
-    // direct insert that matches the schema exactly.
+    // A pending order placed directly (fixtures are seeded per-file, and the
+    // POST /api/orders path needs a real catalogue to copy prices from).
     const { rows: orders } = await adminPool.query<{ order_id: string }>(
         `INSERT INTO orders
             (business_id, customer_id, order_type, subtotal, delivery_fee, discount_amount, tax_amount, total_amount, currency)
@@ -97,9 +88,131 @@ before(async () => {
         [businessId, customerId],
     );
     orderId = Number(orders[0]!.order_id);
-    void orderRes;
 });
 
 after(async () => {
     await closePools?.();
+});
+
+describe('order-status notifications', () => {
+    it('is created by a staff status change, with the payload the UI needs', async () => {
+        const patched = await request(app)
+            .patch(`/api/business/${businessId}/orders/${orderId}/status`)
+            .set('Authorization', `Bearer ${staffToken}`)
+            .send({ orderStatus: 'confirmed' });
+        assert.equal(patched.status, 200, `staff PATCH failed: ${JSON.stringify(patched.body)}`);
+
+        const listed = await request(app)
+            .get('/api/notifications')
+            .set('Authorization', `Bearer ${customerToken}`);
+        assert.equal(listed.status, 200);
+        assert.equal(listed.body.meta.unreadCount, 1);
+        assert.equal(listed.body.data.length, 1);
+
+        const first = listed.body.data[0];
+        assert.equal(first.notification_type, 'order_status');
+        assert.equal(first.is_read, false);
+        assert.equal(first.payload.toStatus, 'confirmed');
+        assert.equal(first.payload.fromStatus, 'pending');
+        assert.equal(first.payload.businessId, businessId);
+        assert.ok(first.payload.orderNumber, 'payload carries the order number');
+    });
+
+    it('is invisible to another user: RLS is the filter', async () => {
+        const listed = await request(app)
+            .get('/api/notifications')
+            .set('Authorization', `Bearer ${outsiderToken}`);
+        assert.equal(listed.status, 200);
+        assert.equal(listed.body.data.length, 0);
+        assert.equal(listed.body.meta.unreadCount, 0);
+    });
+
+    it('cannot be marked read by another user, even by id', async () => {
+        const listed = await request(app)
+            .get('/api/notifications')
+            .set('Authorization', `Bearer ${customerToken}`);
+        const id = listed.body.data[0].notification_id;
+
+        const foreign = await request(app)
+            .patch(`/api/notifications/${id}/read`)
+            .set('Authorization', `Bearer ${outsiderToken}`);
+        assert.equal(foreign.status, 404, 'RLS must hide the row, and a hidden row is not found');
+    });
+
+    it('is not created when the status does not actually change', async () => {
+        const before = await request(app)
+            .get('/api/notifications')
+            .set('Authorization', `Bearer ${customerToken}`);
+        const countBefore = before.body.data.length;
+
+        // A no-op status update: the trigger compares OLD and NEW, so a
+        // second PATCH to the same value must not notify anyone.
+        const res = await request(app)
+            .patch(`/api/business/${businessId}/orders/${orderId}/status`)
+            .set('Authorization', `Bearer ${staffToken}`)
+            .send({ orderStatus: 'confirmed' });
+        assert.equal(res.status, 200, 're-confirming an order is still a valid staff action');
+
+        const after = await request(app)
+            .get('/api/notifications')
+            .set('Authorization', `Bearer ${customerToken}`);
+        assert.equal(after.body.data.length, countBefore, 'no new notification for a no-op status');
+    });
+
+    it('supports mark-one-read and keeps the unread count honest', async () => {
+        const listed = await request(app)
+            .get('/api/notifications')
+            .set('Authorization', `Bearer ${customerToken}`);
+        const id = listed.body.data[0].notification_id;
+        assert.equal(listed.body.meta.unreadCount, 1);
+
+        const marked = await request(app)
+            .patch(`/api/notifications/${id}/read`)
+            .set('Authorization', `Bearer ${customerToken}`);
+        assert.equal(marked.status, 200);
+        assert.equal(marked.body.data.is_read, true);
+        assert.ok(marked.body.data.read_at);
+
+        const after = await request(app)
+            .get('/api/notifications')
+            .set('Authorization', `Bearer ${customerToken}`);
+        assert.equal(after.body.meta.unreadCount, 0);
+
+        // unreadOnly=true now hides the read row.
+        const unreadOnly = await request(app)
+            .get('/api/notifications?unreadOnly=true')
+            .set('Authorization', `Bearer ${customerToken}`);
+        assert.equal(unreadOnly.body.data.length, 0);
+    });
+
+    it('supports read-all for every remaining row', async () => {
+        // One more status change creates one more notification.
+        const res = await request(app)
+            .patch(`/api/business/${businessId}/orders/${orderId}/status`)
+            .set('Authorization', `Bearer ${staffToken}`)
+            .send({ orderStatus: 'in_progress' });
+        assert.equal(res.status, 200);
+
+        const before = await request(app)
+            .get('/api/notifications')
+            .set('Authorization', `Bearer ${customerToken}`);
+        assert.ok(before.body.meta.unreadCount >= 1);
+
+        const all = await request(app)
+            .post('/api/notifications/read-all')
+            .set('Authorization', `Bearer ${customerToken}`);
+        assert.equal(all.status, 200);
+        assert.ok(all.body.data.updated >= 1);
+
+        const after = await request(app)
+            .get('/api/notifications')
+            .set('Authorization', `Bearer ${customerToken}`);
+        assert.equal(after.body.meta.unreadCount, 0);
+    });
+
+    it('requires authentication on every endpoint', async () => {
+        assert.equal((await request(app).get('/api/notifications')).status, 401);
+        assert.equal((await request(app).patch('/api/notifications/1/read')).status, 401);
+        assert.equal((await request(app).post('/api/notifications/read-all')).status, 401);
+    });
 });
