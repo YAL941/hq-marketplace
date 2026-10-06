@@ -22,7 +22,7 @@
 --   extra extension a deployment has to install, and for a city-level
 --   directory the haversine distance computed in plain SQL over a small
 --   prefiltered set is fast enough and exact to well under a metre. Keeping
---     the extension out of the critical path keeps `npm run db:setup`
+--   the extension out of the critical path keeps `npm run db:setup`
 --   self-contained. If scale ever demands PostGIS, adding it later is
 --   purely additive: this migration creates no column a later GiST index
 --     would conflict with.
@@ -75,7 +75,7 @@ CREATE INDEX IF NOT EXISTS ix_business_locations_business_geo
     ON business_locations (business_id, latitude, longitude)
     WHERE is_active AND latitude IS NOT NULL AND longitude IS NOT NULL;
 
-COMMENT ON INDEX ix_business_locations الفbusiness_geo IS
+COMMENT ON INDEX ix_business_locations_business_geo IS
     'Join entry point for nearest-business search: business_id first so the '
     'join to businesses picks rows in businesses-key order, with coordinates '
     'present so no heap fetch is wasted on a coordinate-less branch.';
