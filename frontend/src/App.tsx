@@ -30,6 +30,7 @@ import { ServiceEditPage } from './pages/ServiceEdit';
 import { OrderDetailPage } from './pages/OrderDetail';
 import { LocationManagePage } from './pages/LocationManage';
 import { ComingSoonPage } from './pages/ComingSoon';
+import { LegalPage } from './pages/legal/LegalPage';
 import './index.css';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -166,8 +167,10 @@ function App() {
 
           {/* Linked from the auth screens, so they exist rather than falling
               through to the home page and looking broken. */}
-          <Route path="/terms" element={<MainLayout><ComingSoonPage /></MainLayout>} />
-          <Route path="/privacy" element={<MainLayout><ComingSoonPage /></MainLayout>} />
+          <Route path="/faq" element={<MainLayout><LegalPage doc="faq" /></MainLayout>} />
+          <Route path="/privacy" element={<MainLayout><LegalPage doc="privacy" /></MainLayout>} />
+          <Route path="/safety" element={<MainLayout><LegalPage doc="safety" /></MainLayout>} />
+          <Route path="/terms" element={<MainLayout><LegalPage doc="terms" /></MainLayout>} />
           <Route path="/forgot-password" element={<MainLayout><ComingSoonPage /></MainLayout>} />
 
           {/*

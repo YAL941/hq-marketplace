@@ -663,5 +663,331 @@
     "loading": "Loading businesses\u2026",
     "forbiddenTitle": "Platform admin access required",
     "forbiddenBody": "You need to be a platform administrator to view this page."
+  },
+  "legal": {
+    "siteName": "OmniHQ",
+    "documentTitle": "{{pageTitle}} | {{siteName}}"
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "subtitle": "Find answers about discovering businesses and listing yours.",
+    "visitorsTitle": "For visitors",
+    "ownersTitle": "For business owners",
+    "q1Question": "What is OmniHQ?",
+    "q1Answer": "OmniHQ is a directory of businesses in Somalia. It connects people with companies, shops, restaurants, hospitals, pharmacies and more, quickly and easily.",
+    "q2Question": "How do I find a specific business or service?",
+    "q2Answer": "Use the search bar on the home page to search by name, or browse the categories (such as restaurants, hospitals and pharmacies) and choose a city (such as Mogadishu) to narrow the results.",
+    "q3Question": "Is it free to list my business?",
+    "q3Answer": "Yes, listing your business is currently free. After you register, our team reviews your details and your business then appears in the directory, so visitors can call you or message you on WhatsApp.",
+    "q4Question": "How do I edit my business details?",
+    "q4Answer": "Sign in with your business owner account and open your dashboard. From there you can update your contact details, description, photos, products and services at any time. Editing opening hours or deleting a listing is not currently available.",
+    "openDirectory": "Open the directory",
+    "listYourBusiness": "List your business",
+    "openDashboard": "Open the dashboard"
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "intro": "This policy explains what information OmniHQ collects, how we use it and the choices you have. By using OmniHQ you agree to it.",
+    "lastUpdated": "Last updated",
+    "dateFallback": "To be confirmed",
+    "tableOfContents": "On this page",
+    "businessListingNotePrefix": "For details about how information submitted with a business listing is handled, read the",
+    "draft": {
+      "title": "Draft: to be completed before launch",
+      "description": "This policy is a draft until the details below are confirmed.",
+      "missingLabel": "Information still to be completed:",
+      "missing": {
+        "entityName": "Legal entity name",
+        "contactEmail": "Contact email",
+        "contactWhatsapp": "Contact WhatsApp number",
+        "effectiveDate": "Effective date",
+        "retentionPeriod": "Retention period",
+        "minimumAge": "Minimum age"
+      }
+    },
+    "fallback": {
+      "contactDetails": "contact details will be published here once confirmed",
+      "entityName": "the entity operating OmniHQ",
+      "retentionPeriod": "The retention period will be published here once confirmed.",
+      "minimumAge": "Our minimum-age policy will be published here once confirmed."
+    },
+    "sections": {
+      "information": {
+        "title": "Information we collect",
+        "items": [
+          "Account details: your full name, required email address, optional phone number, account role, and avatar URL if provided. Your password is stored as a one-way hash, never in readable form.",
+          "Business listing details: business name, category, description, address, city, district, phone, WhatsApp number, email, website, location coordinates, logo, cover and product photos, products, services and opening hours.",
+          "Reviews: your rating and comment. Your full name is shown next to a published review.",
+          "Technical data: the application uses the IP address available to the server in in-memory rate limits to help prevent abuse. The application code does not collect browser/device type or write request access logs; hosting and proxy logging depends on deployment.",
+          "Browser storage: we store your sign-in token, selected business and language choice in browser storage so the site works as you expect. The frontend does not include advertising trackers.",
+          "Third-party services: our pages load fonts from fonts.googleapis.com and fonts.gstatic.com, so Google may receive your IP address when a page loads. WhatsApp links use wa.me. Following business websites or loading externally hosted business images may also contact destinations selected by you or the business."
+        ]
+      },
+      "use": {
+        "title": "How we use information",
+        "body": "We use information to display business details and reviews; let visitors contact businesses by phone or WhatsApp (these links open your phone or WhatsApp, which have their own policies); create and secure accounts; review and verify business listings; limit abuse; and operate and improve OmniHQ."
+      },
+      "public": {
+        "title": "What is public",
+        "body": "Once approved and published, a business profile can show its name, description, category, city, district, address, location coordinates, phone, WhatsApp, website, logo and cover photos, products, services and opening hours. Published reviews show the reviewer's full name. The business email is stored but is not included in the public business profile response. Your account email, phone and password are not shown publicly. Platform administrators can see owner and listing details to verify businesses."
+      },
+      "sharing": {
+        "title": "Sharing",
+        "body": "We do not sell your personal data. We may share data with service providers that help host or operate OmniHQ, only as needed for that purpose, and when the law requires it. The providers used depend on the deployment."
+      },
+      "security": {
+        "title": "Security",
+        "body": "We use security measures including one-way hashed passwords, access controls that separate each business's data, role-restricted administrator access, and removal of location metadata from uploaded photos. Connection encryption depends on the deployment's HTTPS configuration. No system is completely secure, so we cannot guarantee absolute security."
+      },
+      "retention": {
+        "title": "Retention",
+        "body": "We keep your information while your account or listing is active and for {{retentionPeriod}} afterwards, unless the law requires longer. Backups may keep it a little longer.",
+        "fallback": "We keep information while your account or listing is active. The additional retention period will be published here once confirmed. Backups may keep information longer."
+      },
+      "choices": {
+        "title": "Your choices",
+        "body": "You can update your business listing details from your dashboard. The dashboard does not currently offer self-service changes to your account profile. To ask for access to, correction of or deletion of your data, contact us using {{contactDetails}}. We may keep information we need for security, fraud prevention or legal reasons.",
+        "fallback": "You can update your business listing details from your dashboard. The dashboard does not currently offer self-service changes to your account profile. Contact details for requests to access, correct or delete your data will be published here once confirmed. We may keep information we need for security, fraud prevention or legal reasons."
+      },
+      "children": {
+        "title": "Children",
+        "body": "OmniHQ is not directed to children under {{minimumAge}}, and we do not knowingly collect their data.",
+        "fallback": "Our minimum-age policy will be published here once confirmed."
+      },
+      "changes": {
+        "title": "Changes",
+        "body": "We may update this policy. The date at the top shows the latest version; if the changes are important we will tell you on the site."
+      },
+      "contact": {
+        "title": "Contact",
+        "body": "{{entityName}} · {{contactDetails}}",
+        "fallback": "Contact details for {{entityName}} will be published here once confirmed."
+      }
+    }
+  },
+  "safety": {
+        "title": "Safety guidelines",
+        "listingLink": "Safety guidelines for listing a business",
+        "intro": "These tips help you use OmniHQ safely. OmniHQ is a directory: it helps you find and contact businesses, but we are not a party to any agreement or payment between you and a business, and we cannot guarantee any business. Listings are reviewed before they appear, but you should always use your own judgment.",
+        "lastUpdated": "Last updated",
+        "dateFallback": "To be confirmed",
+        "tableOfContents": "On this page",
+        "summaryTitle": "Key rules",
+        "summaryItems": [
+          "Verify before you decide.",
+          "Never share your PIN, password or verification code with anyone.",
+          "Avoid paying in advance to someone you have not verified."
+        ],
+        "visitorsTitle": "For visitors",
+        "ownersTitle": "For business owners",
+        "draft": {
+          "title": "Draft: to be completed before launch",
+          "description": "Contact and effective-date details still need to be confirmed.",
+          "missingLabel": "Information still to be completed:",
+          "missing": {
+            "contactEmail": "Contact email",
+            "contactWhatsapp": "Contact WhatsApp number",
+            "effectiveDate": "Effective date"
+          }
+        },
+        "fallback": {
+          "contactDetails": "contact details will be published here once confirmed"
+        },
+        "report": {
+          "linkLabel": "Report this business",
+          "safetyTipsLink": "Safety tips",
+          "notEmergency": "This is not an emergency channel.",
+          "prefill": "Hello, I would like to report a concern about the business \"{{businessName}}\" ({{pageUrl}}). Details:",
+          "reportInstructions": "If you see a fake business, misleading information, a scam or abusive content, contact us using {{contactDetails}} and include the business name, the page link and what happened. The platform does not currently have an in-app reporting channel.",
+          "noContact": "Contact details for reporting a concern will be published here once confirmed. The platform does not currently have an in-app reporting channel.",
+          "mailSubject": "Business concern: {{businessName}}",
+          "mailBody": "I would like to report a concern about the business \"{{businessName}}\" ({{pageUrl}}). Details:"
+        },
+        "sections": {
+          "visitors": {
+            "title": "For visitors",
+            "items": {
+              "check": {
+                "title": "Check before you decide",
+                "body": "Review the business's phone number, address, photos and reviews before you buy or visit. Call the listed number and ask questions, and compare with other sources when you can, such as a visit or a trusted recommendation."
+              },
+              "payments": {
+                "title": "Payments",
+                "body": "Avoid paying in advance to someone you have not verified. Prefer to pay in person at the business's premises or through well-known official payment channels, and keep your receipt or confirmation. Never share your mobile money PIN, passwords or verification codes with anyone, including someone who says they work for OmniHQ."
+              },
+              "warningSigns": {
+                "title": "Warning signs",
+                "body": "Be careful if prices are far below normal; if you are pressured to pay or decide quickly; if the business refuses to give an address or to meet; if you are asked to send money to a personal account or number; or if the listing has copied photos or no real contact details."
+              },
+              "meeting": {
+                "title": "Meeting",
+                "body": "For a first meeting, choose a public, well-known place during the day and tell a family member or friend where you are going."
+              },
+              "emergencies": {
+                "title": "Emergencies and health",
+                "body": "OmniHQ is not an emergency service. In an emergency, contact your local emergency services or go to the nearest hospital. A listing is not medical advice or an endorsement."
+              },
+              "report": {
+                "title": "Report a problem"
+              }
+            }
+          },
+          "owners": {
+            "title": "For business owners",
+            "items": {
+              "accurate": {
+                "title": "Keep your information accurate",
+                "body": "Keep your phone number, WhatsApp number, address, city and description accurate and up to date so customers are not misled. Never use another business's name or photos."
+              },
+              "honesty": {
+                "title": "Be honest",
+                "body": "Describe your products, services and prices truthfully. Do not claim licences, certifications or qualifications you do not have. If your business needs a licence or permit, make sure you hold it."
+              },
+              "reviews": {
+                "title": "Reviews",
+                "body": "Never write or buy fake reviews. Respond to reviews politely and do not share customers' personal information."
+              },
+              "account": {
+                "title": "Protect your account",
+                "body": "Use a strong, unique password, do not share your account, and sign out on shared devices. Tell us if you think someone else is using your account."
+              },
+              "customers": {
+                "title": "Treat customers fairly",
+                "body": "Never ask customers for their PIN, passwords or verification codes. Be clear about prices and conditions before taking any advance payment, and give a receipt or confirmation."
+              },
+              "actions": {
+                "title": "What we may do",
+                "body": "The platform reviews business listing submissions and may approve or reject them. Authorised staff of a business can hide and republish reviews for that business. The administration dashboard does not currently provide an action to suspend or remove a business."
+              }
+            }
+          }
+        }
+  },
+  "terms": {
+    "title": "Terms of Service",
+    "intro": "These terms govern your use of OmniHQ. Please read them together with our Privacy Policy and Safety Guidelines.",
+    "listingAgreementPrefix": "By submitting, you agree to the",
+    "listingAgreementAnd": "and the",
+    "lastUpdated": "Last updated",
+    "dateFallback": "To be confirmed",
+    "tableOfContents": "On this page",
+    "summaryTitle": "In short",
+    "summaryItems": [
+      "OmniHQ is a directory, not a seller. Some business order details may be handled through the service, but OmniHQ does not process payments.",
+      "You are responsible for your account and your content.",
+      "Do not post fake, illegal or misleading content.",
+      "We review business listings and may approve or reject them. Authorised business staff can hide or republish reviews for their business."
+    ],
+    "draft": {
+      "title": "Draft: to be completed before launch",
+      "description": "This draft must be completed and reviewed before launch.",
+      "missingLabel": "Information still to be completed:",
+      "missing": {
+        "entityName": "Legal entity or rights-holder name",
+        "contactEmail": "Contact email",
+        "contactWhatsapp": "Contact WhatsApp number",
+        "effectiveDate": "Effective date",
+        "minimumAge": "Minimum account age",
+        "governingLaw": "Governing law",
+        "disputeResolution": "Dispute-resolution terms"
+      }
+    },
+    "fallback": {
+      "entityName": "Ownership details will be published here once confirmed.",
+      "minimumAge": "The minimum age requirement for creating an account has not yet been published.",
+      "governingLaw": "The governing law will be stated here once confirmed.",
+      "disputeResolution": "The dispute-resolution process will be stated here once confirmed.",
+      "contactDetails": "contact details will be published here once confirmed"
+    },
+    "sections": {
+      "acceptance": {
+        "title": "Accepting the terms",
+        "body": "By browsing or using OmniHQ, or by creating an account, you agree to these terms. If you do not agree, please do not use the service. The registration form requires a confirmation checkbox; the application does not currently store an acceptance timestamp or terms version."
+      },
+      "service": {
+        "title": "About the service",
+        "body": "OmniHQ is an online directory that helps people find businesses in Somalia and contact them by phone or WhatsApp. The service also has API support for recording business order details, but it does not process payments. We are not a party to any sale, service, agreement or payment between visitors and businesses, and we do not employ or represent the businesses listed."
+      },
+      "eligibility": {
+        "title": "Eligibility and accounts",
+        "body": "Give accurate information and keep it up to date. You are responsible for keeping your password confidential and for activity that happens through your account. Tell us if you think your account has been used without your permission.",
+        "minimumAge": "The minimum age to create an account is {{minimumAge}}.",
+        "minimumAgeFallback": "The minimum age requirement for creating an account has not yet been published. The account registration form does not currently collect age or parent/guardian permission."
+      },
+      "content": {
+        "title": "Your listing and content",
+        "body": "If you list a business you must be its owner or be authorised to act for it. You are responsible for the accuracy and legality of what you add, including business details, photos, products, services and prices. If your business needs a licence or permit, you must hold it. You must have the right to use every photo and text you upload."
+      },
+      "licence": {
+        "title": "Licence to OmniHQ",
+        "body": "You keep ownership of your content. By providing content, you authorise OmniHQ to host, process, resize and display it as needed to operate the directory and show your listing. Removing content from a listing does not remove copies that other people may already have shared. The precise scope and duration of this licence require legal review before publication."
+      },
+      "reviews": {
+        "title": "Reviews",
+        "body": "Reviews displayed on business pages must be honest and based on a real experience. Published reviews show the author's full name. Do not post fake, paid, abusive or off-topic reviews, or include other people's personal information. The current customer-facing website does not provide a review-writing form, and there is no customer endpoint to edit or delete a review."
+      },
+      "prohibited": {
+        "title": "Prohibited use",
+        "intro": "You must not:",
+        "items": [
+          "list fake or non-existent businesses;",
+          "post anything illegal, misleading, defamatory, hateful, abusive or that infringes someone's rights;",
+          "offer goods or services that are illegal;",
+          "impersonate a person or business;",
+          "collect data from the site by automated means without our written permission;",
+          "interfere with the security or operation of the site or try to access accounts or data that are not yours; or",
+          "use OmniHQ to send spam or defraud people."
+        ]
+      },
+      "enforcement": {
+        "title": "Review, removal and enforcement",
+        "body": "New business listing submissions are reviewed before they appear, and platform administrators may approve or reject them. Authorised staff of a business can hide and republish reviews for that business. The current administration tools do not provide an action to suspend a business or account, close an account, or generally remove content. We do not claim to monitor all content."
+      },
+      "dealings": {
+        "title": "Dealings with businesses and third parties",
+        "body": "Any contact, purchase, order arrangement or payment you make with a business is between you and that business. OmniHQ has API support for recording order details, including amounts and scheduled dates, but does not process payments through a payment provider. Phone and WhatsApp links open other services that have their own terms and policies. Please read our Safety Guidelines."
+      },
+      "fees": {
+        "title": "Fees",
+        "body": "Using the directory and submitting a business listing do not currently require a fee paid to OmniHQ. The current service does not provide payment processing for fees. Any future fee terms would need to be communicated before they apply."
+      },
+      "availability": {
+        "title": "Availability and changes to the service",
+        "body": "We work to keep OmniHQ available, but we do not promise it will always be uninterrupted or error-free. The service may change over time. We will try to give notice when a change significantly affects you."
+      },
+      "disclaimers": {
+        "title": "Disclaimers",
+        "body": "OmniHQ and its content are provided \"as is\" and \"as available\". To the extent the law allows, we do not guarantee that listings, reviews or business information are accurate, complete or current, or that any business is licensed, qualified or reliable. Listings of hospitals, pharmacies or other health services are not medical advice or an endorsement."
+      },
+      "liability": {
+        "title": "Limitation of liability",
+        "body": "Any limitation of liability must comply with applicable law. This section is a draft and requires legal review before publication; no final limitation is stated here."
+      },
+      "termination": {
+        "title": "Suspension and termination",
+        "body": "You may stop using OmniHQ at any time. The current service does not offer self-service account closure, and its administration tools do not provide an account-suspension action. Contact details for account requests will be published here once confirmed."
+      },
+      "intellectualProperty": {
+        "title": "Intellectual property",
+        "body": "Do not use OmniHQ's name, logo or site content except as permitted by law or with permission. Rights-holder details must be confirmed before publication."
+      },
+      "changes": {
+        "title": "Changes to these terms",
+        "body": "We may update these terms. The date at the top shows the latest version. If a change is important we will tell you on the site. Any effect of continued use after a change is subject to applicable law."
+      },
+      "governing": {
+        "title": "Governing law and disputes",
+        "body": "{{governingLaw}} {{disputeResolution}}"
+      },
+      "general": {
+        "title": "General",
+        "body": "If any part of these terms is found unenforceable, the rest may remain in force to the extent permitted by applicable law. These terms should be read together with the Privacy Policy and Safety Guidelines."
+      },
+      "contact": {
+        "title": "Contact",
+        "body": "{{entityName}} · {{contactDetails}}",
+        "fallback": "{{contactDetails}}"
+      }
+    }
   }
 }

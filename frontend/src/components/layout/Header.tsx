@@ -221,6 +221,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
               <Link to="/explore" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button">{t('nav.explore')}</Link>
               <Link to="/categories" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button">{t('nav.categories')}</Link>
               <Link to="/favorites" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button">{t('nav.favorites')}</Link>
+              <Link to="/faq" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button">{t('footer.faq')}</Link>
               {isAuthenticated ? (
                 <>
                   <Link to="/list-your-business" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button flex items-center gap-2">

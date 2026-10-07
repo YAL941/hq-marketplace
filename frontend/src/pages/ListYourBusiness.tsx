@@ -354,6 +354,7 @@ export function ListYourBusinessPage() {
             ))}
           </div>
         ) : (
+          <>
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             {issue && !issue.field && (
               <p
@@ -486,6 +487,28 @@ export function ListYourBusinessPage() {
               </Button>
             </div>
           </form>
+          <p className="mt-5 text-sm leading-6 text-navy-500">
+            {t('privacy.businessListingNotePrefix')}{' '}
+            <Link to="/privacy" className="text-primary-700 underline underline-offset-2 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+              {t('privacy.title')}
+            </Link>.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-navy-500">
+            {t('terms.listingAgreementPrefix')}{' '}
+            <Link to="/terms" className="text-primary-700 underline underline-offset-2 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+              {t('footer.termsOfService')}
+            </Link>{' '}
+            {t('terms.listingAgreementAnd')}{' '}
+            <Link to="/privacy" className="text-primary-700 underline underline-offset-2 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+              {t('footer.privacyPolicy')}
+            </Link>.
+          </p>
+          <p className="mt-2 text-sm">
+            <Link to="/safety" className="text-primary-700 underline underline-offset-2 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+              {t('safety.listingLink')}
+            </Link>
+          </p>
+          </>
         )}
       </Card>
     </div>

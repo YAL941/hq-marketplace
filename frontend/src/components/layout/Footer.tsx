@@ -25,10 +25,10 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
       { to: '/categories/beauty-wellness', label: t('footer.beautyWellness') },
     ];
     const supportLinks = [
-      { to: '#', label: t('footer.helpCenter') },
-      { to: '#', label: t('footer.contactUs') },
-      { to: '#', label: t('footer.faq') },
-      { to: '#', label: t('footer.safetyGuidelines') },
+      { to: '/faq', label: t('footer.faq') },
+      { to: '/safety', label: t('footer.safetyGuidelines') },
+      { to: '/privacy', label: t('footer.privacyPolicy') },
+      { to: '/terms', label: t('footer.termsOfService') },
     ];
     const socials = [
       { href: '#', Icon: Facebook, label: t('footer.facebook') },
@@ -72,8 +72,8 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
               {t('footer.rightsReserved', { year: new Date().getFullYear() })}
             </p>
             <div className="flex gap-6 text-sm text-navy-400">
-              <Link to="#" className="hover:text-white transition-colors">{t('footer.privacyPolicy')}</Link>
-              <Link to="#" className="hover:text-white transition-colors">{t('footer.termsOfService')}</Link>
+              <Link to="/privacy" className="hover:text-white transition-colors">{t('footer.privacyPolicy')}</Link>
+              <Link to="/terms" className="hover:text-white transition-colors">{t('footer.termsOfService')}</Link>
               <Link to="#" className="hover:text-white transition-colors">{t('footer.cookiePolicy')}</Link>
             </div>
           </div>

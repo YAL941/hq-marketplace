@@ -286,12 +286,16 @@ export function RegisterPage() {
                 />
                 <label htmlFor="terms" className="text-navy-600">
                   {t('auth.agreeToPrefix')}{' '}
-                  <Link to="/terms" className="text-primary-600 hover:text-primary-700">
+                  <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700">
                     {t('footer.termsOfService')}
                   </Link>{' '}
                   {t('auth.andWord')}{' '}
-                  <Link to="/privacy" className="text-primary-600 hover:text-primary-700">
+                  <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700">
                     {t('footer.privacyPolicy')}
+                  </Link>
+                  {' · '}
+                  <Link to="/safety" className="text-primary-600 hover:text-primary-700">
+                    {t('safety.title')}
                   </Link>
                 </label>
               </div>

@@ -663,5 +663,331 @@
     "loading": "Waxaa la xiray ganacs…",
     "forbiddenTitle": "Waa laab aan in la sameyo masaasilaha",
     "forbiddenBody": "Adigu waa iyaabo in la sameyo masaasilaha dib u soo qaadan."
+  },
+  "legal": {
+    "siteName": "OmniHQ",
+    "documentTitle": "{{pageTitle}} | {{siteName}}"
+  },
+  "faq": {
+    "title": "Su'aalaha inta badan la isweydiiyo",
+    "subtitle": "Ka hel jawaabaha ku saabsan raadinta ganacsiyada iyo diiwaangelinta kaaga.",
+    "visitorsTitle": "Booqdayaasha",
+    "ownersTitle": "Milkiilayaasha ganacsiyada",
+    "q1Question": "Waa maxay OmniHQ?",
+    "q1Answer": "OmniHQ waa buugga ganacsiyada Soomaaliya. Wuxuu dadka si fudud oo degdeg ah ugu xiraa shirkadaha, dukaamada, maqaayadaha, isbitaallada, farmashiyeyaasha iyo kuwo kale.",
+    "q2Question": "Sideen ku heli karaa ganacsi ama adeeg gaar ah?",
+    "q2Answer": "Adeegso baarka raadinta ee bogga hore si aad magaca ugu raadiso, ama baadh qaybaha (sida maqaayadaha, isbitaallada iyo farmashiyeyaasha) oo dooro magaalo (sida Muqdisho) si aad u kala koobto natiijooyinka.",
+    "q3Question": "Ma bilaash baa in aan ganacsigayga diiwaangeliyo?",
+    "q3Answer": "Haa, hadda waa bilaash in ganacsigaaga lagu daro buugga. Markaad isdiiwaangeliso, kooxdayadu waxay dib u eegtaa faahfaahintaada, dabadeed ganacsigaagu wuxuu ka muuqanayaa buugga si booqdayaashu kuu soo wici karaan ama farriin WhatsApp kuugu soo diri karaan.",
+    "q4Question": "Sideen u beddelaa faahfaahinta ganacsigayga?",
+    "q4Answer": "Ku soo gal akoonka milkiilaha ganacsiga oo fur kontoroolkaaga. Halkaas waxaad wakhti kasta ka cusboonaysiin kartaa faahfaahinta xiriirka, sharaxaadda, sawirrada, alaabta iyo adeegyada. Hadda kontoroolku ma oggola in la beddelo saacadaha shaqada ama la tirtiro liiska ganacsiga.",
+    "openDirectory": "Fur buugga ganacsiyada",
+    "listYourBusiness": "Diiwaangeli ganacsigaaga",
+    "openDashboard": "Fur kontoroolka"
+  },
+  "privacy": {
+    "title": "Siyaasadda Asturnaanta",
+    "intro": "Siyaasaddani waxay sharxaysaa xogta OmniHQ ururiyo, sida aan u isticmaalno iyo doorashooyinka kuu bannaan. Adeegsiga OmniHQ wuxuu ka dhigan yahay inaad oggolaatay.",
+    "lastUpdated": "Markii ugu dambaysay ee la cusboonaysiiyey",
+    "dateFallback": "Weli lama xaqiijin",
+    "tableOfContents": "Tusmada boggan",
+    "businessListingNotePrefix": "Faahfaahinta sida loo maareeyo xogta la soo gudbiyo marka ganacsi la diiwaangelinayo ka akhri",
+    "draft": {
+      "title": "Qabyo: waa in la dhammaystiraa ka hor furitaanka",
+      "description": "Siyaasaddani waa qabyo ilaa faahfaahinta hoose la xaqiijiyo.",
+      "missingLabel": "Macluumaadka weli u baahan dhammaystir:",
+      "missing": {
+        "entityName": "Magaca hay'adda sharciga ah",
+        "contactEmail": "Iimaylka xiriirka",
+        "contactWhatsapp": "Lambarka WhatsApp-ka xiriirka",
+        "effectiveDate": "Taariikhda dhaqan-galka",
+        "retentionPeriod": "Muddada kaydinta xogta",
+        "minimumAge": "Da'da ugu yar"
+      }
+    },
+    "fallback": {
+      "contactDetails": "Faahfaahinta xiriirka halkan ayaa lagu daabici doonaa marka la xaqiijiyo",
+      "entityName": "hay'adda maamusha OmniHQ",
+      "retentionPeriod": "Muddada kaydinta xogta halkan ayaa lagu daabici doonaa marka la xaqiijiyo.",
+      "minimumAge": "Siyaasadda da'da ugu yar halkan ayaa lagu daabici doonaa marka la xaqiijiyo."
+    },
+    "sections": {
+      "information": {
+        "title": "Xogta aan ururinno",
+        "items": [
+          "Faahfaahinta akoonka: magacaaga oo buuxa, iimaylkaaga (waa khasab), lambarka taleefankaaga (ikhtiyaari), doorka akoonkaaga iyo xiriiriyaha sawirkaaga haddii la bixiyo. Furaha sirta ah waxaa loo kaydiyaa hash hal-jid ah, mana aha qoraal la akhrin karo.",
+          "Faahfaahinta ganacsiga: magaca ganacsiga, qaybta, sharaxaadda, cinwaanka, magaalada, xaafadda, taleefanka, lambarka WhatsApp, iimaylka, mareegta, isku-duwayaasha goobta, astaanta, sawirka daboolka iyo sawirrada alaabta, alaabta, adeegyada iyo saacadaha shaqada.",
+          "Faallooyinka: qiimayntaada iyo faalladaada. Magacaaga oo buuxa ayaa ka muuqda faallo la daabacay agteeda.",
+          "Xog farsamo: barnaamijku wuxuu cinwaanka IP-ga ee server-ku helo ugu adeegsadaa xaddididda codsiyada ee ku-meel-gaarka ah ee xusuusta si looga hortago ku-takrifalka. Koodhka barnaamijku ma ururiyo nooca browser-ka ama qalabka, mana qoro diiwaannada gelitaanka codsiyada; diiwaannada hosting-ka iyo proxy-gu waxay ku xiran yihiin habka loo daabacay.",
+          "Kaydinta browser-ka: waxaan kaydinnaa token-ka gelitaanka, ganacsiga la doortay iyo luqadda aad dooratay si boggu kuu shaqeeyo sida aad filayso. Qaybta hore ee website-ku ma laha raadraac xayaysiis.",
+          "Adeegyada dhinacyada kale: bogaggayagu waxay farta ka soo qaataan fonts.googleapis.com iyo fonts.gstatic.com, sidaas darteed Google wuxuu heli karaa cinwaankaaga IP marka boggu furmo. Xiriiriyeyaasha WhatsApp waxay isticmaalaan wa.me. Furitaanka mareegaha ganacsiyada ama sawirrada dibadda lagu kaydiyo wuxuu sidoo kale xiriir la samayn karaa meelaha uu doorto booqdaha ama ganacsigu."
+        ]
+      },
+      "use": {
+        "title": "Sida aan xogta u isticmaalno",
+        "body": "Xogta waxaan u isticmaalnaa inaan soo bandhigno faahfaahinta ganacsiyada iyo faallooyinka; inaan booqdayaasha u suuragelinno inay ganacsiyada kula xiriiraan taleefan ama WhatsApp (xiriiriyeyaashani waxay furaan app-ka taleefanka ama WhatsApp, mid kastana wuxuu leeyahay siyaasad u gaar ah); inaan samayno oo ilaalinno akoonnada; inaan dib u eegno oo xaqiijinno diiwaannada ganacsiga; inaan xaddidno ku-takrifalka; iyo inaan wadno oo horumarino OmniHQ."
+      },
+      "public": {
+        "title": "Xogta dadweynaha u muuqata",
+        "body": "Marka ganacsi la ansixiyo oo la daabaco, boggiisu wuxuu muujin karaa magaciisa, sharaxaaddiisa, qaybtiisa, magaaladiisa, xaafaddiisa, cinwaankiisa, isku-duwayaasha goobta, taleefanka, WhatsApp-ka, mareegta, astaanta iyo sawirka daboolka, alaabta, adeegyada iyo saacadaha shaqada. Faallooyinka la daabacay waxay muujiyaan magaca buuxa ee qoraha. Iimaylka ganacsiga waa la kaydiyaa balse kuma jiro jawaabta xogta bogga dadweynaha. Iimaylka akoonkaaga, taleefankaaga iyo furahaaga sirta ah dadweynuhu ma arkaan. Maamulayaasha madashu waxay arki karaan xogta milkiilaha iyo ganacsiga si ay u xaqiijiyaan ganacsiyada."
+      },
+      "sharing": {
+        "title": "Wadaagista xogta",
+        "body": "Ma iibinno xogtaada gaarka ah. Waxaa laga yaabaa inaan xogta la wadaagno adeeg-bixiyeyaasha ka caawiya martigelinta ama socodsiinta OmniHQ, keliya inta hawshaas loogu baahan yahay, iyo marka sharcigu nagu waajibiyo. Adeeg-bixiyeyaasha la adeegsadaa waxay ku xiran yihiin habka loo daabaco."
+      },
+      "security": {
+        "title": "Amniga",
+        "body": "Waxaan adeegsannaa tallaabooyin amni oo ay ka mid yihiin furayaasha sirta ah oo loo kaydiyo hash hal-jid ah, kontaroollo kala sooca xogta ganacsi kasta, xaddidaadda awoodaha maamulka iyadoo lagu salaynayo doorarka, iyo ka saarista xogta goobta ee sawirrada la soo geliyo. Siraynta isku-xirku waxay ku xiran tahay habaynta HTTPS ee goobta lagu daabaco. Nidaam si buuxda ammaan u ah ma jiro, sidaas darteed ma dammaanad qaadi karno amni buuxa."
+      },
+      "retention": {
+        "title": "Muddada kaydinta",
+        "body": "Xogtaada waxaan haynnaa inta akoonkaaga ama liiska ganacsigu shaqaynayo iyo {{retentionPeriod}} intaas ka dib, haddii aanu sharcigu muddo dheer waajibin. Nuqullada kaydka ahi waxay xogta hayn karaan muddo ka yara dheer.",
+        "fallback": "Xogta waxaan haynnaa inta akoonkaaga ama liiska ganacsigu shaqaynayo. Muddada dheeriga ah ee xogta la haynayo halkan ayaa lagu daabici doonaa marka la xaqiijiyo. Nuqullada kaydka ahi xogta waxay hayn karaan muddo dheer."
+      },
+      "choices": {
+        "title": "Doorashooyinkaaga",
+        "body": "Faahfaahinta liiska ganacsigaaga waxaad ka beddeli kartaa kontoroolkaaga. Hadda kontoroolku ma oggola in qofku iskii u beddelo xogta akoonkiisa. Si aad u codsato helitaanka, sixidda ama tirtiridda xogtaada, nagala soo xiriir {{contactDetails}}. Waxaa laga yaabaa inaan haynno xogta aan ugu baahannahay amniga, ka-hortagga khiyaanada ama arrimo sharci.",
+        "fallback": "Faahfaahinta liiska ganacsigaaga waxaad ka beddeli kartaa kontoroolkaaga. Hadda kontoroolku ma oggola in qofku iskii u beddelo xogta akoonkiisa. Faahfaahinta xiriirka ee codsiyada helitaanka, sixidda ama tirtiridda xogta halkan ayaa lagu daabici doonaa marka la xaqiijiyo. Waxaa laga yaabaa inaan haynno xogta aan ugu baahannahay amniga, ka-hortagga khiyaanada ama arrimo sharci."
+      },
+      "children": {
+        "title": "Carruurta",
+        "body": "OmniHQ looguma talagelin carruurta ka yar {{minimumAge}}, xogtoodana si ogaal ah uma ururinno.",
+        "fallback": "Siyaasadda da'da ugu yar halkan ayaa lagu daabici doonaa marka la xaqiijiyo."
+      },
+      "changes": {
+        "title": "Isbeddellada",
+        "body": "Waxaan cusboonaysiin karnaa siyaasaddan. Taariikhda kore waxay muujinaysaa nuqulka ugu dambeeya; haddii isbeddelladu muhiim yihiin, bogga ayaan kugu wargelin doonnaa."
+      },
+      "contact": {
+        "title": "Xiriirka",
+        "body": "{{entityName}} · {{contactDetails}}",
+        "fallback": "Faahfaahinta xiriirka ee {{entityName}} halkan ayaa lagu daabici doonaa marka la xaqiijiyo."
+      }
+    }
+  },
+  "safety": {
+        "title": "Tilmaamaha Badbaadada",
+        "listingLink": "Tilmaamaha badbaadada ee diiwaangelinta ganacsi",
+        "intro": "Talooyinkani waxay kaa caawinayaan inaad OmniHQ si ammaan ah u isticmaasho. OmniHQ waa buug ganacsi: wuxuu kaa caawiyaa inaad hesho ganacsiyo oo aad la xiriirto, laakiin kama mid nihin heshiis ama lacag-bixin dhex marta adiga iyo ganacsi, mana dammaanad qaadi karno ganacsi kasta. Liisaska waa la dib u eegaa ka hor inta aan la soo bandhigin, balse mar walba adigu xukunkaaga isticmaal.",
+        "lastUpdated": "Markii ugu dambaysay ee la cusboonaysiiyey",
+        "dateFallback": "Weli lama xaqiijin",
+        "tableOfContents": "Tusmada boggan",
+        "summaryTitle": "Xeerarka muhiimka ah",
+        "summaryItems": [
+          "Xaqiiji ka hor intaadan go'aan gaarin.",
+          "Qofna ha la wadaagin PIN-kaaga, furaha sirta ah ama lambarka xaqiijinta.",
+          "Ka fogow inaad horay lacag u siiso qof aadan xaqiijin."
+        ],
+        "visitorsTitle": "Booqdayaasha",
+        "ownersTitle": "Milkiilayaasha ganacsiyada",
+        "draft": {
+          "title": "Qabyo: waa in la dhammaystiraa ka hor furitaanka",
+          "description": "Faahfaahinta xiriirka iyo taariikhda dhaqan-galku weli waa in la xaqiijiyaa.",
+          "missingLabel": "Macluumaadka weli u baahan dhammaystir:",
+          "missing": {
+            "contactEmail": "Iimaylka xiriirka",
+            "contactWhatsapp": "Lambarka WhatsApp-ka xiriirka",
+            "effectiveDate": "Taariikhda dhaqan-galka"
+          }
+        },
+        "fallback": {
+          "contactDetails": "Faahfaahinta xiriirka halkan ayaa lagu daabici doonaa marka la xaqiijiyo"
+        },
+        "report": {
+          "linkLabel": "Ka warbixi ganacsigan",
+          "safetyTipsLink": "Talooyinka badbaadada",
+          "notEmergency": "Tani ma aha marin xaaladaha degdegga ah.",
+          "prefill": "Salaan, waxaan rabaa inaan ka warbixiyo walaac ku saabsan ganacsiga \"{{businessName}}\" ({{pageUrl}}). Faahfaahinta:",
+          "reportInstructions": "Haddii aad aragto ganacsi been ah, xog marin-habaabin ah, khiyaano ama waxyaabo gef ah, nagala soo xiriir {{contactDetails}} kuna dar magaca ganacsiga, xiriiriyaha bogga iyo waxa dhacay. Madashu hadda ma laha marin warbixin oo gudaha ah.",
+          "noContact": "Faahfaahinta xiriirka ee walaac lagu soo gudbinayo halkan ayaa lagu daabici doonaa marka la xaqiijiyo. Madashu hadda ma laha marin warbixin oo gudaha ah.",
+          "mailSubject": "Walaac ku saabsan ganacsiga: {{businessName}}",
+          "mailBody": "Waxaan rabaa inaan ka warbixiyo walaac ku saabsan ganacsiga \"{{businessName}}\" ({{pageUrl}}). Faahfaahinta:"
+        },
+        "sections": {
+          "visitors": {
+            "title": "Booqdayaasha",
+            "items": {
+              "check": {
+                "title": "Hubi ka hor intaadan go'aan gaarin",
+                "body": "Hubi lambarka taleefanka, cinwaanka, sawirrada iyo faallooyinka ganacsiga ka hor intaadan wax iibsan ama booqan. Wac lambarka liiska ku qoran oo su'aalo weydii; markaad awooddo, xogta ka barbar dhig ilo kale sida booqasho ama talo qof aad ku kalsoon tahay."
+              },
+              "payments": {
+                "title": "Lacag-bixinta",
+                "body": "Ka fogow inaad horay lacag u siiso qof aadan xaqiijin. Haddii ay suurtagal tahay, ku bixi goobta ganacsiga ama adeegyo lacag-bixin rasmi ah oo la yaqaan, hayna rasiidka ama xaqiijinta. Qofna ha la wadaagin PIN-ka lacagta moobilka, furayaasha sirta ah ama lambarada xaqiijinta, xataa qof sheegta inuu OmniHQ u shaqeeyo."
+              },
+              "warningSigns": {
+                "title": "Calaamadaha digniinta",
+                "body": "Taxaddar haddii qiimuhu aad uga hooseeyo caadiga; haddii lagugu cadaadiyo inaad degdeg u bixiso ama go'aan u gaarto; haddii ganacsigu diido inuu cinwaan bixiyo ama kula kulmo; haddii lagaa codsado inaad lacag u dirto akoon ama lambar qofeed; ama haddii liisku leeyahay sawirro la soo guuriyey ama aanu lahayn faahfaahin xiriir oo dhab ah."
+              },
+              "meeting": {
+                "title": "Kulanka",
+                "body": "Kulanka ugu horreeya, dooro meel dadweyne oo la yaqaan maalintii, una sheeg xubin qoyskaaga ah ama saaxiib meesha aad aadayso."
+              },
+              "emergencies": {
+                "title": "Xaaladaha degdegga ah iyo caafimaadka",
+                "body": "OmniHQ ma aha adeeg xaaladaha degdegga ah. Haddii xaalad degdeg ahi timaaddo, la xiriir adeegyada gurmadka ee deegaankaaga ama tag isbitaalka kuugu dhow. Liis ku jira buuggu ma aha talo caafimaad mana aha taageero ganacsi."
+              },
+              "report": {
+                "title": "Ka warbixi dhibaato"
+              }
+            }
+          },
+          "owners": {
+            "title": "Milkiilayaasha ganacsiyada",
+            "items": {
+              "accurate": {
+                "title": "Xogtaada sax u hay",
+                "body": "Lambarka taleefankaaga, lambarka WhatsApp, cinwaanka, magaalada iyo sharaxaadda si sax ah oo cusub u hay si aan macaamiisha loo marin-habaabin. Ha adeegsan magaca ama sawirrada ganacsi kale."
+              },
+              "honesty": {
+                "title": "Daacad noqo",
+                "body": "Alaabta, adeegyada iyo qiimayaasha si run ah u sharax. Ha sheegan rukhsado, shahaadooyin ama aqoon aadan haysan. Haddii ganacsigaagu u baahan yahay rukhsad ama oggolaansho, hubi inaad haysato."
+              },
+              "reviews": {
+                "title": "Faallooyinka",
+                "body": "Ha qorin hana iibsan faallooyin been ah. Faallooyinka si edeb leh uga jawaab, hana faafin xogta gaarka ah ee macaamiisha."
+              },
+              "account": {
+                "title": "Akoonkaaga ilaali",
+                "body": "Adeegso furaha sirta ah oo adag oo gaar ah, cidna ha la wadaagin akoonkaaga, kana bax markaad qalab lala wadaago isticmaalayso. Noo sheeg haddii aad u malayso in qof kale akoonkaaga isticmaalayo."
+              },
+              "customers": {
+                "title": "Macaamiisha si caddaalad ah ula dhaqan",
+                "body": "Macaamiisha ha weydiin PIN-kooda, furayaasha sirta ah ama lambarada xaqiijinta. Qiimayaasha iyo shuruudaha u caddee ka hor intaadan qaadan lacag hormaris ah, rasiid ama xaqiijinna sii."
+              },
+              "actions": {
+                "title": "Waxa aan samayn karno",
+                "body": "Madashu waxay dib u eegtaa codsiyada diiwaangelinta ganacsiyada, wayna ansixin kartaa ama diidi kartaa. Shaqaalaha ganacsiga ee loo oggolaaday waxay qarin karaan oo dib u daabici karaan faallooyinka ganacsigooda. Kontoroolka maamulka hadda ma bixiyo hab ganacsi lagu hakiyo ama lagu saaro."
+              }
+            }
+          }
+        }
+  },
+  "terms": {
+    "title": "Shuruudaha Adeegga",
+    "intro": "Shuruudahani waxay nidaaminayaan sida aad u isticmaasho OmniHQ. Fadlan la akhri Siyaasadda Asturnaanta iyo Tilmaamaha Badbaadada.",
+    "listingAgreementPrefix": "Markaad gudbiso, waxaad oggolaanaysaa",
+    "listingAgreementAnd": "iyo",
+    "lastUpdated": "Markii ugu dambaysay ee la cusboonaysiiyey",
+    "dateFallback": "Weli lama xaqiijin",
+    "tableOfContents": "Boggan",
+    "summaryTitle": "Soo koobid",
+    "summaryItems": [
+      "OmniHQ waa buug ganacsi, ma aha iibiyaha. Faahfaahinta dalabka ganacsiyada qaarkood waxaa lagu maamuli karaa adeegga, balse OmniHQ lacag ma farsamayso.",
+      "Adiga ayaa mas'uul ka ah akoonkaaga iyo waxa aad geliso.",
+      "Ha daabicin wax been ah, sharci-darro ah ama marin-habaabin ah.",
+      "Waxaan dib u eegnaa liisaska ganacsiga waana ansixin ama diidi karnaa. Shaqaalaha ganacsi ee loo oggolaaday waxay qarin karaan ama dib u daabici karaan faallooyinka ganacsigooda."
+    ],
+    "draft": {
+      "title": "Qabyo: waa in la dhammaystiraa ka hor furitaanka",
+      "description": "Qabyadan waa in la dhammaystiraa oo dib loo eego ka hor furitaanka.",
+      "missingLabel": "Macluumaadka weli u baahan in la dhammaystiro:",
+      "missing": {
+        "entityName": "Magaca hay'adda sharciga ah ama cidda xuquuqda leh",
+        "contactEmail": "Iimaylka xiriirka",
+        "contactWhatsapp": "Lambarka WhatsApp-ka xiriirka",
+        "effectiveDate": "Taariikhda dhaqan-galka",
+        "minimumAge": "Da'da ugu yar ee akoon lagu samaysan karo",
+        "governingLaw": "Sharciga lagu dhaqayo",
+        "disputeResolution": "Shuruudaha xalinta khilaafaadka"
+      }
+    },
+    "fallback": {
+      "entityName": "Macluumaadka lahaanshaha halkan ayaa lagu daabici doonaa marka la xaqiijiyo.",
+      "minimumAge": "Da'da ugu yar ee akoon lagu samaysan karo weli lama daabicin.",
+      "governingLaw": "Sharciga lagu dhaqayo halkan ayaa lagu sheegi doonaa marka la xaqiijiyo.",
+      "disputeResolution": "Habka xalinta khilaafaadka halkan ayaa lagu sheegi doonaa marka la xaqiijiyo.",
+      "contactDetails": "faahfaahinta xiriirka halkan ayaa lagu daabici doonaa marka la xaqiijiyo"
+    },
+    "sections": {
+      "acceptance": {
+        "title": "Aqbalaadda shuruudaha",
+        "body": "Markaad baadhayso ama isticmaalayso OmniHQ, ama aad akoon samaysanayso, waxaad oggolaanaysaa shuruudahan. Haddii aadan oggolayn, fadlan ha isticmaalin adeegga. Foomka isdiiwaangelintu wuxuu kaa rabaa inaad calaamadiso sanduuq xaqiijin ah; abku hadda ma kaydiyo waqtiga aqbalaadda ama nooca shuruudaha."
+      },
+      "service": {
+        "title": "Ku saabsan adeegga",
+        "body": "OmniHQ waa buug ganacsi oo internetka ah oo dadka ka caawiya inay helaan ganacsiyada Soomaaliya oo ay telefoon ama WhatsApp kula xiriiraan. Adeeggu sidoo kale wuxuu API ahaan u taageeraa kaydinta faahfaahinta dalabka ganacsiga, balse lacag ma farsameeyo. Dhinac kama nihin iib, adeeg, heshiis ama lacag-bixin dhex marta booqdayaasha iyo ganacsiyada, mana shaqaalaysiinno mana matalno ganacsiyada liiska ku jira."
+      },
+      "eligibility": {
+        "title": "U-qalmitaanka iyo akoonnada",
+        "body": "Bixi macluumaad sax ah oo cusboonaysii. Adiga ayaa mas'uul ka ah ilaalinta eraygaaga sirta ah iyo hawlaha ka dhaca akoonkaaga. Noo sheeg haddii aad u malayso in akoonkaaga la isticmaalay adigoon oggolaan.",
+        "minimumAge": "Da'da ugu yar ee akoon lagu samaysan karo waa {{minimumAge}}.",
+        "minimumAgeFallback": "Da'da ugu yar ee akoon lagu samaysan karo weli lama daabicin. Foomka samaynta akoonku hadda ma ururiyo da'da ama oggolaanshaha waalidka/mas'uulka."
+      },
+      "content": {
+        "title": "Liiskaaga ganacsi iyo waxa aad geliso",
+        "body": "Haddii aad ganacsi liis geliso, waa inaad tahay mulkiilihiisa ama laguu oggolaaday inaad matasho. Adiga ayaa mas'uul ka ah saxnaanta iyo sharcinimada waxa aad geliso, oo ay ku jiraan faahfaahinta ganacsiga, sawirrada, badeecadaha, adeegyada iyo qiimayaasha. Haddii ganacsigaagu u baahan yahay shati ama oggolaansho, waa inaad haysataa. Waa inaad xaq u leedahay inaad isticmaasho sawir iyo qoraal kasta oo aad geliso."
+      },
+      "licence": {
+        "title": "Ruqsadda OmniHQ",
+        "body": "Adiga ayaa iska leh waxa aad geliso. Markaad macluumaad bixiso, waxaad OmniHQ u oggolaanaysaa inay kaydiso, farsamayso, cabbirka ka beddesho oo muujiso si loogu maamulo buugga ganacsiga loona muujiyo liiskaaga. Ka saarista waxa ku jira liiska kama saarayso nuqullada ay dad kale hore u wadaageen. Baaxadda iyo muddada saxda ah ee ruqsaddan waxay u baahan yihiin dib-u-eegis sharci ka hor daabacaadda."
+      },
+      "reviews": {
+        "title": "Faallooyinka",
+        "body": "Faallooyinka lagu muujiyo bogagga ganacsigu waa inay daacad ahaadaan oo ku salaysnaadaan waayo-aragnimo dhab ah. Magaca buuxa ee qoraaga ayaa la muujiyaa. Ha qorin faallo been ah, lacag lagu qoray, aflagaado ah ama aan khusayn, hana ku darin macluumaad shakhsiyeed oo dad kale. Bogga macaamiishu hadda ma laha foom lagu qoro faallo, mana jiro marin macaamiishu ku sixi karaan ama ku tirtiri karaan faallo."
+      },
+      "prohibited": {
+        "title": "Isticmaalka mamnuuca ah",
+        "intro": "Waa inaadan:",
+        "items": [
+          "liis gelin ganacsiyo been ah ama aan jirin;",
+          "daabicin wax sharci-darro ah, marin-habaabin ah, sumcad-dil ah, nacayb ama aflagaado ah, ama ku xadgudbaya xuquuqda qof kale;",
+          "soo bandhigin badeecooyin ama adeegyo sharci-darro ah;",
+          "iska dhigin qof ama ganacsi kale;",
+          "si otomaatig ah xog uga ururin goobta adigoon haysan oggolaansho qoraal ah;",
+          "carqaladayn amniga ama shaqada goobta ama isku dayin inaad gasho akoonno ama xog aan adiga lahayn; ama",
+          "OmniHQ u adeegsan dirista farriimo aan la rabin ama khiyaamaynta dadka."
+        ]
+      },
+      "enforcement": {
+        "title": "Dib-u-eegis, ka saarid iyo tallaabooyin",
+        "body": "Codsiyada cusub ee liis-gelinta ganacsiga waa la eegaa ka hor intaan la muujin, maamulayaasha madashuna way ansixin ama diidi karaan. Shaqaalaha ganacsiga ee loo oggolaaday waxay qarin karaan oo dib u daabici karaan faallooyinka ganacsigaas. Qalabka maamulka ee hadda ma laha hab ganacsi ama akoon lagu hakiyo, akoon lagu xiro, ama guud ahaan waxyaabaha lagu saaro. Ma sheeganayno inaan kormeerno dhammaan waxyaabaha la geliyo."
+      },
+      "dealings": {
+        "title": "La macaamilka ganacsiyada iyo dhinacyada kale",
+        "body": "Xiriir, iibsi, dalab ama lacag-bixin aad ganacsi la samayso adiga iyo ganacsigaas ayay idin dhexaysaa. OmniHQ waxay API ahaan u taageertaa kaydinta faahfaahinta dalabka, oo ay ku jiraan lacagaha iyo waqtiyada la qorsheeyey, balse lacag-bixin kama farsamayso adeeg lacag-bixin. Xiriirrada telefoonka iyo WhatsApp-ku waxay furaan adeegyo kale oo leh shuruudo iyo siyaasado u gaar ah. Fadlan akhri Tilmaamaha Badbaadada."
+      },
+      "fees": {
+        "title": "Khidmadaha",
+        "body": "Isticmaalka buugga iyo gudbinta liiska ganacsi hadda uma baahna khidmad aad siiso OmniHQ. Adeegga hadda ma bixiyo hab lagu farsameeyo khidmadaha. Shuruudaha khidmad kasta oo mustaqbal ah waa in laguu sheego ka hor intaanay dhaqan gelin."
+      },
+      "availability": {
+        "title": "Helitaanka iyo isbeddellada adeegga",
+        "body": "Waxaan ku dadaalnaa in OmniHQ la heli karo, balse ma ballanqaadno inuu mar walba shaqaynayo bilaa hakad ama khalad. Adeeggu waqti ka dib wuu isbeddeli karaa. Waxaan isku dayi doonnaa inaan ku ogeysiino isbeddel si weyn kuu saameeya."
+      },
+      "disclaimers": {
+        "title": "Afeef",
+        "body": "OmniHQ iyo waxa ku jira waxaa lagu bixiyaa \"sida ay yihiin\" iyo \"marka la heli karo\". Inta sharcigu oggol yahay, ma dammaanad qaadno in liisaska, faallooyinka ama macluumaadka ganacsigu sax yihiin, dhammaystiran yihiin ama cusub yihiin, ama in ganacsi kastaa shati haysto, aqoon u leeyahay ama la isku hallayn karo. Liisaska isbitaallada, farmashiyeyaasha ama adeegyada caafimaadka kale ma aha talo caafimaad ama taageero."
+      },
+      "liability": {
+        "title": "Xadaynta mas'uuliyadda",
+        "body": "Xadaynta mas'uuliyaddu waa inay waafaqdaa sharciga lagu dhaqayo. Qaybtani waa qabyo waxayna u baahan tahay dib-u-eegis sharci ka hor daabacaadda; halkan laguma sheegin xad kama dambays ah."
+      },
+      "termination": {
+        "title": "Hakinta iyo joojinta",
+        "body": "Waad joojin kartaa isticmaalka OmniHQ wakhti kasta. Adeegga hadda ma bixiyo xiritaan akoon oo aad adigu samaysan karto, qalabka maamulkuna ma laha hab akoon lagu hakiyo. Faahfaahinta xiriirka codsiyada akoonnada halkan ayaa lagu daabici doonaa marka la xaqiijiyo."
+      },
+      "intellectualProperty": {
+        "title": "Hantida aqooneed",
+        "body": "Ha isticmaalin magaca OmniHQ, summaddeeda ama qoraalka goobta, marka laga reebo waxa sharcigu oggol yahay ama oggolaansho lagu helo. Macluumaadka cidda xuquuqda leh waa in la xaqiijiyaa ka hor daabacaadda."
+      },
+      "changes": {
+        "title": "Isbeddellada shuruudahan",
+        "body": "Waxaan cusboonaysiin karnaa shuruudahan. Taariikhda bogga kore waxay muujinaysaa nooca ugu dambeeya. Haddii isbeddelku muhiim yahay, bogga ayaan kugu ogeysiin doonnaa. Saamaynta isticmaalka sii socdaa ka dib isbeddelku waxay ku xiran tahay sharciga lagu dhaqayo."
+      },
+      "governing": {
+        "title": "Sharciga lagu dhaqayo iyo khilaafaadka",
+        "body": "{{governingLaw}} {{disputeResolution}}"
+      },
+      "general": {
+        "title": "Qodobo guud",
+        "body": "Haddii qayb ka mid ah shuruudahan loo arko inaan la fulin karin, qaybaha kale way sii jiri karaan inta sharcigu oggol yahay. Shuruudahan la akhri Siyaasadda Asturnaanta iyo Tilmaamaha Badbaadada."
+      },
+      "contact": {
+        "title": "Xiriir",
+        "body": "{{entityName}} · {{contactDetails}}",
+        "fallback": "{{contactDetails}}"
+      }
+    }
   }
 }

@@ -12,6 +12,7 @@ import { RatingStars } from '../components/common/RatingStars';
 import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { ErrorState } from '../components/common/ErrorState';
 import { SmartImage } from '../components/common/SmartImage';
+import { ReportBusinessLink } from '../components/business/ReportBusinessLink';
 import { businessApi } from '../services/api';
 import { cn, formatDate, formatRelativeTime } from '../lib/utils';
 import type { Location, PublicBusinessProfile, PublicReview } from '../types';
@@ -253,6 +254,15 @@ export function BusinessProfilePage() {
                 )}
               </div>
             )}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
+              <Link
+                to="/safety"
+                className="text-sm text-primary-700 underline underline-offset-2 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              >
+                {t('safety.report.safetyTipsLink')}
+              </Link>
+              <ReportBusinessLink businessName={business.business_name} />
+            </div>
           </div>
         </div>
       </div>
