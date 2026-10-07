@@ -28,7 +28,7 @@ export function ReportBusinessLink({ businessName }: ReportBusinessLinkProps) {
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <a
         href={href}
-        {...(whatsappHref ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        {...(whatsappHref ? { target: '_blank', rel: 'noopener noreferrer nofollow ugc' } : {})}
         className="rounded-sm text-sm text-navy-600 underline underline-offset-2 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
       >
         {t('safety.report.linkLabel')}

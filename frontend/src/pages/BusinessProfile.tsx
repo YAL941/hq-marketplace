@@ -14,6 +14,7 @@ import { ErrorState } from '../components/common/ErrorState';
 import { SmartImage } from '../components/common/SmartImage';
 import { ReportBusinessLink } from '../components/business/ReportBusinessLink';
 import { businessApi } from '../services/api';
+import { safeExternalUrl } from '../lib/safeUrl';
 import { cn, formatDate, formatRelativeTime } from '../lib/utils';
 import type { Location, PublicBusinessProfile, PublicReview } from '../types';
 
@@ -41,8 +42,8 @@ function whatsappUrl(number: string): string | null {
 
 /** A local Somali number needs a country code to be dialable from a link. */
 function telHref(phone: string): string | null {
-  const trimmed = phone.trim();
-  return trimmed.length >= 7 ? `tel:${trimmed.replace(/\s+/g, '')}` : null;
+  const digits = phone.replace(/\D/g, '');
+  return /^\d{7,15}$/.test(digits) ? `tel:${digits}` : null;
 }
 
 export function BusinessProfilePage() {
@@ -144,7 +145,8 @@ export function BusinessProfilePage() {
   const hasRating = business.average_rating !== null && business.review_count > 0;
   const call = business.phone ? telHref(business.phone) : null;
   const whatsapp = business.whatsapp_number ? whatsappUrl(business.whatsapp_number) : null;
-  const hasContact = !!(call || whatsapp || business.website);
+  const website = safeExternalUrl(business.website);
+  const hasContact = !!(call || whatsapp || website);
   const totalRated = Object.values(business.rating_distribution).reduce((a, b) => a + b, 0);
 
   return (
@@ -229,7 +231,7 @@ export function BusinessProfilePage() {
                   <a
                     href={whatsapp}
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel="noopener noreferrer nofollow ugc"
                     className="inline-flex"
                   >
                     <Button>
@@ -238,11 +240,11 @@ export function BusinessProfilePage() {
                     </Button>
                   </a>
                 )}
-                {business.website && (
+                {website && (
                   <a
-                    href={business.website}
+                    href={website}
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel="noopener noreferrer nofollow ugc"
                     className="inline-flex"
                   >
                     <Button variant="ghost">
@@ -405,9 +407,9 @@ export function BusinessProfilePage() {
                             .join(', ')}
                         </p>
                       )}
-                      {location.phone && (
+                      {location.phone && telHref(location.phone) && (
                         <a
-                          href={telHref(location.phone) ?? '#'}
+                          href={telHref(location.phone)!}
                           className="text-primary-600 hover:text-primary-700 mt-1 ps-6 flex items-center gap-1"
                         >
                           <Phone className="w-3.5 h-3.5" />
