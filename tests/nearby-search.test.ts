@@ -54,10 +54,18 @@ async function seedBusiness(
     lng: number,
 ): Promise<number> {
     const { rows } = await adminPool.query<{ business_id: string }>(
-        `INSERT INTO businesses (business_name, business_slug, status, is_verified, verification_status, phone)
-         VALUES ($1, $2, $3, $4, $5, '+252600000000')
+        `INSERT INTO businesses
+            (business_name, business_slug, status, is_verified, verification_status, verified_at, phone)
+         VALUES ($1, $2, $3, $4, $5, CASE WHEN $6 THEN now() ELSE NULL END, '+252600000000')
          RETURNING business_id`,
-        [name, name.toLowerCase().replace(/\s+/g, '-'), status, status === 'active', status === 'active' ? 'verified' : 'pending'],
+        [
+            name,
+            name.toLowerCase().replace(/\s+/g, '-'),
+            status,
+            status === 'active',
+            status === 'active' ? 'verified' : 'pending',
+            status === 'active',
+        ],
     );
     const businessId = Number(rows[0]!.business_id);
     await adminPool.query(
@@ -66,6 +74,11 @@ async function seedBusiness(
         [businessId, `${name} HQ`, lat, lng],
     );
     return businessId;
+}
+
+async function deleteBusinesses(businessIds: number[]): Promise<void> {
+    await adminPool.query('DELETE FROM business_locations WHERE business_id = ANY($1::bigint[])', [businessIds]);
+    await adminPool.query('DELETE FROM businesses WHERE business_id = ANY($1::bigint[])', [businessIds]);
 }
 
 describe('GET /api/businesses/nearby', () => {
@@ -81,14 +94,14 @@ describe('GET /api/businesses/nearby', () => {
             assert.equal(res.status, 200);
             assert.ok(Array.isArray(res.body.data));
             assert.equal(res.body.data.length, 2, 'both shops are inside the radius');
-            assert.equal(res.body.data[0].business_id, nearId, 'the nearer shop is first');
-            assert.equal(res.body.data[1].business_id, farId, 'the farther shop is second');
+            assert.equal(Number(res.body.data[0].business_id), nearId, 'the nearer shop is first');
+            assert.equal(Number(res.body.data[1].business_id), farId, 'the farther shop is second');
             // ~11.06 km between 2.04 and 2.14 latitude. Allow 2% for the
             // mean-earth-radius rounding.
             assert.ok(res.body.data[1].distance_km > 10.5 && res.body.data[1].distance_km < 11.5);
             assert.equal(res.body.meta.radiusKm, 30);
         } finally {
-            await adminPool.query('DELETE FROM businesses WHERE business_id = ANY($1)', [[nearId, farId]]);
+            await deleteBusinesses([nearId, farId]);
         }
     });
 
@@ -103,7 +116,7 @@ describe('GET /api/businesses/nearby', () => {
             assert.equal(res.body.data.length, 0, 'a branch 100+ km away must not be returned');
             assert.equal(res.body.meta.total, 0);
         } finally {
-            await adminPool.query('DELETE FROM businesses WHERE business_id = $1', [id]);
+            await deleteBusinesses([id]);
         }
     });
 
@@ -120,14 +133,14 @@ describe('GET /api/businesses/nearby', () => {
             );
 
             assert.equal(res.status, 200);
-            const mine = res.body.data.filter((r: { business_id: number }) => r.business_id === nearId);
+            const mine = res.body.data.filter((r: { business_id: string }) => Number(r.business_id) === nearId);
             assert.equal(mine.length, 1, 'a multi-branch business appears exactly once');
             // Closest branch is ~1.6 km away (0.01 lat + 0.01 lng); the far
             // branch would be ~18 km. Anything above 5 km means the wrong
             // branch won the MIN.
             assert.ok(mine[0].distance_km < 5, `closest branch must win, got ${mine[0].distance_km} km`);
         } finally {
-            await adminPool.query('DELETE FROM businesses WHERE business_id = $1', [nearId]);
+            await deleteBusinesses([nearId]);
         }
     });
 
@@ -144,7 +157,7 @@ describe('GET /api/businesses/nearby', () => {
             );
             assert.equal(found, false, 'a pending business must never appear in the public search');
         } finally {
-            await adminPool.query('DELETE FROM businesses WHERE business_id = $1', [pendingId]);
+            await deleteBusinesses([pendingId]);
         }
     });
 
