@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ShieldX } from 'lucide-react';
@@ -13,25 +14,72 @@ import { FavoritesProvider } from './context/FavoritesContext';
 import { BusinessProfilePage } from './pages/BusinessProfile';
 import { LoginPage } from './pages/Login';
 import { RegisterPage } from './pages/Register';
-import { DashboardHomePage } from './pages/DashboardHome';
-import { DashboardProductsPage } from './pages/DashboardProducts';
-import { DashboardServicesPage } from './pages/DashboardServices';
-import { DashboardOrdersPage } from './pages/DashboardOrders';
-import { DashboardReviewsPage } from './pages/DashboardReviews';
-import { DashboardAnalyticsPage } from './pages/DashboardAnalytics';
-import { DashboardCustomersPage } from './pages/DashboardCustomers';
-import { DashboardSettingsPage } from './pages/DashboardSettings';
-import { ListYourBusinessPage } from './pages/ListYourBusiness';
-import { AdminBusinessesPage } from './pages/AdminBusinesses';
-import { ProductCreatePage } from './pages/ProductCreate';
-import { ProductEditPage } from './pages/ProductEdit';
-import { ServiceCreatePage } from './pages/ServiceCreate';
-import { ServiceEditPage } from './pages/ServiceEdit';
-import { OrderDetailPage } from './pages/OrderDetail';
-import { LocationManagePage } from './pages/LocationManage';
 import { ComingSoonPage } from './pages/ComingSoon';
-import { LegalPage } from './pages/legal/LegalPage';
 import './index.css';
+
+const DashboardHomePage = lazy(() =>
+  import('./pages/DashboardHome').then((module) => ({ default: module.DashboardHomePage })),
+);
+const DashboardProductsPage = lazy(() =>
+  import('./pages/DashboardProducts').then((module) => ({ default: module.DashboardProductsPage })),
+);
+const DashboardServicesPage = lazy(() =>
+  import('./pages/DashboardServices').then((module) => ({ default: module.DashboardServicesPage })),
+);
+const DashboardOrdersPage = lazy(() =>
+  import('./pages/DashboardOrders').then((module) => ({ default: module.DashboardOrdersPage })),
+);
+const DashboardReviewsPage = lazy(() =>
+  import('./pages/DashboardReviews').then((module) => ({ default: module.DashboardReviewsPage })),
+);
+const DashboardAnalyticsPage = lazy(() =>
+  import('./pages/DashboardAnalytics').then((module) => ({ default: module.DashboardAnalyticsPage })),
+);
+const DashboardCustomersPage = lazy(() =>
+  import('./pages/DashboardCustomers').then((module) => ({ default: module.DashboardCustomersPage })),
+);
+const DashboardSettingsPage = lazy(() =>
+  import('./pages/DashboardSettings').then((module) => ({ default: module.DashboardSettingsPage })),
+);
+const ListYourBusinessPage = lazy(() =>
+  import('./pages/ListYourBusiness').then((module) => ({ default: module.ListYourBusinessPage })),
+);
+const AdminBusinessesPage = lazy(() =>
+  import('./pages/AdminBusinesses').then((module) => ({ default: module.AdminBusinessesPage })),
+);
+const ProductCreatePage = lazy(() =>
+  import('./pages/ProductCreate').then((module) => ({ default: module.ProductCreatePage })),
+);
+const ProductEditPage = lazy(() =>
+  import('./pages/ProductEdit').then((module) => ({ default: module.ProductEditPage })),
+);
+const ServiceCreatePage = lazy(() =>
+  import('./pages/ServiceCreate').then((module) => ({ default: module.ServiceCreatePage })),
+);
+const ServiceEditPage = lazy(() =>
+  import('./pages/ServiceEdit').then((module) => ({ default: module.ServiceEditPage })),
+);
+const OrderDetailPage = lazy(() =>
+  import('./pages/OrderDetail').then((module) => ({ default: module.OrderDetailPage })),
+);
+const LocationManagePage = lazy(() =>
+  import('./pages/LocationManage').then((module) => ({ default: module.LocationManagePage })),
+);
+const LegalPage = lazy(() =>
+  import('./pages/legal/LegalPage').then((module) => ({ default: module.LegalPage })),
+);
+
+function RouteLoadingFallback() {
+  return (
+    <div className="min-h-[50vh] px-4 py-8 sm:px-6" role="status" aria-label="Loading page">
+      <div className="mx-auto max-w-7xl animate-pulse space-y-5">
+        <div className="h-8 w-1/3 rounded bg-navy-200" />
+        <div className="h-4 w-2/3 rounded bg-navy-100" />
+        <div className="h-40 rounded-card bg-navy-100" />
+      </div>
+    </div>
+  );
+}
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -139,6 +187,7 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <FavoritesProvider>
+          <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
           {/* Public Routes */}
           <Route path="/" element={<MainLayout><HomePage /></MainLayout>} />
@@ -324,6 +373,7 @@ function App() {
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </FavoritesProvider>
       </BrowserRouter>
     </AuthProvider>
