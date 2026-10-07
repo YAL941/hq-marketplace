@@ -9,7 +9,8 @@ import { Skeleton } from '../components/common/Skeleton';
 import { businessApi, directoryApi, authApi, toFieldIssue, type FieldIssue } from '../services/api';
 import { normalisePhone } from '../lib/phone';
 import { useAuth } from '../context/AuthContext';
-import type { BusinessProfilePatch, BusinessRegistrationInput, PublicCategory, PublicCity, StaffBusinessProfile } from '../types';
+import { useCategories } from '../hooks/useCategories';
+import type { BusinessProfilePatch, BusinessRegistrationInput, PublicCity, StaffBusinessProfile } from '../types';
 
 interface FormState {
   businessName: string;
@@ -56,6 +57,7 @@ export function ListYourBusinessPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated, isLoading: authLoading, refreshUser } = useAuth();
+  const { categories, loading: categoriesLoading } = useCategories({ includeEmpty: true });
 
   /**
    * The URL decides the mode. A bare `?complete=<businessId>` switches the page
@@ -65,7 +67,6 @@ export function ListYourBusinessPage() {
   const completeId = searchParams.get('complete') ?? '';
 
   const [form, setForm] = useState<FormState>(EMPTY);
-  const [categories, setCategories] = useState<PublicCategory[] | null>(null);
   const [cities, setCities] = useState<PublicCity[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -90,11 +91,9 @@ export function ListYourBusinessPage() {
    */
   const loadReference = useCallback(async () => {
     setLoading(true);
-    const [categoryResult, cityResult] = await Promise.allSettled([
-      directoryApi.categories(),
+    const [cityResult] = await Promise.allSettled([
       directoryApi.cities(),
     ]);
-    if (categoryResult.status === 'fulfilled') setCategories(categoryResult.value.data.data);
     if (cityResult.status === 'fulfilled') setCities(cityResult.value.data.data);
     setLoading(false);
   }, []);
@@ -347,7 +346,7 @@ export function ListYourBusinessPage() {
       </div>
 
       <Card className="p-6">
-        {profileLoading || loading ? (
+        {profileLoading || loading || categoriesLoading ? (
           <div className="space-y-4">
             {[1, 2, 3, 4, 5].map((i) => (
               <Skeleton key={i} variant="rectangular" height={44} />
@@ -396,7 +395,7 @@ export function ListYourBusinessPage() {
                 className="w-full rounded-button border border-navy-300 px-3 py-2.5 bg-white text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">{t('listBusiness.categoryAny')}</option>
-                {(categories ?? []).map((category) => (
+                {categories.map((category) => (
                   <option key={category.category_id} value={category.category_id}>
                     {category.category_name}
                   </option>

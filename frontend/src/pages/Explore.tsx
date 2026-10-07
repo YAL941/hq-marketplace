@@ -9,11 +9,12 @@ import { SearchBar } from '../components/common/SearchBar';
 import { Badge } from '../components/common/Badge';
 import { ErrorState } from '../components/common/ErrorState';
 import { CategoryIcon } from '../components/common/CategoryIcon';
+import { CategoryBar } from '../components/common/CategoryBar';
 import { businessApi, directoryApi } from '../services/api';
+import { useCategories } from '../hooks/useCategories';
 import type {
   DirectorySort,
   PublicBusinessCard,
-  PublicCategory,
   PublicCity,
 } from '../types';
 import { cn } from '../lib/utils';
@@ -30,11 +31,11 @@ const SORT_OPTIONS: Array<{ value: DirectorySort; labelKey: string }> = [
 export function ExplorePage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { categories } = useCategories();
 
   const [businesses, setBusinesses] = useState<PublicBusinessCard[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [categories, setCategories] = useState<PublicCategory[]>([]);
   const [cities, setCities] = useState<PublicCity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -51,10 +52,9 @@ export function ExplorePage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([directoryApi.categories(), directoryApi.cities()])
-      .then(([catRes, cityRes]) => {
+    directoryApi.cities()
+      .then((cityRes) => {
         if (cancelled) return;
-        setCategories(catRes.data.data.filter((c) => c.business_count > 0));
         setCities(cityRes.data.data);
       })
       .catch(() => {
@@ -174,6 +174,9 @@ export function ExplorePage() {
               )}
             </div>
           )}
+          <div className="mt-5">
+            <CategoryBar selected={category || null} variant="light" />
+          </div>
         </div>
       </div>
 

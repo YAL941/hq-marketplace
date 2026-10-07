@@ -12,14 +12,14 @@ import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
 import { Avatar } from '../components/layout/Avatar';
 import { useAuth } from '../context/AuthContext';
-import { businessApi, directoryApi, toFieldIssue, type FieldIssue } from '../services/api';
+import { businessApi, toFieldIssue, type FieldIssue } from '../services/api';
+import { useCategories } from '../hooks/useCategories';
 import { formatDate } from '../lib/utils';
 import { normalisePhone } from '../lib/phone';
 import type {
   BusinessMember,
   BusinessProfilePatch,
   BusinessRecord,
-  PublicCategory,
   StaffBusinessProfile,
 } from '../types';
 
@@ -156,10 +156,10 @@ type ImageSlot = 'logo' | 'cover';
 export function DashboardSettingsPage() {
   const { t } = useTranslation();
   const { user, businesses, currentBusiness, refreshBusinessLogo, setCurrentBusiness } = useAuth();
+  const { categories } = useCategories({ includeEmpty: true });
   const businessId = currentBusiness?.business_id ?? '';
 
   const [form, setForm] = useState<FormState>(EMPTY);
-  const [categories, setCategories] = useState<PublicCategory[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -188,27 +188,6 @@ export function DashboardSettingsPage() {
   const [mediaBusyBySlot, setMediaBusyBySlot] = useState<Record<ImageSlot, boolean>>({ logo: false, cover: false });
   const mediaBusy = mediaBusyBySlot.logo || mediaBusyBySlot.cover;
   const { toasts, show: showToast, dismiss } = useToasts();
-
-  /**
-   * The category list is reference data, so a failure here must not take the form
-   * down with it: the select renders empty and the current value is still shown
-   * as an id-derived option is not possible, so the box simply has no choice to
-   * offer until a reload.
-   */
-  useEffect(() => {
-    let cancelled = false;
-    void directoryApi
-      .categories()
-      .then((res) => {
-        if (!cancelled) setCategories(res.data.data);
-      })
-      .catch(() => {
-        if (!cancelled) setCategories([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -551,7 +530,7 @@ export function DashboardSettingsPage() {
                     className="w-full rounded-button border border-navy-300 px-3 py-2.5 bg-white text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="">{t('settings.categoryAny')}</option>
-                    {(categories ?? []).map((category) => (
+                    {categories.map((category) => (
                       <option key={category.category_id} value={category.category_id}>
                         {category.category_name}
                       </option>

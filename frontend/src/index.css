@@ -75,6 +75,39 @@
 }
 
 @layer utilities {
+  .category-bar-arrow {
+    display: none;
+  }
+
+  @media (hover: hover) {
+    .category-bar-item:hover {
+      border-color: #4f9fe8;
+      box-shadow: 0 4px 10px -2px rgba(11, 42, 74, 0.18);
+    }
+
+    .category-bar-item:hover .category-bar-icon {
+      transform: scale(1.08);
+    }
+  }
+
+  .category-bar-item:active {
+    transform: scale(0.97);
+  }
+
+  @media (pointer: fine) and (min-width: 768px) {
+    .category-bar-arrow {
+      display: flex;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .category-bar-item,
+    .category-bar-icon {
+      transform: none;
+      transition: none;
+    }
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;

@@ -291,6 +291,12 @@
     "emptyDescription": "This category does not exist in the directory.",
     "backToExplore": "Back to explore"
   },
+  "categoryBar": {
+    "all": "All",
+    "previous": "Previous categories",
+    "next": "Next categories",
+    "retry": "Retry loading categories"
+  },
   "categories": {
     "title": "Browse categories",
     "subtitle": "Choose a category to discover businesses offering what you need.",

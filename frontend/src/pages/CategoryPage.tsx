@@ -7,16 +7,22 @@ import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { Button } from '../components/common/Button';
 import { ErrorState } from '../components/common/ErrorState';
 import { CategoryIcon } from '../components/common/CategoryIcon';
-import { businessApi, directoryApi } from '../services/api';
-import type { PublicBusinessCard, PublicCategory } from '../types';
+import { businessApi } from '../services/api';
+import { useCategories } from '../hooks/useCategories';
+import type { PublicBusinessCard } from '../types';
 
 const PAGE_SIZE = 12;
 
 export function CategoryPage() {
   const { t } = useTranslation();
   const { category: categorySlug } = useParams<{ category: string }>();
+  const {
+    categories,
+    loading: categoriesLoading,
+    error: categoriesError,
+    retry: retryCategories,
+  } = useCategories();
 
-  const [category, setCategory] = useState<PublicCategory | null>(null);
   const [businesses, setBusinesses] = useState<PublicBusinessCard[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -34,13 +40,8 @@ export function CategoryPage() {
     setLoading(true);
     setError(false);
     try {
-      const [catRes, bizRes] = await Promise.all([
-        directoryApi.categories(),
-        businessApi.listPublic({ category: categorySlug, page, limit: PAGE_SIZE }),
-      ]);
+      const bizRes = await businessApi.listPublic({ category: categorySlug, page, limit: PAGE_SIZE });
 
-      const matched = catRes.data.data.find((c) => c.category_slug === categorySlug);
-      setCategory(matched ?? null);
       setBusinesses(bizRes.data.data);
       setTotalCount(Number(bizRes.data.meta?.total ?? bizRes.data.data.length));
       setTotalPages(Number(bizRes.data.meta?.totalPages ?? 1));
@@ -60,7 +61,11 @@ export function CategoryPage() {
     setPage(1);
   }, [categorySlug]);
 
-  if (!loading && !error && !category) {
+  const category = categories.find((item) => item.category_slug === categorySlug) ?? null;
+  const pageLoading = loading || categoriesLoading;
+  const pageError = error || Boolean(categoriesError);
+
+  if (!pageLoading && !pageError && !category) {
     return (
       <div className="min-h-screen bg-navy-50 flex items-center justify-center px-4">
         <div className="text-center">
@@ -101,18 +106,21 @@ export function CategoryPage() {
             </div>
           </div>
           <p className="text-navy-500 mt-1">
-            {loading ? t('common.loading') : t('explore.results', { count: totalCount })}
+            {pageLoading ? t('common.loading') : t('explore.results', { count: totalCount })}
           </p>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {loading ? (
+        {pageLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => <BusinessCardSkeleton key={i} />)}
           </div>
-        ) : error ? (
-          <ErrorState onRetry={() => void load()} />
+        ) : pageError ? (
+          <ErrorState onRetry={() => {
+            retryCategories();
+            void load();
+          }} />
         ) : businesses.length > 0 ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

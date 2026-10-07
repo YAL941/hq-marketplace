@@ -5,23 +5,22 @@ import { ArrowRight, Building2, MapPin, Store } from 'lucide-react';
 import { BusinessCard } from '../components/business/BusinessCard';
 import { SearchBar } from '../components/common/SearchBar';
 import { Button } from '../components/common/Button';
-import { CategoryIcon } from '../components/common/CategoryIcon';
+import { CategoryBar } from '../components/common/CategoryBar';
 import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { ErrorState } from '../components/common/ErrorState';
 import { businessApi, directoryApi } from '../services/api';
 import { formatNumber } from '../lib/utils';
-import type { PublicBusinessCard, PublicCategory, PublicCity } from '../types';
+import { useCategories } from '../hooks/useCategories';
+import type { PublicBusinessCard, PublicCity } from '../types';
 
 const FEATURED_LIMIT = 4;
-/** Eight is all that fits above the fold on a phone; the rest live in /explore. */
-const CATEGORY_CHIP_LIMIT = 8;
 
 export function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { categories, loading: categoriesLoading, error: categoriesError } = useCategories();
 
   const [featured, setFeatured] = useState<PublicBusinessCard[]>([]);
-  const [categories, setCategories] = useState<PublicCategory[]>([]);
   const [cities, setCities] = useState<PublicCity[]>([]);
   /**
    * Counts come from the server. A home page for an empty deployment reads
@@ -38,14 +37,13 @@ export function HomePage() {
     setLoading(true);
     setError(false);
     try {
-      const [featuredRes, newestRes, totalRes, catRes, cityRes] = await Promise.all([
+      const [featuredRes, newestRes, totalRes, cityRes] = await Promise.all([
         businessApi.listPublic({ featured: true, sort: 'featured', limit: FEATURED_LIMIT }),
         // Read at the same time as the featured query so the two sections can
         // never disagree with each other or cost an extra round trip.
         businessApi.listPublic({ sort: 'newest', limit: FEATURED_LIMIT }),
         // A cheap first page whose only job is to read meta.total.
         businessApi.listPublic({ limit: 1 }),
-        directoryApi.categories(),
         directoryApi.cities(),
       ]);
 
@@ -55,9 +53,6 @@ export function HomePage() {
         featuredRes.data.data.length > 0 ? featuredRes.data.data : newestRes.data.data,
       );
       setTotalBusinesses(Number(totalRes.data.meta?.total ?? 0));
-      // A category nobody has a business in would render as an empty page, so
-      // it is dropped here rather than on the categories route.
-      setCategories(catRes.data.data.filter((c) => c.business_count > 0));
       setCities(cityRes.data.data);
     } catch {
       setError(true);
@@ -77,8 +72,6 @@ export function HomePage() {
     if (selectedCity) params.set('city', selectedCity);
     navigate(`/explore?${params.toString()}`);
   };
-
-  const chips = categories.slice(0, CATEGORY_CHIP_LIMIT);
 
   return (
     <div className="min-h-screen bg-navy-50">
@@ -146,13 +139,22 @@ export function HomePage() {
               </div>
             </div>
 
+            <div className="mt-6">
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-navy-200">
+                {t('home.browseCategories')}
+              </h2>
+              <CategoryBar selected={null} variant="onDark" />
+            </div>
+
             {/* Every figure here is a server count. Nothing is hardcoded. */}
             {!loading && (
               <dl className="mt-10 flex flex-wrap gap-x-10 gap-y-4">
                 {[
                   { value: totalBusinesses, label: t('home.statsBusinesses', { count: totalBusinesses }) },
-                  { value: categories.length, label: t('home.statsCategories', { count: categories.length }) },
                   { value: cities.length, label: t('home.statsCities', { count: cities.length }) },
+                  ...(!categoriesLoading && !categoriesError
+                    ? [{ value: categories.length, label: t('home.statsCategories', { count: categories.length }) }]
+                    : []),
                 ].map((stat) => (
                   <div key={stat.label}>
                     <dt className="sr-only">{stat.label}</dt>
@@ -169,30 +171,6 @@ export function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* Category chips stay inside the dark hero so they use the gold badge. */}
-      {chips.length > 0 && (
-        <section className="bg-gradient-to-t from-primary-700 to-navy-900 pb-14 text-white">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-navy-200">
-              {t('home.browseCategories')}
-            </h2>
-            <ul className="flex flex-wrap gap-2.5">
-              {chips.map((category) => (
-                <li key={category.category_id}>
-                  <Link
-                    to={`/categories/${category.category_slug}`}
-                    className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 py-1.5 pe-4 ps-1.5 transition-colors hover:border-gold-400/60 hover:bg-white/10"
-                  >
-                    <CategoryIcon slug={category.category_slug} size="chip" />
-                    <span className="text-sm font-medium">{category.category_name}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
 
       <section className="bg-white py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

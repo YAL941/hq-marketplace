@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
@@ -7,32 +6,11 @@ import { CategoryIcon } from '../components/common/CategoryIcon';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { Skeleton } from '../components/common/Skeleton';
-import { directoryApi } from '../services/api';
-import type { PublicCategory } from '../types';
+import { useCategories } from '../hooks/useCategories';
 
 export function CategoriesPage() {
   const { t } = useTranslation();
-  const [categories, setCategories] = useState<PublicCategory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setHasError(false);
-    try {
-      const response = await directoryApi.categories();
-      setCategories(response.data.data);
-    } catch (error) {
-      console.error('Failed to load categories:', error);
-      setHasError(true);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { categories, loading, error, retry } = useCategories();
 
   return (
     <div className="min-h-screen bg-navy-50">
@@ -44,12 +22,12 @@ export function CategoriesPage() {
       </section>
 
       <section className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {isLoading ? (
+        {loading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(6)].map((_, index) => <Skeleton key={index} className="h-28 rounded-card" />)}
           </div>
-        ) : hasError ? (
-          <ErrorState onRetry={() => void load()} />
+        ) : error ? (
+          <ErrorState onRetry={() => void retry()} />
         ) : categories.length === 0 ? (
           <EmptyState title={t('categories.emptyTitle')} description={t('categories.emptyDescription')} />
         ) : (

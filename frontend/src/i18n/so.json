@@ -291,6 +291,12 @@
     "emptyDescription": "Tan qayb ma jirto buugga.",
     "backToExplore": "Dib u noqo baaridda"
   },
+  "categoryBar": {
+    "all": "Dhammaan",
+    "previous": "Qaybihii hore",
+    "next": "Qaybaha xiga",
+    "retry": "Dib u soo rar qaybaha"
+  },
   "categories": {
     "title": "Qaybaha eeg",
     "subtitle": "Dooro qayb si aad u hesho ganacsiyada bixiya waxa aad u baahan tahay.",
