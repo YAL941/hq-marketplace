@@ -6,6 +6,7 @@ import { authenticate, contextFor } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import { managedImageUrlSchema } from '../media/stored-image-url.js';
+import { httpUrlSchema } from '../../validation/http-url.js';
 // The phone normaliser lives in the auth module because signup needed it first.
 // It is imported rather than copied on purpose: `businesses.phone` and
 // `businesses.whatsapp_number` are both CHECK-constrained to `^\+?[0-9]{7,15}$`,
@@ -68,7 +69,7 @@ function updateSchema(businessId: number) {
             phone: z.string().max(20).nullish(),
             whatsapp: z.string().max(20).nullish(),
             email: z.string().email().nullish(),
-            website: z.string().url().max(300).nullish(),
+            website: httpUrlSchema.nullish(),
             address: z.string().max(500).nullish(),
             city: z.string().max(120).nullish(),
             district: z.string().max(120).nullish(),

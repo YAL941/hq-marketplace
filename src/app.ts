@@ -25,6 +25,8 @@ export interface CreateAppOptions {
      * having been loaded once already.
      */
     trustProxyHops?: number;
+    /** Overrides whether customers can create new orders. */
+    ordersEnabled?: boolean;
 }
 
 export function createApp(options: CreateAppOptions = {}): Express {
@@ -42,6 +44,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
      * visitor on the site.
      */
     app.set('trust proxy', options.trustProxyHops ?? config.trustProxyHops);
+    app.set('ordersEnabled', options.ordersEnabled ?? config.ORDERS_ENABLED);
 
     app.use(helmet());
     /**

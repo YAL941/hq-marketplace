@@ -1,9 +1,9 @@
 ﻿import { Router } from 'express';
 import { z } from 'zod';
-import { notFound } from '../../db/errors.js';
-import { withTenant } from '../../db/tenant.js';
+import { forbidden, notFound } from '../../db/errors.js';
+import { hasBusinessPermission, withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
-import { resolveBusiness } from '../../middleware/error.js';
+import { requireBusinessPermission, resolveBusiness } from '../../middleware/error.js';
 import { optionalManagedImageUrlSchema } from '../media/stored-image-url.js';
 import {
     archiveProduct,
@@ -96,6 +96,10 @@ productRoutes.patch('/business/:businessId/products/:productId', authenticate, r
         const productId = Number(req.params['productId']);
         const patch = updateSchema(businessId).parse(req.body) as Record<string, unknown>;
         const ctx = contextFor(req, businessId);
+        if (patch['status'] === 'archived') {
+            const canArchive = await hasBusinessPermission(ctx, businessId, 'products.delete');
+            if (!canArchive) throw forbidden('Missing permission: products.delete');
+        }
         const product = await withTenant(ctx, (client) => updateProduct(client, businessId, productId, patch));
         if (!product) throw notFound('Product not found in this business');
         res.json({ data: product });
@@ -104,18 +108,24 @@ productRoutes.patch('/business/:businessId/products/:productId', authenticate, r
     }
 });
 
-productRoutes.delete('/business/:businessId/products/:productId', authenticate, resolveBusiness, async (req, res, next) => {
-    try {
-        const businessId = req.businessId!;
-        const productId = Number(req.params['productId']);
-        const ctx = contextFor(req, businessId);
-        const deleted = await withTenant(ctx, (client) => archiveProduct(client, businessId, productId));
-        if (!deleted) throw notFound('Product not found in this business');
-        res.status(204).send();
-    } catch (error) {
-        next(error);
-    }
-});
+productRoutes.delete(
+    '/business/:businessId/products/:productId',
+    authenticate,
+    resolveBusiness,
+    requireBusinessPermission('products.delete'),
+    async (req, res, next) => {
+        try {
+            const businessId = req.businessId!;
+            const productId = Number(req.params['productId']);
+            const ctx = contextFor(req, businessId);
+            const deleted = await withTenant(ctx, (client) => archiveProduct(client, businessId, productId));
+            if (!deleted) throw notFound('Product not found in this business');
+            res.status(204).send();
+        } catch (error) {
+            next(error);
+        }
+    },
+);
 
 /** Public marketplace catalogue: active products of active businesses only. */
 productRoutes.get('/products', async (req, res, next) => {

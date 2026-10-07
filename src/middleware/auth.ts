@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
 import { unauthorized } from '../db/errors.js';
+import { appPool } from '../db/pool.js';
 import type { TenantContext } from '../db/tenant.js';
 
 export interface AuthenticatedUser {
@@ -38,38 +39,77 @@ export function signAccessToken(user: AuthenticatedUser): string {
  * Bearer token authentication. The token only proves WHO the user is;
  * what they may touch is decided by the database (RLS + membership).
  */
-export function authenticate(req: Request, _res: Response, next: NextFunction): void {
+async function hasPlatformAdminRole(userId: number): Promise<boolean> {
+    const { rows } = await appPool.query<{ allowed: boolean }>(
+        `SELECT EXISTS (
+             SELECT 1
+               FROM user_platform_roles upr
+               JOIN roles r ON r.role_id = upr.role_id
+              WHERE upr.user_id = $1
+                AND r.role_key = 'platform_admin'
+                AND r.scope = 'platform'
+                AND r.is_active
+         ) AS allowed`,
+        [userId],
+    );
+    return rows[0]?.allowed === true;
+}
+
+export async function authenticate(req: Request, _res: Response, next: NextFunction): Promise<void> {
     const header = req.header('authorization');
     if (!header?.startsWith('Bearer ')) {
         next(unauthorized());
         return;
     }
+
+    let decoded: TokenPayload;
     try {
-        const decoded = jwt.verify(header.slice(7), config.JWT_SECRET) as TokenPayload;
-        req.user = {
-            id: Number(decoded.sub),
-            email: decoded.email,
-            isPlatformAdmin: decoded.pa === true,
-        };
-        next();
+        decoded = jwt.verify(header.slice(7), config.JWT_SECRET) as TokenPayload;
     } catch {
         next(unauthorized('Invalid or expired token'));
+        return;
+    }
+
+    try {
+        const id = Number(decoded.sub);
+        req.user = {
+            id,
+            email: decoded.email,
+            isPlatformAdmin: decoded.pa === true && await hasPlatformAdminRole(id),
+        };
+        next();
+    } catch (error) {
+        next(error);
     }
 }
 
-export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
     const header = req.header('authorization');
     if (!header?.startsWith('Bearer ')) {
         next();
         return;
     }
+
+    let decoded: TokenPayload;
     try {
-        const decoded = jwt.verify(header.slice(7), config.JWT_SECRET) as TokenPayload;
-        req.user = { id: Number(decoded.sub), email: decoded.email, isPlatformAdmin: decoded.pa === true };
+        decoded = jwt.verify(header.slice(7), config.JWT_SECRET) as TokenPayload;
     } catch {
         // an invalid token is treated as an anonymous visitor
+        next();
+        return;
     }
-    next();
+
+    try {
+        const id = Number(decoded.sub);
+        req.user = {
+            id,
+            email: decoded.email,
+            isPlatformAdmin: decoded.pa === true && await hasPlatformAdminRole(id),
+        };
+        next();
+    } catch (error) {
+        next(error);
+    }
 }
 
 /** Builds the tenant context for the current request. */

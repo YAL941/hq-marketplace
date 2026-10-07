@@ -1,6 +1,6 @@
 ﻿import { Router } from 'express';
 import { z } from 'zod';
-import { unauthorized } from '../../db/errors.js';
+import { notFound, unauthorized } from '../../db/errors.js';
 import { withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
@@ -52,16 +52,31 @@ export const orderRoutes: Router = Router();
 const writeLimiter = rateLimiter('write');
 
 /** Customer places an order against a specific business. */
-orderRoutes.post('/orders', writeLimiter, authenticate, async (req, res, next) => {
-    try {
-        const input = createOrderSchema.parse(req.body);
-        const ctx = contextFor(req);
-        const order = await withTenant(ctx, (client) => createOrder(client, req.user!.id, input));
-        res.status(201).json({ data: order });
-    } catch (error) {
-        next(error);
-    }
-});
+orderRoutes.post(
+    '/orders',
+    (req, _res, next) => {
+        if (req.app.get('ordersEnabled') !== true) {
+            next(notFound('Route not found'));
+            return;
+        }
+        next();
+    },
+    writeLimiter,
+    authenticate,
+    async (req, res, next) => {
+        try {
+            const input = createOrderSchema.parse(req.body);
+            const ctx = contextFor(req);
+            // SECURITY: discount, tax, delivery fee and currency currently come from
+            // the client. Replace them with server-side rules before enabling orders
+            // in production.
+            const order = await withTenant(ctx, (client) => createOrder(client, req.user!.id, input));
+            res.status(201).json({ data: order });
+        } catch (error) {
+            next(error);
+        }
+    },
+);
 
 /** Customer reads and cancels their own orders. */
 orderRoutes.get('/orders/mine', authenticate, async (req, res, next) => {

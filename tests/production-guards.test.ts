@@ -78,7 +78,7 @@ async function bootProductionConfig(
             [
                 resolve(projectRoot, 'node_modules/tsx/dist/cli.mjs'),
                 '--eval',
-                "import('./src/config.ts').then(() => console.log('BOOTED'))",
+                "import('./src/config.ts').then(({ config }) => console.log('BOOTED ORDERS_ENABLED=' + config.ORDERS_ENABLED))",
             ],
             { cwd: projectRoot, env, encoding: 'utf8' },
         );
@@ -96,6 +96,20 @@ describe('production guards', () => {
         // without proving which guard fired.
         const { ok, output } = await bootProductionConfig({});
         assert.equal(ok, true, `a valid production environment should boot, but:\n${output}`);
+        assert.match(output, /ORDERS_ENABLED=false/);
+    });
+
+    it('defaults order creation on in development and test, and off in production', async () => {
+        const development = await bootProductionConfig({ NODE_ENV: 'development', ORDERS_ENABLED: undefined });
+        const test = await bootProductionConfig({ NODE_ENV: 'test', ORDERS_ENABLED: undefined });
+        const production = await bootProductionConfig({ ORDERS_ENABLED: undefined });
+
+        assert.equal(development.ok, true, development.output);
+        assert.equal(test.ok, true, test.output);
+        assert.equal(production.ok, true, production.output);
+        assert.match(development.output, /ORDERS_ENABLED=true/);
+        assert.match(test.output, /ORDERS_ENABLED=true/);
+        assert.match(production.output, /ORDERS_ENABLED=false/);
     });
 
     it('refuses a placeholder admin password', async () => {

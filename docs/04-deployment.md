@@ -73,6 +73,13 @@ warnings: the process will not start.
 | `CORS_ORIGIN` | at least one origin, all `https://`, no `*` | a wildcard with credentials is not a restriction |
 | `UPLOAD_DIR` | absolute path | a relative path resolves against the service manager's working directory |
 | `TRUST_PROXY_HOPS` | set explicitly | there is no safe default |
+| `ORDERS_ENABLED` | defaults to `false` in production | order creation currently accepts adjustment amounts and currency from the client; enable only after those values are computed by server-side rules |
+
+`ORDERS_ENABLED` defaults to `true` in development and test, and `false` in
+production. When disabled, `POST /api/orders` returns the same 404 response as
+an unknown route; existing order reads and business order management remain
+available. Do not enable production order creation until delivery fees,
+discounts, tax and currency are derived from trusted server-side rules.
 
 Development and test keep their permissive defaults deliberately, so a fresh
 clone runs without writing a secret into a file first.

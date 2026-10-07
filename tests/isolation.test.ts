@@ -256,6 +256,7 @@ describe('Test 4: Customer sees public businesses', () => {
 // ---------------------------------------------------------------------------
 describe('Test 5: Customer creates an Order for one business', () => {
     it('creates the order with the business id and frozen prices', async () => {
+        assert.equal(app.get('ordersEnabled'), true);
         const product = await request(app)
             .post(`/api/business/${fixtures.ownerA.businessA}/products`)
             .set('Authorization', `Bearer ${fixtures.ownerA.token}`)
@@ -304,6 +305,25 @@ describe('Test 5: Customer creates an Order for one business', () => {
                 items: [{ productId: Number(otherProduct.body.data.product_id), quantity: 1 }],
             });
         assert.equal(res.status, 404);
+    });
+
+    it('returns the unknown-route 404 when disabled while order reads stay available', async () => {
+        assert.equal(app.get('ordersEnabled'), true);
+        app.set('ordersEnabled', false);
+        try {
+            const hidden = await request(app).post('/api/orders').send({});
+            assert.equal(hidden.status, 404);
+            assert.deepEqual(hidden.body, {
+                error: { code: 'NOT_FOUND', message: 'Route not found' },
+            });
+
+            const existingOrders = await request(app)
+                .get('/api/orders/mine')
+                .set('Authorization', `Bearer ${fixtures.customer.token}`);
+            assert.equal(existingOrders.status, 200);
+        } finally {
+            app.set('ordersEnabled', true);
+        }
     });
 });
 

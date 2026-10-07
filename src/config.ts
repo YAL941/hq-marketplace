@@ -15,6 +15,7 @@ const envSchema = z.object({
     APP_DB_PASSWORD: z.string().default('hq_app'),
 
     PORT: z.coerce.number().int().positive().default(4000),
+    ORDERS_ENABLED: z.enum(['true', 'false']).optional(),
     // The production floor is checked separately and is stricter (32 chars,
     // no placeholders); this is only the minimum for a runnable dev setup.
     JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters (32 or more when NODE_ENV=production)'),
@@ -305,6 +306,10 @@ if (parsed.data.NODE_ENV === 'production') {
 
 export const config = {
     ...parsed.data,
+    ORDERS_ENABLED:
+        parsed.data.ORDERS_ENABLED === undefined
+            ? parsed.data.NODE_ENV !== 'production'
+            : parsed.data.ORDERS_ENABLED === 'true',
     isProduction: parsed.data.NODE_ENV === 'production',
     isTest: parsed.data.NODE_ENV === 'test',
     corsOrigins: parseCorsOrigins(parsed.data.CORS_ORIGIN, parsed.data.NODE_ENV === 'production'),
