@@ -5,7 +5,7 @@ import { Header } from './Header';
 import { Footer } from './Footer';
 import { Sidebar } from './Sidebar';
 import { BusinessStatusBanner } from '../business/BusinessStatusBanner';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import type { Id } from '../../types';
 
 interface MainLayoutProps extends HTMLAttributes<HTMLDivElement> {

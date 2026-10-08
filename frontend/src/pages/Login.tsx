@@ -6,7 +6,7 @@ import { Button } from '../components/common/Button';
 import { Logo } from '../components/branding/Logo';
 import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { toFieldIssue, type FieldIssue } from '../services/api';
 
 /**

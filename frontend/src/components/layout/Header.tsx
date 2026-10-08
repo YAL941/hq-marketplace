@@ -2,7 +2,7 @@ import { HTMLAttributes, forwardRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import { Menu, X, ShoppingBag, LayoutDashboard, ChevronDown, Store, Shield } from 'lucide-react';
 import { Logo } from '../branding/Logo';
 import { Button } from '../common/Button';

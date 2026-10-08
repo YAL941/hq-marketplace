@@ -8,7 +8,7 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { Logo } from '../components/branding/Logo';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { toFieldIssue, type FieldIssue } from '../services/api';
 import { isEmailLike, normalisePhone, type PhoneProblem } from '../lib/phone';
 import type { AccountRole } from '../types';

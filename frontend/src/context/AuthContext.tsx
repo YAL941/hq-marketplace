@@ -1,61 +1,14 @@
-import { createContext, useCallback, useContext, useState, useEffect, ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, ReactNode } from 'react';
 import type {
-  User, AuthMeResponse, BusinessMembership, LoginResponse, RegisterPayload, RegisterResponse, AccountRole, Id,
+  User, AuthMeResponse, BusinessMembership, LoginResponse, RegisterPayload, RegisterResponse,
 } from '../types';
 import { authApi, businessApi, setAuthToken } from '../services/api';
+import { AuthContext, type AuthOutcome } from './useAuth';
 
 /** The two places a signed-in person can land. */
 const TOKEN_KEY = 'hq_token';
 const BUSINESS_KEY = 'hq_current_business';
 const REMEMBER_KEY = 'hq_remember';
-
-/** What a caller needs to route itself once the account exists. */
-export interface AuthOutcome {
-  role: AccountRole;
-  /** The business created alongside a `business_owner` signup, else undefined. */
-  businessId?: Id;
-}
-
-interface AuthContextType {
-  user: User | null;
-  platformRoles: string[];
-  businesses: BusinessMembership[];
-  currentBusiness: BusinessMembership | null;
-  /**
-   * The current business's logo, as the database holds it.
-   *
-   * It lives here rather than in the header and the sidebar because
-   * `/auth/me` does not publish a logo — a membership carries a name and a slug
-   * only — so the value has to come from the staff read. The header and the
-   * sidebar render at the same time, so fetching it once and sharing it is what
-   * keeps that to a single request rather than two.
-   */
-  currentBusinessLogo: string | null;
-  /**
-   * Re-reads that logo.
-   *
-   * Called after an upload or a removal, so the chrome reflects a new image
-   * without the person having to reload the page.
-   */
-  refreshBusinessLogo: () => Promise<void>;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  /**
-   * `identifier` is an email address or a phone number; the server decides
-   * which and normalises a number before looking the account up.
-   *
-   * `remember` is explicit rather than implied by the token: an unchecked box
-   * has to survive a page load being able to tell the difference.
-   */
-  login: (identifier: string, password: string, remember: boolean) => Promise<AuthOutcome>;
-  register: (payload: RegisterPayload, remember: boolean) => Promise<AuthOutcome>;
-  logout: () => void;
-  setCurrentBusiness: (business: BusinessMembership | null) => void;
-  refreshUser: () => Promise<void>;
-  hasPlatformRole: (role: string) => boolean;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -64,6 +17,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentBusiness, setCurrentBusiness] = useState<BusinessMembership | null>(null);
   const [currentBusinessLogo, setCurrentBusinessLogo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  /**
+   * The selected business, mirrored through a ref so `refreshUser`
+   * below can be a single stable callback: it always reads the
+   * latest selection without being rebuilt on every switch, which
+   * is what keeps its mount effect from re-running.
+   */
+  const currentBusinessRef = useRef(currentBusiness);
+  useEffect(() => {
+    currentBusinessRef.current = currentBusiness;
+  });
 
   /**
    * The staff read for the current business, used only for its logo.
@@ -114,7 +78,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthToken(null);
   };
 
-  const refreshUser = async () => {
+  /**
+   * Stable by design: it is called from the mount effect, from
+   * `login` and from `register`, and a callback that changes
+   * identity on every render would re-run that effect on every
+   * render. The selected business is read through a ref instead
+   * of a closure for the same reason.
+   */
+  const refreshUser = useCallback(async () => {
     try {
       const token = localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY);
       if (!token) return;
@@ -127,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPlatformRoles(data.platformRoles.map(r => r.role_key));
       setBusinesses(data.businesses);
 
-      if (data.businesses.length > 0 && !currentBusiness) {
+      if (data.businesses.length > 0 && !currentBusinessRef.current) {
         const savedBusinessId = localStorage.getItem(BUSINESS_KEY);
         if (savedBusinessId) {
           // Both sides are the same string the server sent: `business_id` is a
@@ -150,11 +121,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
+  // `refreshUser` never changes identity, so this runs once per
+  // mount: the session is restored from storage on every reload.
   useEffect(() => {
     void refreshUser();
-  }, []);
+  }, [refreshUser]);
 
   /**
    * Which kind of account this is.
@@ -249,12 +222,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 }

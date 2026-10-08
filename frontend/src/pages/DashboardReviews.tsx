@@ -6,9 +6,8 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
 import { Badge, type BadgeVariant } from '../components/common/Badge';
-import {
-  OffsetPagerView, StaffListLayout, useOffsetPager,
-} from '../components/common/OffsetPager';
+import { OffsetPagerView, StaffListLayout } from '../components/common/OffsetPager';
+import { useOffsetPager } from '../components/common/useOffsetPager';
 import { reviewApi, toFieldIssue, type FieldIssue } from '../services/api';
 import { formatDateTime } from '../lib/utils';
 import type { BusinessReview, Id, ReviewStatus } from '../types';

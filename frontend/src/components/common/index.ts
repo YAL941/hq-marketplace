@@ -1,8 +1,8 @@
-import { StatsCard } from './StatsCard';
 import { Button } from './Button';
 import { Input } from './Input';
 import { ImageUpload } from './ImageUpload';
-import { Toast, useToasts } from './Toast';
+import { Toast } from './Toast';
+import { useToasts } from './useToasts';
 import { SmartImage } from './SmartImage';
 import { Card } from './Card';
 import { Badge } from './Badge';
@@ -13,7 +13,6 @@ import { EmptyState } from './EmptyState';
 import { ErrorState } from './ErrorState';
 
 export {
-  StatsCard,
   Button,
   Input,
   ImageUpload,

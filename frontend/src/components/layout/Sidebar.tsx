@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Logo } from '../branding/Logo';
 import { SmartImage } from '../common/SmartImage';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import type { Id } from '../../types';
 import { Avatar } from './Avatar';
 

@@ -6,8 +6,8 @@ import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { BusinessCardSkeleton } from '../components/common/Skeleton';
-import { useAuth } from '../context/AuthContext';
-import { useFavorites } from '../context/FavoritesContext';
+import { useAuth } from '../context/useAuth';
+import { useFavorites } from '../context/useFavorites';
 
 export function FavoritesPage() {
   const { t } = useTranslation();

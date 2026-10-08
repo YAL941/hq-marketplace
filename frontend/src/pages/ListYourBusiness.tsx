@@ -8,7 +8,7 @@ import { Card } from '../components/common/Card';
 import { Skeleton } from '../components/common/Skeleton';
 import { businessApi, directoryApi, authApi, toFieldIssue, type FieldIssue } from '../services/api';
 import { normalisePhone } from '../lib/phone';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { useCategories } from '../hooks/useCategories';
 import type { BusinessProfilePatch, BusinessRegistrationInput, PublicCity, StaffBusinessProfile } from '../types';
 

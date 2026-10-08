@@ -16,7 +16,7 @@
  * to a branch, so this page will manage addresses and phones only.
  */
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { MapPin } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';

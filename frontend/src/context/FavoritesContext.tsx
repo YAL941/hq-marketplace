@@ -1,18 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useAuth } from './AuthContext';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useAuth } from './useAuth';
+import { FavoritesContext } from './useFavorites';
 import { favoriteApi } from '../services/api';
 import type { PublicBusinessCard } from '../types';
-
-interface FavoritesContextValue {
-  businesses: PublicBusinessCard[];
-  ids: ReadonlySet<string>;
-  isLoading: boolean;
-  hasError: boolean;
-  refresh: () => Promise<void>;
-  toggle: (business: PublicBusinessCard) => Promise<void>;
-}
-
-const FavoritesContext = createContext<FavoritesContextValue | undefined>(undefined);
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
@@ -95,10 +85,4 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   }), [businesses, isLoading, hasError, refresh, toggle]);
 
   return <FavoritesContext.Provider value={value}>{children}</FavoritesContext.Provider>;
-}
-
-export function useFavorites() {
-  const context = useContext(FavoritesContext);
-  if (!context) throw new Error('useFavorites must be used within a FavoritesProvider');
-  return context;
 }

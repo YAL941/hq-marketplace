@@ -7,9 +7,10 @@ import { SmartImage } from '../common/SmartImage';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Heart, MapPin, Tag } from 'lucide-react';
 import { CategoryIcon } from '../common/CategoryIcon';
-import { Toast, useToasts } from '../common/Toast';
-import { useAuth } from '../../context/AuthContext';
-import { useFavorites } from '../../context/FavoritesContext';
+import { Toast } from '../common/Toast';
+import { useToasts } from '../common/useToasts';
+import { useAuth } from '../../context/useAuth';
+import { useFavorites } from '../../context/useFavorites';
 import type { PublicBusinessCard } from '../../types';
 
 interface BusinessCardProps {
