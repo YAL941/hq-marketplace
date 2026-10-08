@@ -404,7 +404,7 @@ export function AdminBusinessesPage() {
       ) : (
         <>
           <div className="hidden sm:block">
-            <table className="w-full text-sm text-left text-navy-700">
+            <table className="w-full text-sm text-start text-navy-700">
               <thead className="bg-navy-50 text-xs font-medium text-navy-500 uppercase">
                 <tr>
                   <th className="px-4 py-3">{t('admin.businessName')}</th>

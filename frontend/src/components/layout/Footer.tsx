@@ -4,6 +4,15 @@ import { cn } from '../../lib/utils';
 import { Link } from 'react-router-dom';
 import { Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
 import { Logo } from '../branding/Logo';
+import { SOCIAL_LINKS, COOKIE_POLICY_URL } from '../../config/links';
+
+/** The icon each configured social network renders with. */
+const SOCIAL_ICONS = {
+  facebook: Facebook,
+  twitter: Twitter,
+  instagram: Instagram,
+  linkedin: Linkedin,
+} as const;
 
 interface FooterProps extends HTMLAttributes<HTMLElement> {}
 
@@ -30,12 +39,13 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
       { to: '/privacy', label: t('footer.privacyPolicy') },
       { to: '/terms', label: t('footer.termsOfService') },
     ];
-    const socials = [
-      { href: '#', Icon: Facebook, label: t('footer.facebook') },
-      { href: '#', Icon: Twitter, label: t('footer.twitter') },
-      { href: '#', Icon: Instagram, label: t('footer.instagram') },
-      { href: '#', Icon: Linkedin, label: t('footer.linkedin') },
-    ];
+    const socials = SOCIAL_LINKS.filter(({ url }) => url !== '').map(
+      ({ network, url }) => ({
+        href: url,
+        Icon: SOCIAL_ICONS[network],
+        label: t(`footer.${network}`),
+      }),
+    );
 
     return (
       <footer
@@ -48,18 +58,20 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
             <div className="lg:col-span-2">
               <Logo to="/" ariaLabel={t('brand.homeLabel')} variant="dark" size="md" className="mb-4" />
               <p className="text-navy-300 max-w-sm mb-6">{t('footer.about')}</p>
-              <div className="flex gap-4">
-                {socials.map(({ href, Icon, label }) => (
-                  <a
-                    key={label}
-                    href={href}
-                    className="text-navy-400 hover:text-white transition-colors"
-                    aria-label={label}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </a>
-                ))}
-              </div>
+              {socials.length > 0 && (
+                <div className="flex gap-4">
+                  {socials.map(({ href, Icon, label }) => (
+                    <a
+                      key={label}
+                      href={href}
+                      className="text-navy-400 hover:text-white transition-colors"
+                      aria-label={label}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
 
             <FooterColumn title={t('footer.exploreTitle')} links={exploreLinks} />
@@ -74,7 +86,9 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
             <div className="flex gap-6 text-sm text-navy-400">
               <Link to="/privacy" className="hover:text-white transition-colors">{t('footer.privacyPolicy')}</Link>
               <Link to="/terms" className="hover:text-white transition-colors">{t('footer.termsOfService')}</Link>
-              <Link to="#" className="hover:text-white transition-colors">{t('footer.cookiePolicy')}</Link>
+              {COOKIE_POLICY_URL && (
+                <a href={COOKIE_POLICY_URL} className="hover:text-white transition-colors">{t('footer.cookiePolicy')}</a>
+              )}
             </div>
           </div>
         </div>

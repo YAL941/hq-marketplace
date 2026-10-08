@@ -43,7 +43,7 @@ export function DashboardReviewsPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<Id | null>(null);
   const [issue, setIssue] = useState<FieldIssue | null>(null);
-  const pager = useOffsetPager(PAGE_SIZE, { filterKey: status });
+  const pager = useOffsetPager(PAGE_SIZE);
 
   const load = useCallback(async () => {
     if (!businessId) return;

@@ -222,7 +222,9 @@
      "unknown": "Khalad aan la aqoon ayaa dhacay",
      "forbidden": "Ma haysato ogolaansho si sidaas ugu sameeyso.",
      "rateLimited": "Isku try badan. Sug dhawr daqiiqo, kadib isku try mar kale.",
-     "chunkLoadTitle": "Boggana ma aha",
+      "genericBody": "Boggan wuxuu ku dhacay dhibaato oo aan la muujin karin.",
+      "goHome": "U guur guriga",
+      "chunkLoadTitle": "Boggana ma aha",
      "chunkLoadBody": "Qaybta app-ka ma aha in la soo dirayo. Waxa badanaa waa xasilooni karo ama noqonaya si degdeg ah.",
      "reloadPage": "Kale hel app-ka"
    },

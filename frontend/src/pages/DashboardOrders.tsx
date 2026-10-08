@@ -50,7 +50,7 @@ export function DashboardOrdersPage() {
   const [status, setStatus] = useState<OrderStatus | ''>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const pager = useOffsetPager(PAGE_SIZE, { filterKey: status });
+  const pager = useOffsetPager(PAGE_SIZE);
 
   const load = useCallback(async () => {
     if (!businessId) return;

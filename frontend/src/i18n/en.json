@@ -222,7 +222,9 @@
      "unknown": "An unknown error occurred",
      "forbidden": "You do not have permission to do that.",
      "rateLimited": "Too many attempts. Wait a moment, then try again.",
-     "chunkLoadTitle": "Page didn't load",
+      "genericBody": "The page ran into a problem and could not be shown.",
+      "goHome": "Go to home",
+      "chunkLoadTitle": "Page didn't load",
      "chunkLoadBody": "A part of the app failed to download. This usually means the network was slow or a new version was just deployed.",
      "reloadPage": "Reload the app"
    },

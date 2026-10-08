@@ -229,7 +229,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                 <Avatar name={user?.full_name || 'User'} size="sm" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-navy-900 truncate">{user?.full_name}</p>
-                  <p className="text-xs text-navy-500 truncate">{user?.email}</p>
+                  <p className="text-xs text-navy-500 truncate">{user?.email ?? user?.phone ?? '—'}</p>
                 </div>
               </div>
               <div className="mt-3 space-y-1">

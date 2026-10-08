@@ -1,5 +1,5 @@
-import { lazy, Suspense, Component, ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { lazy, Suspense, Component, ReactNode, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ShieldX, RefreshCw } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -83,54 +83,171 @@ function RouteLoadingFallback() {
 }
 
 /**
- * Catches a failed chunk download — a bad mobile network or a deploy that
- * shipped a stale index.html. Without this a lazy route that cannot load
- * leaves a blank screen with no way to recover; here the whole app tree
- * unmounts and the boundary renders a friendly message plus a reload button.
+ * A failed dynamic import — a bad mobile network, or a deploy that
+ * shipped an index.html newer than the chunks it references. Vite and
+ * the browsers phrase it a few different ways, so the error name and
+ * the message are both checked.
+ */
+function isChunkLoadError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.name === 'ChunkLoadError') return true;
+  const message = error.message;
+  return (
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('Importing a module script failed') ||
+    message.includes('error loading dynamically imported module')
+  );
+}
+
+/**
+ * Catches a failed chunk download — a bad mobile network or a deploy
+ * that shipped a stale index.html. Without this a lazy route that
+ * cannot load leaves a blank screen with no way to recover; here the
+ * boundary renders a friendly message plus a reload button.
  *
- * It is scoped to the Routes tree rather than wrapping the whole app on
- * purpose: an auth or layout failure is a different class of problem and
- * should not be swallowed by the same fallback.
+ * It is scoped to the Routes tree rather than wrapping the whole app
+ * on purpose: an auth or layout failure is a different class of
+ * problem and should not be swallowed by the same fallback.
+ *
+ * The boundary keys itself on the pathname, so navigating anywhere
+ * resets it: one failed page never blocks the rest of the site, the
+ * next route simply gets a fresh render.
  */
 class RouteErrorBoundary extends Component<
-  { children: ReactNode; fallback: ReactNode },
-  { hasError: boolean }
+  { children: ReactNode; locationKey: string },
+  { hasError: boolean; isChunkError: boolean }
 > {
-  static getDerivedStateFromError(): { hasError: boolean } {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error): { hasError: boolean; isChunkError: boolean } {
+    return { hasError: true, isChunkError: isChunkLoadError(error) };
   }
 
   componentDidCatch(error: Error): void {
-    // Logged once, not per render — the boundary re-renders on its own state.
-    console.error('Route chunk failed to load:', error);
+    // Logged once, not per render — the boundary re-renders on its own
+    // state. The details stay in the console; the person using the app
+    // gets the friendly message instead.
+    console.error('Route failed to render:', error);
+  }
+
+  componentDidUpdate(previous: { locationKey: string }): void {
+    if (previous.locationKey !== this.props.locationKey && this.state.hasError) {
+      this.setState({ hasError: false, isChunkError: false });
+    }
   }
 
   render(): ReactNode {
     if (!this.state.hasError) return this.props.children;
-    return this.props.fallback;
+    return (
+      <RouteErrorFallback
+        isChunkError={this.state.isChunkError}
+        onRetry={() => this.setState({ hasError: false, isChunkError: false })}
+      />
+    );
   }
 }
 
-function RouteErrorFallback() {
+/**
+ * The two faces of a route error. Only a chunk failure gets the
+ * "download failed" copy and the reload button, because a reload is
+ * the one thing that fixes a stale chunk. Anything else is a genuine
+ * bug: the message stays generic, and the actions are "try again" and
+ * "go home", never the raw error.
+ */
+function RouteErrorFallback({
+  isChunkError,
+  onRetry,
+}: {
+  isChunkError: boolean;
+  onRetry: () => void;
+}) {
   const { t } = useTranslation();
 
   return (
     <div className="min-h-screen bg-navy-50 flex items-center justify-center px-4 py-16">
       <Card className="p-8 max-w-md w-full text-center">
         <div className="w-16 h-16 rounded-full bg-error-50 text-error-600 flex items-center justify-center mx-auto mb-5">
-          <RefreshCw className="w-8 h-8" aria-hidden="true" />
+          {isChunkError ? (
+            <RefreshCw className="w-8 h-8" aria-hidden="true" />
+          ) : (
+            <ShieldX className="w-8 h-8" aria-hidden="true" />
+          )}
         </div>
-        <h1 className="text-2xl font-bold text-navy-900 mb-2">
-          {t('errors.chunkLoadTitle')}
-        </h1>
-        <p className="text-navy-500 mb-6">
-          {t('errors.chunkLoadBody')}
-        </p>
-        <Button variant="primary" onClick={() => window.location.reload()}>
-          {t('errors.reloadPage')}
-        </Button>
+        {isChunkError ? (
+          <>
+            <h1 className="text-2xl font-bold text-navy-900 mb-2">
+              {t('errors.chunkLoadTitle')}
+            </h1>
+            <p className="text-navy-500 mb-6">
+              {t('errors.chunkLoadBody')}
+            </p>
+            <Button variant="primary" onClick={() => window.location.reload()}>
+              {t('errors.reloadPage')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold text-navy-900 mb-2">
+              {t('errors.generic')}
+            </h1>
+            <p className="text-navy-500 mb-6">
+              {t('errors.genericBody')}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button variant="primary" onClick={onRetry}>
+                {t('common.retry')}
+              </Button>
+              <Link
+                to="/"
+                className="inline-flex items-center justify-center font-medium rounded-button transition-all duration-200 px-4 py-2 text-base border-2 border-navy-300 text-navy-700 hover:bg-navy-50"
+              >
+                {t('errors.goHome')}
+              </Link>
+            </div>
+          </>
+        )}
       </Card>
     </div>
+  );
+}
+
+/**
+ * Vite fires `vite:preloadError` on the window when a dependency a
+ * route needs fails to download — the same stale-deploy signature as a
+ * chunk error, surfacing one navigation earlier. Reloading once fixes
+ * it; the sessionStorage flag carries an expiry so a deploy that is
+ * broken for everyone cannot reload in a loop.
+ */
+const PRELOAD_RELOAD_FLAG = 'hq_preload_reload_expires_at';
+const PRELOAD_RELOAD_TTL_MS = 60_000;
+
+function useVitePreloadReload(): void {
+  useEffect(() => {
+    const onPreloadError = (event: Event) => {
+      event.preventDefault();
+      const expiresAt = Number(sessionStorage.getItem(PRELOAD_RELOAD_FLAG));
+      if (Number.isFinite(expiresAt) && Date.now() < expiresAt) return;
+      sessionStorage.setItem(
+        PRELOAD_RELOAD_FLAG,
+        String(Date.now() + PRELOAD_RELOAD_TTL_MS),
+      );
+      window.location.reload();
+    };
+    window.addEventListener('vite:preloadError', onPreloadError);
+    return () => window.removeEventListener('vite:preloadError', onPreloadError);
+  }, []);
+}
+
+/**
+ * The boundary sits inside the router so it can read the location and
+ * reset itself on navigation, and inside Suspense so a chunk that is
+ * still downloading shows the skeleton rather than nothing.
+ */
+function RoutesWithErrorBoundary({ children }: { children: ReactNode }) {
+  const location = useLocation();
+
+  return (
+    <RouteErrorBoundary locationKey={location.pathname}>
+      {children}
+    </RouteErrorBoundary>
   );
 }
 
@@ -236,12 +353,14 @@ function DashboardIndex() {
 }
 
 function App() {
+  useVitePreloadReload();
+
   return (
     <AuthProvider>
       <BrowserRouter>
         <FavoritesProvider>
           <Suspense fallback={<RouteLoadingFallback />}>
-            <RouteErrorBoundary fallback={<RouteErrorFallback />}>
+            <RoutesWithErrorBoundary>
             <Routes>
           {/* Public Routes */}
           <Route path="/" element={<MainLayout><HomePage /></MainLayout>} />
@@ -427,7 +546,7 @@ function App() {
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-            </RouteErrorBoundary>
+            </RoutesWithErrorBoundary>
           </Suspense>
         </FavoritesProvider>
       </BrowserRouter>

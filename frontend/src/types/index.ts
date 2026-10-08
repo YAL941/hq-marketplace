@@ -34,7 +34,8 @@ export interface PaginatedResponse<T> {
 // User & Auth
 export interface User {
   user_id: Id;
-  email: string;
+  /** Null for accounts that registered with a phone number only. */
+  email: string | null;
   full_name: string;
   phone?: string;
   avatar_url?: string;

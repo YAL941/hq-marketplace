@@ -36,7 +36,7 @@ export function DashboardProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [busyId, setBusyId] = useState<Id | null>(null);
-  const pager = useOffsetPager(PAGE_SIZE, { filterKey: `${search}|${status}` });
+  const pager = useOffsetPager(PAGE_SIZE);
 
   /**
    * Re-reads the current page of products.

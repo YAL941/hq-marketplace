@@ -32,7 +32,7 @@ export function DashboardServicesPage() {
   const [status, setStatus] = useState<CatalogueStatus | ''>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const pager = useOffsetPager(PAGE_SIZE, { filterKey: `${search}|${status}` });
+  const pager = useOffsetPager(PAGE_SIZE);
 
   const load = useCallback(async () => {
     if (!businessId) return;

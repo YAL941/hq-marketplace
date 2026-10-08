@@ -31,17 +31,16 @@ export interface OffsetPager {
   reset: () => void;
 }
 
-export function useOffsetPager(
-  pageSize: number,
-  options: { filterKey?: unknown } = {},
-): OffsetPager {
+/**
+ * The pager holds no filter state of its own. A filter change
+ * has to start again at the first page, and that is the
+ * caller's job: it calls `reset()` in the same handler that
+ * sets the filter, which is why the hook takes nothing but
+ * the page size.
+ */
+export function useOffsetPager(pageSize: number): OffsetPager {
   const { t } = useTranslation();
   const [offset, setOffset] = useState(0);
-  const filterKey = options.filterKey ?? '';
-
-  // Declared so the memo depends on it: a filter change has to rebuild the
-  // pager, which is how `reset` ends up reachable from the form controls.
-  void filterKey;
 
   return useMemo(
     () => ({
@@ -59,7 +58,7 @@ export function useOffsetPager(
         return t('common.showingRange', { from: offset + 1, to: offset + returned });
       },
     }),
-    [offset, pageSize, t, filterKey],
+    [offset, pageSize, t],
   );
 }
 

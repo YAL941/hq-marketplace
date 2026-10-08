@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Menu, X, User, ShoppingBag, LayoutDashboard, ChevronDown, Store, Shield } from 'lucide-react';
+import { Menu, X, ShoppingBag, LayoutDashboard, ChevronDown, Store, Shield } from 'lucide-react';
 import { Logo } from '../branding/Logo';
 import { Button } from '../common/Button';
 import { SearchBar } from '../common/SearchBar';
@@ -161,11 +161,14 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
                     <div className="absolute end-0 mt-2 w-48 bg-white rounded-card shadow-card border border-navy-200 py-1 z-10">
                       <div className="px-4 py-2 border-b border-navy-100">
                         <p className="text-sm font-medium text-navy-900">{user?.full_name}</p>
-                        <p className="text-xs text-navy-500">{user?.email}</p>
+                        <p className="text-xs text-navy-500">{user?.email ?? user?.phone ?? '—'}</p>
                       </div>
-                      <Link to="/profile" className="block px-4 py-2 text-sm text-navy-700 hover:bg-navy-50">
-                        <User className="w-4 h-4 inline me-2" /> {t('nav.profile')}
-                      </Link>
+                      {/*
+                        The profile page does not exist yet, so the
+                        menu item stays hidden rather than linking to
+                        a route that falls through to the home page.
+                        It comes back when the page does.
+                      */}
                       {/*
                         Listing a business is offered to every signed-in account,
                         not only to owners: an account that registered as a
