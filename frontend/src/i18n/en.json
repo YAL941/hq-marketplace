@@ -721,7 +721,7 @@
       "information": {
         "title": "Information we collect",
         "items": [
-          "Account details: your full name, required email address, optional phone number, account role, and avatar URL if provided. Your password is stored as a one-way hash, never in readable form.",
+          "Account details: your full name, email address and/or phone number (at least one is required), account role, and avatar URL if provided. Your password is stored as a one-way hash, never in readable form.",
           "Business listing details: business name, category, description, address, city, district, phone, WhatsApp number, email, website, location coordinates, logo, cover and product photos, products, services and opening hours.",
           "Reviews: your rating and comment. Your full name is shown next to a published review.",
           "Technical data: the application uses the IP address available to the server in in-memory rate limits to help prevent abuse. The application code does not collect browser/device type or write request access logs; hosting and proxy logging depends on deployment.",
