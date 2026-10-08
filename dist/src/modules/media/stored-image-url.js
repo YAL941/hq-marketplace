@@ -21,6 +21,7 @@
  * the path and proved membership for, never the one in the body.
  */
 import { z } from 'zod';
+import { httpUrlProblem } from '../../validation/http-url.js';
 /**
  * A managed upload path: `/uploads/<businessId>/<slot...>/<32 hex>.webp`.
  *
@@ -32,7 +33,6 @@ const MANAGED_PATH = /^\/uploads\/(\d+)\/(?:logo|cover|products\/\d+)\/[0-9a-f]{
 const NOT_A_MANAGED_PATH = 'A stored image must be a path this API produced: /uploads/<businessId>/<slot>/<name>.webp';
 const ANOTHER_BUSINESS = 'That image path belongs to another business';
 const NOT_A_URL = 'Must be an http or https URL, or an uploaded image path';
-const BAD_PROTOCOL = 'Only http and https URLs are accepted';
 /** Reports what is wrong with a value, or an empty array when it is fine. */
 export function imageUrlProblems(businessId, value) {
     if (value.startsWith('/')) {
@@ -41,14 +41,7 @@ export function imageUrlProblems(businessId, value) {
             return [NOT_A_MANAGED_PATH];
         return match[1] === String(businessId) ? [] : [ANOTHER_BUSINESS];
     }
-    let url;
-    try {
-        url = new URL(value);
-    }
-    catch {
-        return [NOT_A_URL];
-    }
-    return url.protocol === 'http:' || url.protocol === 'https:' ? [] : [BAD_PROTOCOL];
+    return httpUrlProblem(value) ? [NOT_A_URL] : [];
 }
 function check(businessId) {
     return (value, ctx) => {
@@ -65,10 +58,10 @@ function check(businessId) {
  * a broken image rather than as no image.
  */
 export function managedImageUrlSchema(businessId) {
-    return z.string().trim().min(1).max(500).superRefine(check(businessId)).nullish();
+    return z.string().min(1).max(500).superRefine(check(businessId)).nullish();
 }
 /** The same rule for a create body, where the column may simply be absent. */
 export function optionalManagedImageUrlSchema(businessId) {
-    return z.string().trim().min(1).max(500).superRefine(check(businessId)).optional();
+    return z.string().min(1).max(500).superRefine(check(businessId)).optional();
 }
 //# sourceMappingURL=stored-image-url.js.map

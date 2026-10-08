@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { notFound } from '../../db/errors.js';
-import { withTenant } from '../../db/tenant.js';
+import { forbidden, notFound } from '../../db/errors.js';
+import { hasBusinessPermission, withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
-import { resolveBusiness } from '../../middleware/error.js';
+import { requireBusinessPermission, resolveBusiness } from '../../middleware/error.js';
 import { optionalManagedImageUrlSchema } from '../media/stored-image-url.js';
 import { archiveProduct, createProduct, listProductsForBusiness, listPublicProducts, requireProduct, updateProduct, } from './product.repository.js';
 const listQuerySchema = z.object({
@@ -83,6 +83,11 @@ productRoutes.patch('/business/:businessId/products/:productId', authenticate, r
         const productId = Number(req.params['productId']);
         const patch = updateSchema(businessId).parse(req.body);
         const ctx = contextFor(req, businessId);
+        if (patch['status'] === 'archived') {
+            const canArchive = await hasBusinessPermission(ctx, businessId, 'products.delete');
+            if (!canArchive)
+                throw forbidden('Missing permission: products.delete');
+        }
         const product = await withTenant(ctx, (client) => updateProduct(client, businessId, productId, patch));
         if (!product)
             throw notFound('Product not found in this business');
@@ -92,7 +97,7 @@ productRoutes.patch('/business/:businessId/products/:productId', authenticate, r
         next(error);
     }
 });
-productRoutes.delete('/business/:businessId/products/:productId', authenticate, resolveBusiness, async (req, res, next) => {
+productRoutes.delete('/business/:businessId/products/:productId', authenticate, resolveBusiness, requireBusinessPermission('products.delete'), async (req, res, next) => {
     try {
         const businessId = req.businessId;
         const productId = Number(req.params['productId']);

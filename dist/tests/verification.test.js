@@ -384,4 +384,26 @@ async function requestBusiness(name, body) {
     assert.equal(res.status, 201, `registration of ${name} failed: ${JSON.stringify(res.body)}`);
     return Number(res.body.data.business_id);
 }
+describe('platform administrator revocation', () => {
+    it('revokes admin access and tenant RLS context for an existing token', async () => {
+        const allowed = await request(app)
+            .get('/api/admin/businesses')
+            .set('Authorization', `Bearer ${admin.token}`);
+        assert.equal(allowed.status, 200);
+        await adminPool.query(`DELETE FROM user_platform_roles upr
+              USING roles r
+              WHERE upr.role_id = r.role_id
+                AND upr.user_id = $1
+                AND r.role_key = 'platform_admin'
+                AND r.scope = 'platform'`, [admin.id]);
+        const deniedAdminRoute = await request(app)
+            .get('/api/admin/businesses')
+            .set('Authorization', `Bearer ${admin.token}`);
+        assert.equal(deniedAdminRoute.status, 403);
+        const deniedTenantRoute = await request(app)
+            .get(`/api/business/${ownerA.businessId}`)
+            .set('Authorization', `Bearer ${admin.token}`);
+        assert.equal(deniedTenantRoute.status, 403, 'revoked admin must not pass the database membership/RLS check');
+    });
+});
 //# sourceMappingURL=verification.test.js.map

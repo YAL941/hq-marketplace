@@ -574,8 +574,10 @@ describe('GET /api/categories and /api/cities', () => {
         assert.equal(res.status, 200);
         const garageCategory = res.body.data.find((c) => c.category_slug === 'transportation');
         const clinicCategory = res.body.data.find((c) => c.category_slug === 'healthcare');
+        const emptyCategory = res.body.data.find((c) => c.category_slug === 'clinics-laboratories');
         assert.equal(garageCategory.business_count, 1);
         assert.equal(clinicCategory.business_count, 2, 'the featured clinic counts too');
+        assert.equal(emptyCategory.business_count, 0, 'active categories without public businesses remain visible');
     });
     it('excludes suspended and unverified businesses from the counts', async () => {
         const res = await request(app).get('/api/categories');

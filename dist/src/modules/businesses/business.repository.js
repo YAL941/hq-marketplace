@@ -69,6 +69,10 @@ export async function listPublicBusinesses(client, query) {
         params.push(query.city);
         conditions.push(`b.city = $${params.length}`);
     }
+    if (query.businessIds !== undefined) {
+        params.push(query.businessIds);
+        conditions.push(`b.business_id = ANY($${params.length}::bigint[])`);
+    }
     if (query.categoryId !== undefined) {
         params.push(query.categoryId);
         conditions.push(`b.business_category_id = $${params.length}`);

@@ -484,22 +484,49 @@ describe('a stored path belongs to one business only', () => {
             assert.equal(res.status, 400, `${bad} was accepted`);
         }
     });
-    it('rejects a protocol other than http or https', async () => {
-        for (const bad of ['javascript:alert(1)', 'file:///etc/passwd', 'data:image/png;base64,AAAA']) {
+    it('rejects unsafe schemes and malformed external URLs with the field name', async () => {
+        for (const bad of [
+            'javascript:alert(1)',
+            'data:text/html',
+            'JAVASCRIPT:alert(1)',
+            ' javascript:alert(1)',
+            '//evil.test',
+            'ftp://evil.test/image.png',
+            'file:///etc/passwd',
+        ]) {
             const res = await request(app)
                 .patch(`/api/business/${ownerA.businessId}`)
                 .set('Authorization', `Bearer ${ownerA.token}`)
-                .send({ logoUrl: bad });
+                .send({ website: bad });
             assert.equal(res.status, 400, `${bad} was accepted`);
+            assert.equal(res.body.error.code, 'VALIDATION_ERROR');
+            assert.ok(res.body.error.details.some((issue) => issue.path.includes('website')), `validation error did not name website: ${JSON.stringify(res.body.error.details)}`);
+            const product = await request(app)
+                .post(`/api/business/${ownerA.businessId}/products`)
+                .set('Authorization', `Bearer ${ownerA.token}`)
+                .send({ productName: `Unsafe URL ${bad}`, price: 5, imageUrl: bad });
+            assert.equal(product.status, 400, `${bad} was accepted as an image URL`);
+            assert.ok(product.body.error.details.some((issue) => issue.path.includes('imageUrl')), `validation error did not name imageUrl: ${JSON.stringify(product.body.error.details)}`);
         }
     });
-    it('still accepts an external https URL', async () => {
-        const res = await request(app)
-            .patch(`/api/business/${ownerA.businessId}`)
-            .set('Authorization', `Bearer ${ownerA.token}`)
-            .send({ logoUrl: 'https://cdn.example.test/logo.png' });
-        assert.equal(res.status, 200);
-        assert.equal(res.body.data.logo_url, 'https://cdn.example.test/logo.png');
+    it('accepts external http and https URLs for websites and product images', async () => {
+        for (const protocol of ['http', 'https']) {
+            const websiteUrl = `${protocol}://business.example.test`;
+            const imageUrl = `${protocol}://cdn.example.test/logo.png`;
+            const business = await request(app)
+                .patch(`/api/business/${ownerA.businessId}`)
+                .set('Authorization', `Bearer ${ownerA.token}`)
+                .send({ website: websiteUrl, logoUrl: imageUrl });
+            assert.equal(business.status, 200);
+            assert.equal(business.body.data.website, websiteUrl);
+            assert.equal(business.body.data.logo_url, imageUrl);
+            const product = await request(app)
+                .post(`/api/business/${ownerA.businessId}/products`)
+                .set('Authorization', `Bearer ${ownerA.token}`)
+                .send({ productName: `External ${protocol} image`, price: 5, imageUrl });
+            assert.equal(product.status, 201);
+            assert.equal(product.body.data.image_url, imageUrl);
+        }
     });
     it('accepts its own managed path back', async () => {
         const upload = await request(app)
@@ -557,6 +584,39 @@ describe('a product image column accepts the same two shapes', () => {
             .send({ imageUrl: `/uploads/${ownerA.businessId}/products/${ownerA.productId}/${'d'.repeat(32)}.webp` });
         assert.equal(res.status, 200);
         assert.match(res.body.data.image_url, /^\/uploads\//);
+    });
+});
+describe('product archive permissions', () => {
+    it('allows an owner to archive through PATCH and DELETE', async () => {
+        const patchProductId = await createProduct(ownerA.token, ownerA.businessId, 'Owner Archived by Patch');
+        const patch = await request(app)
+            .patch(`/api/business/${ownerA.businessId}/products/${patchProductId}`)
+            .set('Authorization', `Bearer ${ownerA.token}`)
+            .send({ status: 'archived' });
+        assert.equal(patch.status, 200);
+        assert.equal(patch.body.data.status, 'archived');
+        const deleteProductId = await createProduct(ownerA.token, ownerA.businessId, 'Owner Archived by Delete');
+        const deleted = await request(app)
+            .delete(`/api/business/${ownerA.businessId}/products/${deleteProductId}`)
+            .set('Authorization', `Bearer ${ownerA.token}`);
+        assert.equal(deleted.status, 204);
+    });
+    it('denies an employee with products.edit but without products.delete', async () => {
+        const productId = await createProduct(ownerA.token, ownerA.businessId, 'Employee Cannot Archive');
+        const patch = await request(app)
+            .patch(`/api/business/${ownerA.businessId}/products/${productId}`)
+            .set('Authorization', `Bearer ${employee.token}`)
+            .send({ status: 'archived' });
+        assert.equal(patch.status, 403);
+        const deleted = await request(app)
+            .delete(`/api/business/${ownerA.businessId}/products/${productId}`)
+            .set('Authorization', `Bearer ${employee.token}`);
+        assert.equal(deleted.status, 403);
+        const unchanged = await request(app)
+            .get(`/api/business/${ownerA.businessId}/products/${productId}`)
+            .set('Authorization', `Bearer ${ownerA.token}`);
+        assert.equal(unchanged.status, 200);
+        assert.equal(unchanged.body.data.status, 'active');
     });
 });
 //# sourceMappingURL=uploads.test.js.map
