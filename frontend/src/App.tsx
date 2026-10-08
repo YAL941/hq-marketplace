@@ -1,10 +1,11 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, Component, ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ShieldX } from 'lucide-react';
+import { ShieldX, RefreshCw } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { MainLayout } from './components/layout/MainLayout';
 import { Button } from './components/common/Button';
+import { Card } from './components/common/Card';
 import { HomePage } from './pages/Home';
 import { ExplorePage } from './pages/Explore';
 import { CategoryPage } from './pages/CategoryPage';
@@ -77,6 +78,58 @@ function RouteLoadingFallback() {
         <div className="h-4 w-2/3 rounded bg-navy-100" />
         <div className="h-40 rounded-card bg-navy-100" />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Catches a failed chunk download — a bad mobile network or a deploy that
+ * shipped a stale index.html. Without this a lazy route that cannot load
+ * leaves a blank screen with no way to recover; here the whole app tree
+ * unmounts and the boundary renders a friendly message plus a reload button.
+ *
+ * It is scoped to the Routes tree rather than wrapping the whole app on
+ * purpose: an auth or layout failure is a different class of problem and
+ * should not be swallowed by the same fallback.
+ */
+class RouteErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error): void {
+    // Logged once, not per render — the boundary re-renders on its own state.
+    console.error('Route chunk failed to load:', error);
+  }
+
+  render(): ReactNode {
+    if (!this.state.hasError) return this.props.children;
+    return this.props.fallback;
+  }
+}
+
+function RouteErrorFallback() {
+  const { t } = useTranslation();
+
+  return (
+    <div className="min-h-screen bg-navy-50 flex items-center justify-center px-4 py-16">
+      <Card className="p-8 max-w-md w-full text-center">
+        <div className="w-16 h-16 rounded-full bg-error-50 text-error-600 flex items-center justify-center mx-auto mb-5">
+          <RefreshCw className="w-8 h-8" aria-hidden="true" />
+        </div>
+        <h1 className="text-2xl font-bold text-navy-900 mb-2">
+          {t('errors.chunkLoadTitle')}
+        </h1>
+        <p className="text-navy-500 mb-6">
+          {t('errors.chunkLoadBody')}
+        </p>
+        <Button variant="primary" onClick={() => window.location.reload()}>
+          {t('errors.reloadPage')}
+        </Button>
+      </Card>
     </div>
   );
 }
@@ -188,7 +241,8 @@ function App() {
       <BrowserRouter>
         <FavoritesProvider>
           <Suspense fallback={<RouteLoadingFallback />}>
-          <Routes>
+            <RouteErrorBoundary fallback={<RouteErrorFallback />}>
+            <Routes>
           {/* Public Routes */}
           <Route path="/" element={<MainLayout><HomePage /></MainLayout>} />
           <Route path="/explore" element={<MainLayout><ExplorePage /></MainLayout>} />
@@ -372,7 +426,8 @@ function App() {
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+            </Routes>
+            </RouteErrorBoundary>
           </Suspense>
         </FavoritesProvider>
       </BrowserRouter>

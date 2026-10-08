@@ -9,6 +9,18 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks: stable across deploys, cached longest.
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-i18n': ['i18next', 'i18next-browser-languagedetector', 'react-i18next'],
+          'vendor-ui': ['lucide-react', 'clsx', 'axios'],
+        },
+      },
+    },
+  },
   server: {
     port: 3000,
     proxy: {

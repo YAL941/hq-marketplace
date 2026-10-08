@@ -215,14 +215,17 @@
     "in_progress": "Waa socda",
     "out_for_delivery": "Waa safka"
   },
-  "errors": {
-    "generic": "Wax qaldan ayaa dhacay",
-    "notFound": "Lama helin",
-    "network": "Server-ka lama gaari karin. Xiriiriadda hubi.",
-    "unknown": "Khalad aan la aqoon ayaa dhacay",
-    "forbidden": "Ma haysato ogolaansho si sidaas ugu sameeyso.",
-    "rateLimited": "Isku day badan. Sug dhawr daqiiqo, kadib isku day mar kale."
-  },
+"errors": {
+     "generic": "Wax qaldan ayaa dhacay",
+     "notFound": "Lama helin",
+     "network": "Server-ka lama gaari karin. Xiriiriadda hubi.",
+     "unknown": "Khalad aan la aqoon ayaa dhacay",
+     "forbidden": "Ma haysato ogolaansho si sidaas ugu sameeyso.",
+     "rateLimited": "Isku try badan. Sug dhawr daqiiqo, kadib isku try mar kale.",
+     "chunkLoadTitle": "Boggana ma aha",
+     "chunkLoadBody": "Qaybta app-ka ma aha in la soo dirayo. Waxa badanaa waa xasilooni karo ama noqonaya si degdeg ah.",
+     "reloadPage": "Kale hel app-ka"
+   },
   "relativeTime": {
     "justNow": "Hadda",
     "minutes": "{{count}}m ka dib",
