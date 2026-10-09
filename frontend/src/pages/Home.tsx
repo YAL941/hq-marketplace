@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Building2, MapPin, Store } from 'lucide-react';
+import { ArrowRight, Building2, MapPin, Shapes, Smartphone, Store, UserRound } from 'lucide-react';
 import { BusinessCard } from '../components/business/BusinessCard';
-import { SearchBar } from '../components/common/SearchBar';
 import { Button } from '../components/common/Button';
-import { CategoryBar } from '../components/common/CategoryBar';
+import { HeroSearch } from '../components/home/HeroSearch';
 import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { ErrorState } from '../components/common/ErrorState';
 import { businessApi, directoryApi } from '../services/api';
@@ -27,11 +26,9 @@ export function HomePage() {
    * "0 businesses listed" rather than inventing a number, and the featured
    * section falls back to the newest businesses when nothing is featured yet.
    */
-  const [totalBusinesses, setTotalBusinesses] = useState(0);
+  const [totalBusinesses, setTotalBusinesses] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,7 +49,8 @@ export function HomePage() {
       setFeatured(
         featuredRes.data.data.length > 0 ? featuredRes.data.data : newestRes.data.data,
       );
-      setTotalBusinesses(Number(totalRes.data.meta?.total ?? 0));
+      const total = totalRes.data.meta?.total;
+      setTotalBusinesses(typeof total === 'number' && Number.isFinite(total) ? total : null);
       setCities(cityRes.data.data);
     } catch {
       setError(true);
@@ -65,112 +63,9 @@ export function HomePage() {
     void load();
   }, [load]);
 
-  const handleSearch = (query: string) => {
-    const trimmed = query.trim();
-    if (!trimmed) return;
-    const params = new URLSearchParams({ q: trimmed });
-    if (selectedCity) params.set('city', selectedCity);
-    navigate(`/explore?${params.toString()}`);
-  };
-
   return (
-    <div className="min-h-screen bg-navy-50">
-      {/* Hero: navy to blue, so the gold buttons and chips read as accents. */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-navy-900 via-navy-900 to-primary-700 text-white">
-        <div className="absolute inset-0 hero-dots" aria-hidden="true" />
-
-        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
-              {t('home.heroTitle')}
-            </h1>
-            <p className="mt-5 max-w-2xl text-base text-navy-200 sm:text-lg">
-              {t('home.heroSubtitle')}
-            </p>
-
-            {/* The search row is the hero's only control group, so it stays a
-                single column on a phone rather than splitting the input from
-                its own button. */}
-            <div className="mt-8 flex flex-col gap-3 sm:max-w-2xl">
-              <SearchBar
-                value={searchQuery}
-                onChange={setSearchQuery}
-                onSearch={handleSearch}
-                placeholder={t('home.heroSearchPlaceholder')}
-                className="w-full"
-              />
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                {cities.length > 0 && (
-                  <div className="relative flex-1">
-                    <label htmlFor="home-city" className="sr-only">
-                      {t('home.heroCitiesLabel')}
-                    </label>
-                    <MapPin
-                      className="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 h-5 w-5 text-navy-300"
-                      aria-hidden="true"
-                    />
-                    <select
-                      id="home-city"
-                      value={selectedCity}
-                      onChange={(e) => setSelectedCity(e.target.value)}
-                      className="w-full rounded-button border border-white/20 bg-white/10 py-3 ps-12 pe-4 text-white transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-gold-400"
-                    >
-                      <option value="" className="text-navy-900">
-                        {t('home.heroAllCities')}
-                      </option>
-                      {cities.map((city) => (
-                        <option key={city.city} value={city.city} className="text-navy-900">
-                          {city.city}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <Button
-                  variant="gold"
-                  size="lg"
-                  onClick={() => handleSearch(searchQuery)}
-                  className="sm:w-auto"
-                >
-                  {t('home.heroSearchCta')}
-                </Button>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-navy-200">
-                {t('home.browseCategories')}
-              </h2>
-              <CategoryBar selected={null} variant="onDark" />
-            </div>
-
-            {/* Every figure here is a server count. Nothing is hardcoded. */}
-            {!loading && (
-              <dl className="mt-10 flex flex-wrap gap-x-10 gap-y-4">
-                {[
-                  { value: totalBusinesses, label: t('home.statsBusinesses', { count: totalBusinesses }) },
-                  { value: cities.length, label: t('home.statsCities', { count: cities.length }) },
-                  ...(!categoriesLoading && !categoriesError
-                    ? [{ value: categories.length, label: t('home.statsCategories', { count: categories.length }) }]
-                    : []),
-                ].map((stat) => (
-                  <div key={stat.label}>
-                    <dt className="sr-only">{stat.label}</dt>
-                    <dd>
-                      <span className="block text-3xl font-bold text-gold-400">
-                        {formatNumber(stat.value)}
-                      </span>
-                      <span className="text-sm text-navy-200">{stat.label}</span>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-          </div>
-        </div>
-      </section>
+    <div className="min-h-screen min-w-0 bg-navy-50">
+      <HeroSearch cities={cities} />
 
       <section className="bg-white py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -201,7 +96,7 @@ export function HomePage() {
           ) : featured.length > 0 ? (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {featured.map((business) => (
-                <BusinessCard key={business.business_id} business={business} />
+                <BusinessCard key={business.business_id} business={business} featured />
               ))}
             </div>
           ) : (
@@ -213,30 +108,68 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="bg-navy-50 py-16">
-        <div className="mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
-          <Store className="mx-auto mb-4 h-10 w-10 text-primary-500" aria-hidden="true" />
-          <h2 className="text-2xl font-bold text-navy-900 sm:text-3xl">{t('home.ctaTitle')}</h2>
-          <p className="mx-auto mt-3 max-w-xl text-navy-600">{t('home.ctaSubtitle')}</p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button variant="gold" size="lg" onClick={() => navigate('/register')}>
-              {t('home.ctaButton')}
-            </Button>
-            <Button variant="outline" size="lg" onClick={() => navigate('/explore')}>
-              {t('home.ctaSecondary')}
-            </Button>
+      {!loading && !error && totalBusinesses !== null && (
+        <section className="bg-white px-4 pb-16 sm:px-6 lg:px-8" aria-label={t('home.statsHeading')}>
+          <div className="mx-auto max-w-5xl rounded-3xl border border-white/70 bg-[linear-gradient(135deg,#0B3A78_0%,#1769C4_65%,#2F8FF0_100%)] p-6 text-white shadow-[0_24px_60px_rgba(11,58,120,0.18)] sm:p-9">
+            <h2 className="text-center text-xl font-bold sm:text-2xl">{t('home.statsHeading')}</h2>
+            <dl className="mt-7 grid grid-cols-1 divide-y divide-white/20 sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:rtl:divide-x-reverse">
+              {[
+                { value: totalBusinesses, label: t('home.statsBusinesses', { count: totalBusinesses }), Icon: Building2 },
+                { value: cities.length, label: t('home.statsCities', { count: cities.length }), Icon: MapPin },
+                ...(!categoriesLoading && !categoriesError
+                  ? [{ value: categories.length, label: t('home.statsCategories', { count: categories.length }), Icon: Shapes }]
+                  : []),
+              ].map(({ value, label, Icon }) => (
+                <div key={label} className="flex items-center justify-center gap-4 py-5 text-center sm:flex-col sm:py-2">
+                  <Icon className="h-6 w-6 shrink-0 text-gold-400" aria-hidden="true" />
+                  <div>
+                    <dt className="mt-1 text-sm text-white/90">{label}</dt>
+                    <dd className="text-3xl font-bold text-gold-300">{formatNumber(value)}</dd>
+                  </div>
+                </div>
+              ))}
+            </dl>
           </div>
-          {/* For an account that already exists: signing up again is the wrong
-              instruction. This link works either way, because the listing page
-              sends an anonymous visitor to the login screen first and brings
-              them back here afterwards. */}
-          <button
-            type="button"
-            onClick={() => navigate('/list-your-business')}
-            className="mt-6 text-sm font-medium text-primary-600 hover:text-primary-700 underline underline-offset-4"
-          >
-            {t('home.ctaListBusiness')}
-          </button>
+        </section>
+      )}
+
+      <section className="bg-navy-50 py-16">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_auto] lg:px-8">
+          <div className="text-center lg:text-start">
+            <h2 className="text-2xl font-bold text-navy-900 sm:text-3xl">{t('home.ctaTitle')}</h2>
+            <p className="mx-auto mt-3 max-w-xl text-navy-600 lg:mx-0">{t('home.ctaSubtitle')}</p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
+              <Button variant="gold" size="lg" onClick={() => navigate('/register')}>
+                {t('home.ctaButton')}
+              </Button>
+              <Button variant="outline" size="lg" onClick={() => navigate('/explore')}>
+                {t('home.ctaSecondary')}
+              </Button>
+            </div>
+            {/* For an account that already exists: signing up again is the wrong
+                instruction. This link works either way, because the listing page
+                sends an anonymous visitor to the login screen first and brings
+                them back here afterwards. */}
+            <button
+              type="button"
+              onClick={() => navigate('/list-your-business')}
+              className="mt-6 text-sm font-medium text-primary-600 underline underline-offset-4 hover:text-primary-700"
+            >
+              {t('home.ctaListBusiness')}
+            </button>
+          </div>
+          <div aria-hidden="true" className="relative mx-auto flex h-64 w-64 items-center justify-center rounded-full bg-[radial-gradient(circle,#E6F3FF_0%,#D4E9FA_55%,rgba(212,233,250,0)_72%)] sm:h-72 sm:w-72">
+            <div className="absolute bottom-10 h-28 w-40 rounded-[2rem] border border-white bg-white/80 shadow-xl" />
+            <Store className="absolute bottom-[4.5rem] h-12 w-12 text-primary-500" strokeWidth={1.5} />
+            <div className="absolute bottom-4 start-[5.5rem] flex h-36 w-24 items-center justify-center rounded-t-[3.5rem] rounded-b-2xl bg-gradient-to-br from-primary-500 to-navy-800 shadow-lg">
+              <UserRound className="mb-10 h-16 w-16 text-white" strokeWidth={1.4} />
+            </div>
+            <div className="absolute bottom-[4.5rem] end-[4.5rem] flex h-20 w-12 items-center justify-center rounded-lg border-2 border-navy-800 bg-white shadow-md">
+              <Smartphone className="h-8 w-8 text-gold-500" strokeWidth={1.8} />
+            </div>
+            <span className="absolute end-8 top-12 h-4 w-4 rounded-full bg-gold-400 shadow-[0_0_24px_rgba(255,200,61,0.75)]" />
+            <span className="absolute start-8 top-24 h-3 w-3 rounded-full bg-primary-300 shadow-[0_0_20px_rgba(47,143,240,0.55)]" />
+          </div>
         </div>
       </section>
     </div>

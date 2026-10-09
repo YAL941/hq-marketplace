@@ -16,6 +16,7 @@ import type { PublicBusinessCard } from '../../types';
 interface BusinessCardProps {
   business: PublicBusinessCard;
   compact?: boolean;
+  featured?: boolean;
 }
 
 /**
@@ -26,7 +27,7 @@ interface BusinessCardProps {
  * anybody performed. `is_open_now` is the only status-like signal available,
  * and it is optional, so nothing is shown when the server omits it.
  */
-export function BusinessCard({ business, compact = false }: BusinessCardProps) {
+export function BusinessCard({ business, compact = false, featured = false }: BusinessCardProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,7 +58,10 @@ export function BusinessCard({ business, compact = false }: BusinessCardProps) {
   };
 
   return (
-    <Card padding="none" className="overflow-hidden flex flex-col h-full">
+    <Card
+      padding="none"
+      className={`flex h-full flex-col overflow-hidden ${featured ? 'rounded-2xl border-navy-100 shadow-[0_14px_38px_rgba(11,42,74,0.12)]' : ''}`}
+    >
       <div className="relative aspect-video w-full bg-navy-100 overflow-hidden">
         <Link to={href} className="absolute inset-0 block group" tabIndex={-1} aria-hidden="true">
           {/*
@@ -103,25 +107,40 @@ export function BusinessCard({ business, compact = false }: BusinessCardProps) {
         >
           <Heart className="h-5 w-5" fill={isFavorite ? 'currentColor' : 'none'} aria-hidden="true" />
         </button>
+        {featured && (
+          <SmartImage
+            value={business.logo_url}
+            width={64}
+            height={64}
+            className="absolute bottom-0 start-4 z-10 h-16 w-16 translate-y-1/2 rounded-full border-4 border-white bg-white object-cover shadow-md"
+            fallback={
+              <div className="absolute bottom-0 start-4 z-10 flex h-16 w-16 translate-y-1/2 items-center justify-center rounded-full border-4 border-white bg-primary-100 shadow-md">
+                <Tag className="h-7 w-7 text-primary-500" aria-hidden="true" />
+              </div>
+            }
+          />
+        )}
       </div>
 
-      <div className="flex-1 p-4 flex flex-col" style={{ minHeight: 0 }}>
-        <div className="flex items-start gap-3 mb-3">
+      <div className={`flex flex-1 flex-col p-4 ${featured ? 'pt-11' : ''}`} style={{ minHeight: 0 }}>
+        <div className="mb-3 flex items-start gap-3">
           {/*
             The business name is on screen right beside this, so the logo is
             decorative: an empty alt is the correct thing, not a missing one.
           */}
-          <SmartImage
-            value={business.logo_url}
-            width={48}
-            height={48}
-            className="w-12 h-12 rounded-sg object-cover flex-shrink-0 border border-navy-200"
-            fallback={
-              <div className="w-12 h-12 rounded-sg bg-primary-100 flex items-center justify-center flex-shrink-0">
-                <Tag className="w-6 h-6 text-primary-500" />
-              </div>
-            }
-          />
+          {!featured && (
+            <SmartImage
+              value={business.logo_url}
+              width={48}
+              height={48}
+              className="h-12 w-12 flex-shrink-0 rounded-sg border border-navy-200 object-cover"
+              fallback={
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-sg bg-primary-100">
+                  <Tag className="h-6 w-6 text-primary-500" />
+                </div>
+              }
+            />
+          )}
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-navy-900 truncate">
               <Link to={href} className="hover:text-primary-600 transition-colors">

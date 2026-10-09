@@ -1,4 +1,4 @@
-import { HTMLAttributes, forwardRef, useState } from 'react';
+import { HTMLAttributes, forwardRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -23,6 +23,29 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
     const [searchQuery, setSearchQuery] = useState('');
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
+    const isHomePage = location.pathname === '/';
+    const [overHomeHero, setOverHomeHero] = useState(location.pathname === '/');
+    const homeHeroVisible = isHomePage && overHomeHero;
+
+    useEffect(() => {
+      if (!isHomePage) {
+        setOverHomeHero(false);
+        return;
+      }
+
+      const hero = document.querySelector<HTMLElement>('[data-home-hero]');
+      if (!hero) {
+        setOverHomeHero(false);
+        return;
+      }
+
+      const observer = new IntersectionObserver(
+        ([entry]) => setOverHomeHero(entry.isIntersecting),
+        { rootMargin: '-64px 0px 0px 0px', threshold: 0 },
+      );
+      observer.observe(hero);
+      return () => observer.disconnect();
+    }, [isHomePage]);
 
     const handleSearch = (query: string) => {
       if (query.trim()) {
@@ -38,8 +61,11 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
       <header
         ref={ref}
         className={cn(
-          'sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-navy-200',
-          'transition-shadow duration-200',
+          'sticky top-0 z-50 border-b transition-[background-color,border-color,color] duration-200',
+          isHomePage ? '-mb-16' : '',
+          homeHeroVisible
+            ? 'border-transparent bg-transparent text-white'
+            : 'border-navy-200 bg-white/95 text-navy-900 backdrop-blur-sm',
           className
         )}
         {...props}
@@ -48,21 +74,21 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
               <div className="hidden sm:block">
-                <Logo to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="sm" />
+                <Logo to="/" ariaLabel={t('brand.homeLabel')} variant={homeHeroVisible ? 'dark' : 'light'} size="sm" />
               </div>
               <div className="sm:hidden">
-                <Logo to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="sm" className="[&>span:last-child]:hidden" />
+                <Logo to="/" ariaLabel={t('brand.homeLabel')} variant={homeHeroVisible ? 'dark' : 'light'} size="sm" className="[&>span:last-child]:hidden" />
               </div>
 
               {isPublic && !isLoginPage && (
                 <nav className="hidden md:flex items-center gap-6" aria-label={t('nav.mainNavigation')}>
-                  <Link to="/explore" className={cn('text-sm font-medium transition-colors', location.pathname === '/explore' ? 'text-primary-600' : 'text-navy-600 hover:text-navy-900')}>
+                  <Link to="/explore" className={cn('text-sm font-medium transition-colors', homeHeroVisible ? 'text-white hover:text-gold-300' : 'text-navy-600 hover:text-navy-900')}>
                     {t('nav.explore')}
                   </Link>
-                  <Link to="/categories" className={cn('text-sm font-medium transition-colors', location.pathname === '/categories' ? 'text-primary-600' : 'text-navy-600 hover:text-navy-900')}>
+                  <Link to="/categories" className={cn('text-sm font-medium transition-colors', homeHeroVisible ? 'text-white hover:text-gold-300' : 'text-navy-600 hover:text-navy-900')}>
                     {t('nav.categories')}
                   </Link>
-                  <Link to="/favorites" className={cn('text-sm font-medium transition-colors', location.pathname === '/favorites' ? 'text-primary-600' : 'text-navy-600 hover:text-navy-900')}>
+                  <Link to="/favorites" className={cn('text-sm font-medium transition-colors', homeHeroVisible ? 'text-white hover:text-gold-300' : 'text-navy-600 hover:text-navy-900')}>
                     {t('nav.favorites')}
                   </Link>
                 </nav>
@@ -138,7 +164,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
               <div className="flex items-center gap-3">
               {isPublic && (
                 <>
-                  <Link to="/login" className="hidden sm:block px-4 py-2 text-sm font-medium text-navy-700 hover:text-navy-900 transition-colors">
+                  <Link to="/login" className={cn('hidden sm:block px-4 py-2 text-sm font-medium transition-colors', homeHeroVisible ? 'text-white hover:text-gold-300' : 'text-navy-700 hover:text-navy-900')}>
                     {t('nav.signIn')}
                   </Link>
                   <Link to="/register" className="hidden sm:block">
@@ -195,11 +221,13 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
                 </div>
               )}
 
-              <LanguageSwitcher />
+              <LanguageSwitcher
+                className={homeHeroVisible ? '[&>button]:text-white [&>button:hover]:bg-white/15' : ''}
+              />
 
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 rounded-button hover:bg-navy-100 text-navy-600"
+                className={cn('md:hidden p-2 rounded-button transition-colors', homeHeroVisible ? 'text-white hover:bg-white/15' : 'text-navy-600 hover:bg-navy-100')}
                 aria-label={t('nav.toggleMenu')}
                 aria-expanded={mobileMenuOpen}
               >
@@ -211,7 +239,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
         </div>
 
         {!isLoginPage && mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-navy-100 animate-slide-down">
+          <div className="md:hidden py-4 border-t border-navy-100 bg-white text-navy-900 shadow-card animate-slide-down">
             <div className="px-4 sm:px-6 mb-3 lg:hidden">
               <SearchBar
                 value={searchQuery}

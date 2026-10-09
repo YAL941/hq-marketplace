@@ -157,10 +157,12 @@ export function CategoryBar({
   };
 
   const sharedItemClass = cn(
-    'category-bar-item group flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-full border px-3 py-2 text-sm transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none',
-    '[@media(hover:hover)]:hover:shadow-md [@media(hover:hover)]:hover:border-primary-400',
+    'category-bar-item group flex min-h-11 shrink-0 snap-start items-center gap-2 border px-3 py-2 text-sm transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none',
     isOnDark
-      ? 'border-white/20 bg-white/10 text-white [@media(hover:hover)]:hover:bg-white/15'
+      ? 'rounded-2xl shadow-[0_8px_24px_rgba(5,25,60,0.18)] [@media(hover:hover)]:hover:-translate-y-0.5'
+      : 'rounded-full [@media(hover:hover)]:hover:shadow-md [@media(hover:hover)]:hover:border-primary-400',
+    isOnDark
+      ? 'border-white/30 bg-gradient-to-br from-white/20 to-white/[0.07] text-white [@media(hover:hover)]:hover:border-gold-300 [@media(hover:hover)]:hover:from-white/25'
       : 'border-[#D9E6F4] bg-white text-navy-800 [@media(hover:hover)]:hover:bg-primary-50',
   );
   const selectedItemClass = isOnDark
@@ -226,7 +228,7 @@ export function CategoryBar({
               >
                 <CategoryIcon
                   slug={null}
-                  size={isOnDark ? 'chip' : 'inline'}
+                  size={isOnDark ? 'card' : 'inline'}
                   className="category-bar-icon transition-transform duration-150 motion-reduce:transition-none"
                 />
                 <span>{t('categoryBar.all')}</span>
@@ -250,7 +252,7 @@ export function CategoryBar({
                 >
                   <CategoryIcon
                     slug={category.category_slug}
-                    size={isOnDark ? 'chip' : 'inline'}
+                    size={isOnDark ? 'card' : 'inline'}
                     className="category-bar-icon transition-transform duration-150 motion-reduce:transition-none"
                   />
                   <span>{category.category_name}</span>

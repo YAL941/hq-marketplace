@@ -118,6 +118,8 @@ class RouteErrorBoundary extends Component<
   { children: ReactNode; locationKey: string },
   { hasError: boolean; isChunkError: boolean }
 > {
+  state = { hasError: false, isChunkError: false };
+
   static getDerivedStateFromError(error: Error): { hasError: boolean; isChunkError: boolean } {
     return { hasError: true, isChunkError: isChunkLoadError(error) };
   }
