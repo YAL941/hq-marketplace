@@ -8,6 +8,7 @@ import type {
   ApiResponse,
   AuthMeResponse,
   BusinessMember,
+  BusinessInboxCounts,
   BusinessProfilePatch,
   BusinessRecord,
   BusinessRegistrationInput,
@@ -15,6 +16,7 @@ import type {
   BusinessStatistics,
   BusinessSummary,
   CreateLocationInput,
+  CustomerOrderSummary,
   Id,
   Location,
   LoginResponse,
@@ -24,6 +26,8 @@ import type {
   Product,
   ProductInput,
   ProductListQuery,
+  ProductReview,
+  PublicProductReview,
   PublicBusinessCard,
   PublicBusinessProfile,
   PublicCategory,
@@ -189,6 +193,12 @@ export const authApi = {
    */
   login: (data: { identifier: string; password: string }) =>
     api.post<ApiResponse<LoginResponse>>('/auth/login', data),
+
+  requestPasswordReset: (email: string) =>
+    api.post<ApiResponse<{ message: string }>>('/auth/password-reset/request', { email }),
+
+  confirmPasswordReset: (data: { token: string; password: string }) =>
+    api.post<ApiResponse<{ message: string }>>('/auth/password-reset/confirm', data),
 
   me: () => api.get<ApiResponse<AuthMeResponse>>('/auth/me'),
 
@@ -375,15 +385,16 @@ export const orderApi = {
     scheduledFor?: string | null;
   }) => api.post<ApiResponse<Order>>('/orders', data),
 
-  listMine: () => api.get<ApiResponse<Order[]>>('/orders/mine'),
-
-  getMine: (orderId: Id) => api.get<ApiResponse<OrderDetail>>(`/orders/mine/${orderId}`),
+  listMine: () => api.get<ApiResponse<CustomerOrderSummary[]>>('/orders/mine'),
 
   cancelMine: (orderId: Id, reason?: string) =>
     api.post<ApiResponse<Order>>(`/orders/mine/${orderId}/cancel`, { reason }),
 
   listForBusiness: (businessId: Id, params?: OrderListQuery) =>
     api.get<ApiResponse<Order[]>>(`/business/${businessId}/orders`, { params: staffParams(params) }),
+
+  getBusinessInboxCounts: (businessId: Id) =>
+    api.get<ApiResponse<BusinessInboxCounts>>(`/business/${businessId}/inbox-counts`),
 
   /**
    * The detail response carries the order and its lines together.
@@ -404,6 +415,7 @@ export interface ReviewEligibility {
   eligible: boolean;
   order_id: Id | null;
   already_reviewed: boolean;
+  is_member: boolean;
 }
 
 export const reviewApi = {
@@ -424,6 +436,24 @@ export const reviewApi = {
 
   moderate: (businessId: Id, reviewId: Id, status: 'published' | 'hidden') =>
     api.patch<ApiResponse<BusinessReview>>(`/business/${businessId}/reviews/${reviewId}/moderate`, { status }),
+
+  productEligibility: (productId: Id) =>
+    api.get<ApiResponse<ReviewEligibility>>(`/product-reviews/eligibility/${productId}`),
+
+  createProductReview: (data: { productId: number; orderId: number; rating: number; reviewText?: string | null }) =>
+    api.post<ApiResponse<ProductReview>>('/product-reviews', data),
+
+  listPublicForProduct: (productId: Id, limit = 50, offset = 0) =>
+    api.get<ApiResponse<PublicProductReview[]>>('/product-reviews', { params: { productId, limit, offset } }),
+
+  listProductReviewsForBusiness: (businessId: Id, params?: ReviewListQuery) =>
+    api.get<ApiResponse<ProductReview[]>>(`/business/${businessId}/product-reviews`, { params: staffParams(params) }),
+
+  moderateProduct: (businessId: Id, reviewId: Id, status: 'published' | 'hidden') =>
+    api.patch<ApiResponse<ProductReview>>(`/business/${businessId}/product-reviews/${reviewId}/moderate`, { status }),
+
+  respondToProduct: (businessId: Id, reviewId: Id, response: string) =>
+    api.post<ApiResponse<ProductReview>>(`/business/${businessId}/product-reviews/${reviewId}/respond`, { response }),
 };
 
 // Locations API

@@ -10,6 +10,7 @@ import { businessApi, directoryApi, authApi, toFieldIssue, type FieldIssue } fro
 import { normalisePhone } from '../lib/phone';
 import { useAuth } from '../context/useAuth';
 import { useCategories } from '../hooks/useCategories';
+import { VerificationJourney } from '../components/home/VerificationJourney';
 import type { BusinessProfilePatch, BusinessRegistrationInput, PublicCity, StaffBusinessProfile } from '../types';
 
 interface FormState {
@@ -345,6 +346,8 @@ export function ListYourBusinessPage() {
         </p>
       </div>
 
+      <VerificationJourney ctaTarget="#list-business-form" />
+
       <Card className="p-6">
         {profileLoading || loading || categoriesLoading ? (
           <div className="space-y-4">
@@ -354,7 +357,7 @@ export function ListYourBusinessPage() {
           </div>
         ) : (
           <>
-          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+          <form id="list-business-form" onSubmit={handleSubmit} className="scroll-mt-24 space-y-5" noValidate>
             {issue && !issue.field && (
               <p
                 className="p-3 bg-error-50 border border-error-200 rounded-button text-error-700 text-sm"

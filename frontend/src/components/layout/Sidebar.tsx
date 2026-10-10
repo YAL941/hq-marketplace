@@ -1,15 +1,17 @@
-import { HTMLAttributes, forwardRef, useState } from 'react';
+import { HTMLAttributes, forwardRef, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, ShoppingBag, Users, Package, Truck, Star, BarChart3, Settings, ChevronRight, LogOut,
+  ShoppingBag, ChevronRight, LogOut,
 } from 'lucide-react';
-import { Logo } from '../branding/Logo';
 import { SmartImage } from '../common/SmartImage';
 import { useAuth } from '../../context/useAuth';
 import type { Id } from '../../types';
 import { Avatar } from './Avatar';
+import { businessDashboardPath, dashboardNavigation } from './dashboardNavigation';
+import { orderApi } from '../../services/api';
+import type { BusinessInboxCounts } from '../../types';
 
 // Labels are translation keys, not text: they have to resolve in the active
 // language at render time, and a module-level string would be frozen in English.
@@ -19,18 +21,6 @@ import { Avatar } from './Avatar';
 // link that left the id out would resolve to the dashboard index, which
 // forwards to whichever business happens to be first — the wrong one whenever
 // the account owns more than one.
-const navigation = [
-  { key: 'sidebar.overview', path: '', icon: LayoutDashboard },
-  { key: 'sidebar.products', path: '/products', icon: Package },
-  { key: 'sidebar.services', path: '/services', icon: Truck },
-  { key: 'sidebar.orders', path: '/orders', icon: ShoppingBag },
-  { key: 'sidebar.customers', path: '/customers', icon: Users },
-  { key: 'sidebar.reviews', path: '/reviews', icon: Star },
-  { key: 'sidebar.analytics', path: '/analytics', icon: BarChart3 },
-];
-
-const businessHome = (businessId: Id) => `/dashboard/business/${businessId}`;
-
 interface SidebarProps extends HTMLAttributes<HTMLElement> {}
 
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
@@ -40,6 +30,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
     const navigate = useNavigate();
     const { user, businesses, currentBusiness, currentBusinessLogo, logout, setCurrentBusiness } = useAuth();
     const [collapsed, setCollapsed] = useState(false);
+    const [inboxCounts, setInboxCounts] = useState<BusinessInboxCounts | null>(null);
 
     /**
      * Which business the links point at.
@@ -50,6 +41,26 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
      */
     const pathBusinessId = location.pathname.match(/^\/dashboard\/business\/([^/]+)/)?.[1];
     const activeBusinessId = pathBusinessId ?? currentBusiness?.business_id;
+
+    const loadInboxCounts = useCallback(async () => {
+      if (!activeBusinessId) {
+        setInboxCounts(null);
+        return;
+      }
+      try {
+        const response = await orderApi.getBusinessInboxCounts(activeBusinessId);
+        setInboxCounts(response.data.data);
+      } catch (error) {
+        setInboxCounts(null);
+        console.error('Failed to load business inbox counts:', error);
+      }
+    }, [activeBusinessId]);
+
+    useEffect(() => {
+      void loadInboxCounts();
+      const interval = window.setInterval(() => void loadInboxCounts(), 30_000);
+      return () => window.clearInterval(interval);
+    }, [loadInboxCounts]);
 
     /**
      * Switching workspace.
@@ -64,33 +75,24 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
       const next = businesses.find((business) => business.business_id === businessId);
       if (!next || next.business_id === currentBusiness?.business_id) return;
       setCurrentBusiness(next);
-      navigate(businessHome(next.business_id));
+      navigate(businessDashboardPath(next.business_id));
     };
 
     return (
       <aside
         ref={ref}
         className={cn(
-          // start-0 and border-e keep the sidebar on the reading edge in both
-          // directions instead of being pinned to the physical left.
-          'fixed inset-y-0 start-0 z-40 bg-white border-e border-navy-200 transition-all duration-300',
-          collapsed ? 'w-20' : 'w-64',
+          'dashboard-sidebar fixed top-16 bottom-0 start-0 z-40 hidden border-e border-navy-200 bg-white transition-all duration-300 md:block',
+          collapsed ? 'w-20' : 'w-56',
           className
         )}
         {...props}
       >
         <div className="flex flex-col h-full">
-          <div className={cn('flex items-center justify-between h-16 px-4 border-b border-navy-200', collapsed && 'justify-center')}>
-            <Logo
-                to="/dashboard"
-                ariaLabel={t('brand.dashboardLabel')}
-                variant="light"
-                size="sm"
-                className={cn('min-w-0', collapsed && '[&>span:last-child]:hidden')}
-              />
+          <div className={cn('flex h-10 items-center justify-end px-4', collapsed && 'justify-center')}>
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className={cn('p-1.5 rounded-button hover:bg-navy-100 transition-colors', collapsed && 'ms-auto')}
+              className="rounded-button p-1.5 text-navy-500 transition-colors hover:bg-navy-100 hover:text-navy-900"
               aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
               aria-expanded={!collapsed}
             >
@@ -163,7 +165,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
           {currentBusiness && collapsed && (
             <div className="px-3 py-3 border-b border-navy-100 flex justify-center">
               <NavLink
-                to={businessHome(currentBusiness.business_id)}
+                to={businessDashboardPath(currentBusiness.business_id)}
                 title={currentBusiness.business_name}
                 aria-label={`${t('sidebar.currentBusiness')}: ${currentBusiness.business_name}`}
                 className="w-10 h-10 rounded-sg bg-primary-100 flex items-center justify-center overflow-hidden"
@@ -179,48 +181,66 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
             </div>
           )}
 
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label={t('nav.dashboardNavigation')}>
-            {activeBusinessId && navigation.map((item) => {
-              const href = `${businessHome(activeBusinessId)}${item.path}`;
-              const isActive =
-                item.path === ''
-                  ? location.pathname === href
-                  : location.pathname.startsWith(href);
-              const label = t(item.key);
-              return (
-                <NavLink
-                  key={item.key}
-                  to={href}
-                  className={({ isActive: active }) => cn(
-                    'relative flex items-center gap-3 rounded-xl border-s-4 px-3 py-2.5 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-                    active
-                      ? 'border-s-primary-600 bg-primary-50 text-primary-700 shadow-sm'
-                      : 'border-s-transparent text-navy-600 hover:bg-navy-50 hover:text-navy-900',
-                    collapsed && 'justify-center'
-                  )}
-                  title={collapsed ? label : undefined}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0 opacity-80" aria-hidden="true" />
-                  {!collapsed && <span>{label}</span>}
-                </NavLink>
-              );
-            })}
-            <NavLink
-              to="/dashboard/settings"
-              className={({ isActive }) => cn(
-                'relative flex items-center gap-3 rounded-xl border-s-4 px-3 py-2.5 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-                isActive
-                  ? 'border-s-primary-600 bg-primary-50 text-primary-700 shadow-sm'
-                  : 'border-s-transparent text-navy-600 hover:bg-navy-50 hover:text-navy-900',
-                collapsed && 'justify-center'
-              )}
-              title={collapsed ? t('sidebar.settings') : undefined}
-              aria-current={location.pathname === '/dashboard/settings' ? 'page' : undefined}
-            >
-              <Settings className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
-              {!collapsed && <span>{t('sidebar.settings')}</span>}
-            </NavLink>
+          <nav className="dashboard-sidebar-nav min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3" aria-label={t('nav.dashboardNavigation')}>
+            {dashboardNavigation.map((group) => (
+              <div key={group.heading ?? 'overview'} className="space-y-1">
+                {group.heading && !collapsed && (
+                  <h2 className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-navy-500">
+                    {t(group.heading)}
+                  </h2>
+                )}
+                {group.items.map((item) => {
+                  const globalPath = item.path === '/dashboard/settings';
+                  const href = globalPath
+                    ? item.path
+                    : `${businessDashboardPath(activeBusinessId ?? currentBusiness?.business_id ?? '')}${item.path}`;
+                  const isActive =
+                    globalPath
+                      ? location.pathname === href
+                      : item.path === ''
+                      ? location.pathname === href
+                      : location.pathname.startsWith(href);
+                  const label = t(item.key);
+                  const count = item.path === '/orders'
+                    ? inboxCounts?.pending_orders ?? 0
+                    : item.path === '/reviews'
+                    ? inboxCounts?.pending_reviews ?? 0
+                    : 0;
+                  const badgeLabel = item.path === '/orders'
+                    ? t('sidebar.pendingOrdersBadge', { count })
+                    : t('sidebar.pendingReviewsBadge', { count });
+                  return (
+                    <NavLink
+                      key={item.key}
+                      to={href}
+                      className={({ isActive: active }) => cn(
+                        'dashboard-nav-link relative flex items-center gap-3 rounded-xl border-s-4 px-3 py-2.5 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                        active
+                          ? 'border-s-primary-600 bg-primary-50 text-primary-700 shadow-sm'
+                          : 'border-s-transparent text-navy-600 hover:bg-navy-50 hover:text-navy-900',
+                        collapsed && 'justify-center'
+                      )}
+                      title={collapsed ? (count > 0 ? `${label} (${count})` : label) : undefined}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      <item.icon className="w-5 h-5 flex-shrink-0 opacity-80" aria-hidden="true" />
+                      {!collapsed && <span>{label}</span>}
+                      {count > 0 && (
+                        <span
+                          aria-label={badgeLabel}
+                          className={cn(
+                            'ms-auto inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white',
+                            collapsed && 'absolute end-1 top-1 min-w-4 px-1 text-[10px]'
+                          )}
+                        >
+                          {count > 99 ? '99+' : count}
+                        </span>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
 
           {!collapsed && (

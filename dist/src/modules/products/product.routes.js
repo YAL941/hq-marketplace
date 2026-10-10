@@ -27,6 +27,7 @@ function createSchema(businessId) {
         productName: z.string().min(2).max(200),
         categoryId: z.number().int().positive().nullish(),
         description: z.string().max(5000).nullish(),
+        ingredients: z.string().max(5000).nullish(),
         price: z.number().nonnegative(),
         currency: z.string().length(3).regex(/^[A-Z]{3}$/).optional(),
         sku: z.string().max(64).nullish(),

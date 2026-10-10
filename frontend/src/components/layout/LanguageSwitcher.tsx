@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown, Globe } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useLocation } from 'react-router-dom';
 import {
   DEFAULT_LANGUAGE,
   LANGUAGE_NAMES,
@@ -17,15 +18,26 @@ interface LanguageSwitcherProps {
    * the mobile drawer, where a floating popover would be clipped by the
    * overflow on the drawer.
    */
-  variant?: 'menu' | 'inline';
+  variant?: 'menu' | 'inline' | 'account';
 }
 
 export function LanguageSwitcher({ className, variant = 'menu' }: LanguageSwitcherProps) {
   const { t, i18n } = useTranslation();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const current = (i18n.resolvedLanguage ?? i18n.language) as SupportedLanguage;
   const currentName = LANGUAGE_NAMES[current] ?? LANGUAGE_NAMES[DEFAULT_LANGUAGE];
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname, location.search, location.hash]);
+
+  useEffect(() => {
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, { passive: true });
+    return () => window.removeEventListener('scroll', close);
+  }, []);
 
   // Close on outside click or Escape. Without this the menu stays open behind
   // whatever the user clicked next, which is worse than no menu at all.
@@ -74,6 +86,51 @@ export function LanguageSwitcher({ className, variant = 'menu' }: LanguageSwitch
             {language === current && <Check className="w-4 h-4" aria-hidden="true" />}
           </button>
         ))}
+      </div>
+    );
+  }
+
+  if (variant === 'account') {
+    return (
+      <div ref={containerRef} className={cn('relative', className)}>
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-label={t('language.change')}
+          className="flex min-h-10 w-full items-center gap-2 rounded-button px-3 py-2 text-sm text-navy-700 hover:bg-navy-50"
+        >
+          <Globe className="h-4 w-4" aria-hidden="true" />
+          <span>{t('language.label')}</span>
+          <ChevronDown
+            className={cn('ms-auto h-3.5 w-3.5 transition-transform', open && 'rotate-180')}
+            aria-hidden="true"
+          />
+        </button>
+        {open && (
+          <ul role="listbox" aria-label={t('language.label')} className="mt-1 space-y-1">
+            {SUPPORTED_LANGUAGES.map((language) => (
+              <li key={language} role="option" aria-selected={language === current}>
+                <button
+                  type="button"
+                  onClick={() => select(language)}
+                  lang={language}
+                  dir={directionFor(language)}
+                  className={cn(
+                    'flex w-full items-center justify-between gap-2 rounded-button px-3 py-2 text-sm',
+                    language === current
+                      ? 'bg-primary-50 font-medium text-primary-600'
+                      : 'text-navy-700 hover:bg-navy-50'
+                  )}
+                >
+                  <span>{LANGUAGE_NAMES[language]}</span>
+                  {language === current && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     );
   }

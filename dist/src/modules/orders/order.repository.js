@@ -150,13 +150,33 @@ export async function listOrderItems(client, orderId) {
 }
 export async function updateOrderStatus(client, businessId, orderId, orderStatus) {
     await assertPermission(client, businessId, 'orders.update');
-    const timestampColumn = orderStatus === 'completed' ? ', completed_at = now()' : orderStatus === 'cancelled' ? ', cancelled_at = now()' : '';
+    const transitions = {
+        pending: ['confirmed', 'cancelled', 'rejected'],
+        confirmed: ['in_progress', 'cancelled'],
+        in_progress: ['ready', 'out_for_delivery', 'completed', 'cancelled'],
+        ready: ['out_for_delivery', 'completed', 'cancelled'],
+        out_for_delivery: ['completed', 'cancelled'],
+    };
+    const { rows: currentRows } = await client.query('SELECT order_status FROM orders WHERE order_id = $1 AND business_id = $2', [orderId, businessId]);
+    const currentStatus = currentRows[0]?.order_status;
+    if (!currentStatus)
+        throw notFound('Order not found in this business');
+    if (!transitions[currentStatus]?.includes(orderStatus)) {
+        throw badRequest(`Order cannot transition from ${currentStatus} to ${orderStatus}`);
+    }
+    let timestampColumn = '';
+    if (orderStatus === 'confirmed')
+        timestampColumn = ', confirmed_at = now()';
+    if (orderStatus === 'completed')
+        timestampColumn = ', completed_at = now()';
+    if (orderStatus === 'cancelled')
+        timestampColumn = ', cancelled_at = now()';
     const { rows } = await client.query(`UPDATE orders
             SET order_status = $3 ${timestampColumn}
-          WHERE order_id = $1 AND business_id = $2
-          RETURNING *`, [orderId, businessId, orderStatus]);
+          WHERE order_id = $1 AND business_id = $2 AND order_status = $4
+          RETURNING *`, [orderId, businessId, orderStatus, currentStatus]);
     if (!rows[0])
-        throw notFound('Order not found in this business');
+        throw conflict('Order status changed before this update could be applied');
     return rows[0];
 }
 /** A customer may cancel their own order while it is still pending. */

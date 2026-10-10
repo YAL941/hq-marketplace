@@ -1,0 +1,518 @@
+.verification-journey {
+  --brand: #1769c4;
+  --ok: #17845b;
+  --warn: #e7a925;
+  --bad: #d64444;
+  --cycle-duration: 12s;
+  --step-duration: 4s;
+}
+
+/* الحركة على البطاقات والطبقات الزخرفية فقط، وبالمحورين transform وopacity. */
+.verification-card {
+  border: 1px solid transparent;
+  isolation: isolate;
+}
+
+.verification-card::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border: 2px solid var(--brand);
+  border-radius: inherit;
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+}
+
+.verification-card__content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+}
+
+.verification-card--review::before {
+  border-color: var(--warn);
+}
+
+.verification-card--approval::before {
+  border-color: var(--ok);
+}
+
+.verification-journey[data-animate='true'] .verification-card {
+  animation: verification-focus var(--cycle-duration) linear infinite both;
+}
+
+.verification-journey[data-animate='true'] .verification-card::before {
+  animation: verification-outline var(--cycle-duration) linear infinite both;
+}
+
+.verification-journey[data-animate='true'] .verification-card--review {
+  animation-delay: calc(0s - var(--step-duration));
+}
+
+.verification-journey[data-animate='true'] .verification-card--review::before {
+  animation-delay: calc(0s - var(--step-duration));
+}
+
+.verification-journey[data-animate='true'] .verification-card--approval {
+  animation-delay: calc(0s - (var(--cycle-duration) - var(--step-duration)));
+}
+
+.verification-journey[data-animate='true'] .verification-card--approval::before {
+  animation-delay: calc(0s - (var(--cycle-duration) - var(--step-duration)));
+}
+
+.verification-journey[data-paused='true'] .verification-card,
+.verification-journey[data-paused='true'] .verification-card::before,
+.verification-journey:hover .verification-card,
+.verification-journey:hover .verification-card::before {
+  animation-play-state: paused;
+}
+
+.verification-form,
+.verification-review,
+.verification-approved {
+  width: min(100%, 17rem);
+}
+
+.verification-form {
+  padding: 0.75rem;
+  border: 1px solid #d9e6f4;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 4px 12px rgb(11 42 74 / 8%);
+}
+
+.verification-form__heading,
+.verification-review__top,
+.verification-review__business,
+.verification-active,
+.verification-email {
+  display: flex;
+  align-items: center;
+}
+
+.verification-form__heading {
+  gap: 0.45rem;
+  color: var(--brand);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.verification-form__field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  color: #61758a;
+  font-size: 0.58rem;
+}
+
+.verification-form__field i {
+  position: relative;
+  width: 58%;
+  height: 0.35rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #d9e6f4;
+}
+
+.verification-form__field i::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--brand);
+  content: '';
+}
+
+.verification-form__field--short i {
+  width: 42%;
+}
+
+.verification-journey[data-animate='true'] .verification-form__field i::after {
+  animation: verification-fill var(--cycle-duration) linear infinite both;
+  transform-origin: left center;
+}
+
+[dir='rtl'] .verification-journey[data-animate='true'] .verification-form__field i::after {
+  transform-origin: right center;
+}
+
+.verification-journey[data-animate='true'] .verification-submit {
+  animation: verification-submit-press var(--cycle-duration) linear infinite both;
+}
+
+.verification-submit,
+.verification-approve {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.45rem;
+  background: var(--brand);
+  color: white;
+  font-size: 0.58rem;
+  font-weight: 700;
+}
+
+.verification-submit {
+  min-height: 1.35rem;
+  margin-top: 0.6rem;
+  padding-inline: 0.65rem;
+}
+
+.verification-review {
+  padding: 0.9rem;
+  border: 1px solid #d9e6f4;
+  border-radius: 0.75rem;
+  background: white;
+  box-shadow: 0 4px 12px rgb(11 42 74 / 8%);
+}
+
+.verification-review__top {
+  position: relative;
+  gap: 0.7rem;
+}
+
+.verification-bell {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: #fff7e5;
+  color: #a66b00;
+}
+
+.verification-journey[data-animate='true'] .verification-bell {
+  animation: verification-ring var(--cycle-duration) linear infinite both;
+}
+
+.verification-journey[data-animate='true'] .verification-count {
+  animation: verification-count-reveal var(--cycle-duration) linear infinite both;
+}
+
+.verification-journey[data-animate='true'] .verification-approve {
+  animation: verification-approve-press var(--cycle-duration) linear infinite both;
+}
+
+.verification-journey[data-animate='true'] .verification-review__business {
+  animation: verification-business-arrive var(--cycle-duration) linear infinite both;
+  animation-delay: calc(0s - var(--step-duration));
+}
+
+.verification-journey[data-animate='true'] .verification-active {
+  animation: verification-active-reveal var(--cycle-duration) linear infinite both;
+}
+
+.verification-journey[data-animate='true'] .verification-email {
+  animation: verification-email-reveal var(--cycle-duration) linear infinite both;
+}
+
+.verification-count {
+  position: absolute;
+  inset-block-start: -0.35rem;
+  inset-inline-start: 1.35rem;
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  border: 2px solid white;
+  border-radius: 999px;
+  background: var(--bad);
+  color: white;
+  font-size: 0.55rem;
+  font-weight: 700;
+}
+
+.verification-pending,
+.verification-active {
+  gap: 0.25rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.verification-pending {
+  margin-inline-start: auto;
+  padding: 0.3rem 0.55rem;
+  background: #fff7e5;
+  color: #946000;
+}
+
+.verification-review__business {
+  gap: 0.55rem;
+  margin-top: 0.8rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #e5edf5;
+}
+
+.verification-building {
+  color: #66819b;
+}
+
+.verification-lines {
+  display: grid;
+  flex: 1;
+  gap: 0.3rem;
+}
+
+.verification-lines i {
+  height: 0.3rem;
+  border-radius: 999px;
+  background: #d9e6f4;
+}
+
+.verification-lines i:last-child {
+  width: 65%;
+}
+
+.verification-approve {
+  min-height: 1.4rem;
+  padding-inline: 0.55rem;
+  background: var(--ok);
+}
+
+.verification-approved {
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+}
+
+.verification-active {
+  min-height: 2rem;
+  padding: 0.35rem 0.75rem;
+  background: #e8f7ef;
+  color: #116b49;
+}
+
+.verification-check {
+  transform-origin: left center;
+}
+
+[dir='rtl'] .verification-check {
+  transform-origin: right center;
+}
+
+.verification-email {
+  gap: 0.55rem;
+  color: #47637d;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.verification-email svg {
+  color: var(--ok);
+}
+
+.verification-journey[data-animate='true'] .verification-check {
+  animation: verification-check-draw var(--cycle-duration) linear infinite both;
+}
+
+.verification-journey[data-paused='true'] .verification-check,
+.verification-journey:hover .verification-check,
+.verification-journey[data-paused='true'] .verification-review__business,
+.verification-journey:hover .verification-review__business,
+.verification-journey[data-paused='true'] .verification-bell,
+.verification-journey:hover .verification-bell,
+.verification-journey[data-paused='true'] .verification-form__field i::after,
+.verification-journey:hover .verification-form__field i::after,
+.verification-journey[data-paused='true'] .verification-submit,
+.verification-journey:hover .verification-submit,
+.verification-journey[data-paused='true'] .verification-count,
+.verification-journey:hover .verification-count,
+.verification-journey[data-paused='true'] .verification-approve,
+.verification-journey:hover .verification-approve,
+.verification-journey[data-paused='true'] .verification-active,
+.verification-journey:hover .verification-active,
+.verification-journey[data-paused='true'] .verification-email,
+.verification-journey:hover .verification-email {
+  animation-play-state: paused;
+}
+
+@keyframes verification-focus {
+  0%,
+  30% {
+    opacity: 1;
+    transform: translateY(-0.35rem);
+  }
+  33.333%,
+  96.667% {
+    opacity: 0.84;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(-0.35rem);
+  }
+}
+
+@keyframes verification-outline {
+  0%,
+  30% {
+    opacity: 1;
+  }
+  33.333%,
+  96.667% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes verification-ring {
+  0%,
+  33.333%,
+  38.333%,
+  100% {
+    transform: rotate(0);
+  }
+  34.333%,
+  36.333% {
+    transform: rotate(-10deg);
+  }
+  35.333%,
+  37.333% {
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes verification-business-arrive {
+  0%,
+  36% {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  43%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes verification-fill {
+  0%,
+  1% {
+    transform: scaleX(0);
+  }
+  7%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes verification-submit-press {
+  0%,
+  17%,
+  20%,
+  100% {
+    transform: scale(1);
+  }
+  18.5% {
+    transform: scale(0.94);
+  }
+}
+
+@keyframes verification-count-reveal {
+  0%,
+  33.333%,
+  100% {
+    opacity: 0;
+    transform: scale(0.65);
+  }
+  36%,
+  66.667% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes verification-approve-press {
+  0%,
+  62%,
+  65%,
+  100% {
+    transform: scale(1);
+  }
+  63.5% {
+    transform: scale(0.94);
+  }
+}
+
+@keyframes verification-check-draw {
+  0%,
+  66.666% {
+    transform: scaleX(0);
+  }
+  75%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes verification-active-reveal {
+  0%,
+  74% {
+    opacity: 0;
+  }
+  78%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes verification-email-reveal {
+  0%,
+  82% {
+    opacity: 0;
+  }
+  86%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@media (hover: hover) {
+  .verification-journey:hover .verification-card,
+  .verification-journey:hover .verification-card::before,
+  .verification-journey:hover .verification-check,
+  .verification-journey:hover .verification-bell {
+    animation-play-state: paused;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verification-journey[data-animate='true'] .verification-card,
+  .verification-journey[data-animate='true'] .verification-card::before,
+  .verification-journey[data-animate='true'] .verification-check,
+  .verification-journey[data-animate='true'] .verification-bell,
+  .verification-journey[data-animate='true'] .verification-review__business,
+  .verification-journey[data-animate='true'] .verification-form__field i::after,
+  .verification-journey[data-animate='true'] .verification-submit,
+  .verification-journey[data-animate='true'] .verification-count,
+  .verification-journey[data-animate='true'] .verification-approve,
+  .verification-journey[data-animate='true'] .verification-active,
+  .verification-journey[data-animate='true'] .verification-email {
+    animation: none;
+  }
+
+  .verification-toggle {
+    display: none;
+  }
+}
+
+html[data-theme='dark'] .verification-form,
+html[data-theme='dark'] .verification-review {
+  border-color: #254768;
+  background-color: #0d2742;
+}
+
+html[data-theme='dark'] .verification-form__field,
+html[data-theme='dark'] .verification-email {
+  color: #d6e4f1;
+}
+
+html[data-theme='dark'] .verification-review__business {
+  border-color: #254768;
+}

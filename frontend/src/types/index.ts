@@ -384,6 +384,7 @@ export interface Product {
   category_id: Id | null;
   product_name: string;
   description: string | null;
+  ingredients: string | null;
   price: string;
   discount_price: string | null;
   currency: string;
@@ -421,6 +422,7 @@ export interface ProductInput {
   productName: string;
   categoryId?: number | null;
   description?: string | null;
+  ingredients?: string | null;
   /** A number, not a string: the schema is `z.number().nonnegative()`. */
   price: number;
   currency?: string;
@@ -476,6 +478,41 @@ export interface Order {
   scheduled_for: string | null;
   created_at: string;
   updated_at: string;
+  preview_item_name?: string | null;
+  preview_image_url?: string | null;
+}
+
+export interface BusinessInboxCounts {
+  pending_orders: number;
+  pending_reviews: number;
+}
+
+export interface CustomerOrderSummary {
+  order_id: Id;
+  order_number: string;
+  business_id: Id;
+  business_name: string;
+  business_slug: string;
+  order_type: string;
+  order_status: OrderStatus;
+  total_amount: string;
+  currency: string;
+  created_at: string;
+  items: CustomerOrderItem[];
+}
+
+export interface CustomerOrderItem {
+  order_item_id: Id;
+  product_id: Id | null;
+  service_id: Id | null;
+  item_type: string;
+  item_name: string;
+  quantity: number;
+  unit_price: string;
+  total_price: string;
+  notes: string | null;
+  image_url: string | null;
+  ingredients: string | null;
 }
 
 /**
@@ -495,6 +532,8 @@ export interface OrderItem {
   unit_price: string;
   total_price: string;
   notes: string | null;
+  image_url?: string | null;
+  ingredients?: string | null;
 }
 
 export interface OrderDetail {
@@ -523,6 +562,31 @@ export interface BusinessReview {
   status: ReviewStatus;
   created_at: string;
   updated_at: string;
+}
+
+export interface ProductReview {
+  product_review_id: Id;
+  business_id: Id;
+  product_id: Id;
+  product_name?: string;
+  author_name?: string;
+  user_id: Id;
+  order_id: Id;
+  rating: number;
+  review_text: string | null;
+  business_response: string | null;
+  status: ReviewStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PublicProductReview {
+  product_review_id: Id;
+  rating: number;
+  review_text: string | null;
+  business_response: string | null;
+  created_at: string;
+  author_name: string;
 }
 
 /**

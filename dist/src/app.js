@@ -133,6 +133,8 @@ export function createApp(options = {}) {
                     'GET  /api/products',
                     'GET  /api/services',
                     'GET  /api/reviews',
+                    'POST /api/auth/password-reset/request',
+                    'POST /api/auth/password-reset/confirm',
                 ],
                 authenticated: [
                     'POST /api/auth/register',

@@ -8,6 +8,7 @@ export interface ProductRow {
     category_id: string | null;
     product_name: string;
     description: string | null;
+    ingredients: string | null;
     price: string;
     discount_price: string | null;
     currency: string;
@@ -90,6 +91,7 @@ export interface CreateProductInput {
     productName: string;
     categoryId?: number | null;
     description?: string | null;
+    ingredients?: string | null;
     price: number;
     currency?: string;
     sku?: string | null;
@@ -109,15 +111,16 @@ export async function createProduct(
     }
     const { rows } = await client.query<ProductRow>(
         `INSERT INTO products
-            (business_id, category_id, product_name, description, price, currency, sku, image_url,
+            (business_id, category_id, product_name, description, ingredients, price, currency, sku, image_url,
              stock_quantity, status)
-         VALUES ($1, $2, $3, $4, $5, COALESCE($6::char(3), 'USD'), $7, $8, $9, COALESCE($10::catalog_status, 'draft'::catalog_status))
+         VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::char(3), 'USD'), $8, $9, $10, COALESCE($11::catalog_status, 'draft'::catalog_status))
          RETURNING *`,
         [
             businessId,
             input.categoryId ?? null,
             input.productName,
             input.description ?? null,
+            input.ingredients ?? null,
             input.price,
             input.currency ?? null,
             input.sku ?? null,
@@ -139,6 +142,7 @@ export async function updateProduct(
         productName: 'product_name',
         categoryId: 'category_id',
         description: 'description',
+        ingredients: 'ingredients',
         price: 'price',
         currency: 'currency',
         sku: 'sku',

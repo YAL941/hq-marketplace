@@ -7,21 +7,18 @@ import { Button } from '../components/common/Button';
 import { Badge, type BadgeVariant } from '../components/common/Badge';
 import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
+import { SmartImage } from '../components/common/SmartImage';
 import { orderApi, toFieldIssue, type FieldIssue } from '../services/api';
 import { formatCurrency, formatDateTime } from '../lib/utils';
 import type { Id, OrderDetail, OrderStatus, SettableOrderStatus } from '../types';
 
-/**
- * The statuses the status endpoint accepts.
- *
- * `pending` is missing on purpose: the customer owns that state and the route's
- * schema does not accept it as a target. `refunded` is missing for the same
- * reason. Offering either would be a 400 waiting to happen.
- */
-const SETTABLE: SettableOrderStatus[] = [
-  'confirmed', 'in_progress', 'ready', 'out_for_delivery',
-  'completed', 'cancelled', 'rejected',
-];
+const STATUS_TRANSITIONS: Partial<Record<OrderStatus, SettableOrderStatus[]>> = {
+  pending: ['confirmed', 'cancelled', 'rejected'],
+  confirmed: ['in_progress', 'cancelled'],
+  in_progress: ['ready', 'out_for_delivery', 'completed', 'cancelled'],
+  ready: ['out_for_delivery', 'completed', 'cancelled'],
+  out_for_delivery: ['completed', 'cancelled'],
+};
 
 const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   pending: 'warning',
@@ -117,7 +114,7 @@ export function OrderDetailPage() {
   }
 
   const { order, items } = data;
-  const currentIsSettable = (SETTABLE as string[]).includes(order.order_status);
+  const availableStatuses = STATUS_TRANSITIONS[order.order_status] ?? [];
 
   return (
     <div>
@@ -147,6 +144,16 @@ export function OrderDetailPage() {
               <ul className="divide-y divide-navy-100">
                 {items.map((item) => (
                   <li key={item.order_item_id} className="py-3 flex items-start gap-4">
+                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-navy-100">
+                      <SmartImage
+                        value={item.image_url}
+                        alt={item.item_name}
+                        width={80}
+                        height={80}
+                        className="h-full w-full object-cover"
+                        fallback={<div className="flex h-full items-center justify-center text-navy-400"><Package className="h-7 w-7" aria-hidden="true" /></div>}
+                      />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-navy-900">{item.item_name}</p>
                       <p className="text-sm text-navy-500">
@@ -238,18 +245,18 @@ export function OrderDetailPage() {
               </p>
             )}
 
-            {!currentIsSettable ? (
+            {availableStatuses.length === 0 ? (
               <p className="text-sm text-navy-500">{t('order.statusLocked')}</p>
             ) : (
               <div className="space-y-2">
-                {SETTABLE.map((value) => (
+                {availableStatuses.map((value) => (
                   <Button
                     key={value}
-                    variant={value === order.order_status ? 'primary' : 'outline'}
+                    variant="outline"
                     size="sm"
                     className="w-full"
-                    loading={saving && value === order.order_status}
-                    disabled={saving || value === order.order_status}
+                    loading={saving}
+                    disabled={saving}
                     onClick={() => void changeStatus(value)}
                   >
                     {t(`orderStatus.${value}`)}

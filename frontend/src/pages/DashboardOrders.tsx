@@ -6,6 +6,7 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
 import { Badge, type BadgeVariant } from '../components/common/Badge';
+import { SmartImage } from '../components/common/SmartImage';
 import { OffsetPagerView, StaffListLayout } from '../components/common/OffsetPager';
 import { useOffsetPager } from '../components/common/useOffsetPager';
 import { orderApi } from '../services/api';
@@ -116,6 +117,18 @@ export function DashboardOrdersPage() {
           {orders.map((order) => (
             <Card key={order.order_id} padding="none" className="p-4">
               <div className="flex flex-wrap items-center gap-4">
+                {order.preview_item_name && (
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-navy-100">
+                    <SmartImage
+                      value={order.preview_image_url}
+                      alt={order.preview_item_name}
+                      width={64}
+                      height={64}
+                      className="h-full w-full object-cover"
+                      fallback={<div className="flex h-full items-center justify-center text-navy-400"><Package className="h-6 w-6" aria-hidden="true" /></div>}
+                    />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-semibold text-navy-900">{order.order_number}</h3>
@@ -129,6 +142,9 @@ export function DashboardOrdersPage() {
                   <p className="text-xs text-navy-400 mt-0.5">
                     {t('order.type')}: {t(`orderType.${order.order_type}`, { defaultValue: order.order_type })}
                   </p>
+                  {order.preview_item_name && (
+                    <p className="text-sm text-navy-700 mt-1 truncate">{order.preview_item_name}</p>
+                  )}
                 </div>
 
                 <p className="font-semibold text-navy-900">

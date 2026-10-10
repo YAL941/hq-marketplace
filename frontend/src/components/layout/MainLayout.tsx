@@ -39,7 +39,7 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
             className={cn(
               'flex-1 flex flex-col transition-all duration-300',
               location.pathname === '/' ? 'min-w-0' : '',
-              showSidebar ? 'lg:ms-64' : ''
+              showSidebar ? 'md:ms-56' : ''
             )}
             style={{ minHeight: 'calc(100vh - 4rem)' }}
           >

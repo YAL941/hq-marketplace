@@ -155,6 +155,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
                     'GET  /api/products',
                     'GET  /api/services',
                     'GET  /api/reviews',
+                    'POST /api/auth/password-reset/request',
+                    'POST /api/auth/password-reset/confirm',
                 ],
                 authenticated: [
                     'POST /api/auth/register',

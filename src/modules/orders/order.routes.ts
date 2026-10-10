@@ -76,8 +76,32 @@ orderRoutes.get('/orders/mine', authenticate, async (req, res, next) => {
     try {
         const orders = await withTenant(contextFor(req), async (client) => {
             const { rows } = await client.query(
-                `SELECT order_id, order_number, business_id, order_status, total_amount, currency, created_at
-                   FROM orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 100`,
+                `SELECT o.order_id, o.order_number, o.business_id, b.business_name, b.business_slug, o.order_type,
+                        o.order_status, o.total_amount, o.currency, o.created_at,
+                        COALESCE(order_lines.items, '[]'::json) AS items
+                   FROM orders o
+                   JOIN businesses b ON b.business_id = o.business_id
+                   LEFT JOIN LATERAL (
+                       SELECT json_agg(json_build_object(
+                           'order_item_id', oi.order_item_id,
+                           'product_id', oi.product_id,
+                           'service_id', oi.service_id,
+                           'item_type', oi.item_type,
+                           'item_name', oi.item_name,
+                           'quantity', oi.quantity,
+                           'unit_price', oi.unit_price,
+                           'total_price', oi.total_price,
+                           'notes', oi.notes,
+                           'image_url', p.image_url,
+                           'ingredients', p.ingredients
+                       ) ORDER BY oi.order_item_id) AS items
+                         FROM order_items oi
+                         LEFT JOIN products p ON p.product_id = oi.product_id
+                        WHERE oi.order_id = o.order_id
+                   ) order_lines ON TRUE
+                  WHERE o.customer_id = $1
+                  ORDER BY o.created_at DESC, o.order_id DESC
+                  LIMIT 100`,
                 [req.user!.id],
             );
             return rows;
@@ -123,6 +147,33 @@ orderRoutes.get('/business/:businessId/orders', authenticate, resolveBusiness, a
             listOrdersForBusiness(client, businessId, q),
         );
         res.json({ data: orders, meta: { count: orders.length, businessId } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+orderRoutes.get('/business/:businessId/inbox-counts', authenticate, resolveBusiness, async (req, res, next) => {
+    try {
+        if (!req.user) throw unauthorized();
+        const businessId = req.businessId!;
+        const counts = await withTenant(contextFor(req, businessId), async (client) => {
+            const { rows } = await client.query<{
+                pending_orders: number;
+                pending_reviews: number;
+            }>(
+                `SELECT
+                    (SELECT count(*)::int FROM orders
+                      WHERE business_id = $1 AND order_status = 'pending') AS pending_orders,
+                    (SELECT count(*)::int FROM reviews
+                      WHERE business_id = $1 AND status = 'pending')
+                    +
+                    (SELECT count(*)::int FROM product_reviews
+                      WHERE business_id = $1 AND status = 'pending') AS pending_reviews`,
+                [businessId],
+            );
+            return rows[0]!;
+        });
+        res.json({ data: counts });
     } catch (error) {
         next(error);
     }

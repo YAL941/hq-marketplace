@@ -34,6 +34,7 @@
  */
 const TEST_SETUP_LOCK_KEY = '72717374'; // "hqst" in ASCII hex
 export const TEST_TABLES = [
+    'product_reviews',
     'user_favorites',
     'order_items',
     'orders',

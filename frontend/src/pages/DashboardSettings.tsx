@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { AlertCircle, Building2, Globe, Save, Shield, Users, XCircle } from 'lucide-react';
+import { AlertCircle, Building2, ExternalLink, Globe, Save, Shield, Users, XCircle } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -95,17 +95,20 @@ function BusinessStatusBanner({ profile }: BusinessStatusBannerProps) {
 
   if (isLive) {
     return (
-      <div className="p-4 bg-success-50 border border-success-200 rounded-button flex items-start gap-3">
-        <Globe className="w-5 h-5 text-success-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-success-800">{t('settings.bannerLive')}</p>
-          <p className="text-sm text-success-700">{t('settings.bannerLiveBody')}</p>
+      <div className="settings-public-listing flex flex-col items-start gap-3 rounded-button border border-success-200 bg-success-50 p-4 sm:flex-row sm:items-center">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/80">
+          <Globe className="h-5 w-5 text-success-600" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="settings-public-listing-title font-semibold">{t('settings.bannerLive')}</p>
+          <p className="settings-public-listing-description mt-0.5 text-sm">{t('settings.bannerLiveBody')}</p>
         </div>
         <Link
           to={`/business/${profile.business_slug}`}
-          className="ms-auto text-sm font-medium text-primary-700 hover:text-primary-800"
+          className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-button border border-success-600/20 bg-white px-4 text-sm font-semibold text-success-700 transition-colors hover:bg-success-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success-600 sm:ms-auto sm:w-auto"
         >
           {t('settings.bannerLiveLink')}
+          <ExternalLink className="h-4 w-4" aria-hidden="true" />
         </Link>
       </div>
     );

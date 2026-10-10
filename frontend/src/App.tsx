@@ -13,10 +13,10 @@ import { CategoryPage } from './pages/CategoryPage';
 import { CategoriesPage } from './pages/Categories';
 import { FavoritesPage } from './pages/Favorites';
 import { FavoritesProvider } from './context/FavoritesContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { BusinessProfilePage } from './pages/BusinessProfile';
 import { LoginPage } from './pages/Login';
 import { RegisterPage } from './pages/Register';
-import { ComingSoonPage } from './pages/ComingSoon';
 import './index.css';
 
 const DashboardHomePage = lazy(() =>
@@ -30,6 +30,9 @@ const DashboardServicesPage = lazy(() =>
 );
 const DashboardOrdersPage = lazy(() =>
   import('./pages/DashboardOrders').then((module) => ({ default: module.DashboardOrdersPage })),
+);
+const MyOrdersPage = lazy(() =>
+  import('./pages/MyOrders').then((module) => ({ default: module.MyOrdersPage })),
 );
 const DashboardReviewsPage = lazy(() =>
   import('./pages/DashboardReviews').then((module) => ({ default: module.DashboardReviewsPage })),
@@ -69,6 +72,18 @@ const LocationManagePage = lazy(() =>
 );
 const LegalPage = lazy(() =>
   import('./pages/legal/LegalPage').then((module) => ({ default: module.LegalPage })),
+);
+const ForgotPasswordPage = lazy(() =>
+  import('./pages/ForgotPassword').then((module) => ({ default: module.ForgotPasswordPage })),
+);
+const ResetPasswordPage = lazy(() =>
+  import('./pages/ResetPassword').then((module) => ({ default: module.ResetPasswordPage })),
+);
+const HowItWorksPage = lazy(() =>
+  import('./pages/HowItWorks').then((module) => ({ default: module.HowItWorksPage })),
+);
+const ContactPage = lazy(() =>
+  import('./pages/Contact').then((module) => ({ default: module.ContactPage })),
 );
 
 function RouteLoadingFallback() {
@@ -360,11 +375,12 @@ function App() {
 
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <FavoritesProvider>
-          <Suspense fallback={<RouteLoadingFallback />}>
-            <RoutesWithErrorBoundary>
-            <Routes>
+      <ThemeProvider>
+        <BrowserRouter>
+          <FavoritesProvider>
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <RoutesWithErrorBoundary>
+              <Routes>
           {/* Public Routes */}
           <Route path="/" element={<MainLayout><HomePage /></MainLayout>} />
           <Route path="/explore" element={<MainLayout><ExplorePage /></MainLayout>} />
@@ -372,8 +388,18 @@ function App() {
           <Route path="/favorites" element={<MainLayout><FavoritesPage /></MainLayout>} />
           <Route path="/categories/:category" element={<MainLayout><CategoryPage /></MainLayout>} />
           <Route path="/business/:businessSlug" element={<MainLayout><BusinessProfilePage /></MainLayout>} />
+          <Route path="/how-it-works" element={<MainLayout><HowItWorksPage /></MainLayout>} />
+          <Route path="/contact" element={<MainLayout><ContactPage /></MainLayout>} />
           <Route path="/login" element={<MainLayout><LoginPage /></MainLayout>} />
           <Route path="/register" element={<MainLayout><RegisterPage /></MainLayout>} />
+          <Route
+            path="/my-orders"
+            element={
+              <PrivateRoute>
+                <MainLayout><MyOrdersPage /></MainLayout>
+              </PrivateRoute>
+            }
+          />
           {/*
             Onboarding, not a dashboard screen: it creates the business itself, so
             it sits outside `/dashboard/business/:businessId`. The guard is the
@@ -396,7 +422,8 @@ function App() {
           <Route path="/privacy" element={<MainLayout><LegalPage doc="privacy" /></MainLayout>} />
           <Route path="/safety" element={<MainLayout><LegalPage doc="safety" /></MainLayout>} />
           <Route path="/terms" element={<MainLayout><LegalPage doc="terms" /></MainLayout>} />
-          <Route path="/forgot-password" element={<MainLayout><ComingSoonPage /></MainLayout>} />
+          <Route path="/forgot-password" element={<MainLayout><ForgotPasswordPage /></MainLayout>} />
+          <Route path="/reset-password" element={<MainLayout><ResetPasswordPage /></MainLayout>} />
 
           {/*
             Dashboard routes. The business id is part of the path because it is
@@ -548,11 +575,12 @@ function App() {
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            </RoutesWithErrorBoundary>
-          </Suspense>
-        </FavoritesProvider>
-      </BrowserRouter>
+              </Routes>
+              </RoutesWithErrorBoundary>
+            </Suspense>
+          </FavoritesProvider>
+        </BrowserRouter>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

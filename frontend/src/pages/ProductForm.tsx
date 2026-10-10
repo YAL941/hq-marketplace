@@ -18,6 +18,7 @@ const STATUSES: CatalogueStatus[] = ['draft', 'active', 'inactive', 'archived'];
 interface FormState {
   productName: string;
   description: string;
+  ingredients: string;
   price: string;
   currency: string;
   sku: string;
@@ -48,6 +49,7 @@ export function ProductFormPage() {
   const [form, setForm] = useState<FormState>({
     productName: '',
     description: '',
+    ingredients: '',
     price: '',
     currency: 'USD',
     sku: '',
@@ -96,6 +98,7 @@ export function ProductFormPage() {
         setForm({
           productName: p.product_name,
           description: p.description ?? '',
+          ingredients: p.ingredients ?? '',
           price: p.price,
           currency: p.currency,
           sku: p.sku ?? '',
@@ -198,6 +201,7 @@ export function ProductFormPage() {
       const payload: ProductInput = {
         productName: form.productName.trim(),
         description: form.description.trim() || null,
+        ingredients: form.ingredients.trim() || null,
         price: Number(form.price),
         currency: form.currency.toUpperCase(),
         sku: form.sku.trim() || null,
@@ -337,6 +341,21 @@ export function ProductFormPage() {
                 rows={4}
                 maxLength={5000}
                 className="w-full rounded-button border border-navy-300 px-4 py-2.5 bg-white text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="product-ingredients" className="block text-sm font-medium text-navy-700 mb-1.5">
+                {t('product.ingredients')}
+              </label>
+              <textarea
+                id="product-ingredients"
+                value={form.ingredients}
+                onChange={(e) => set('ingredients', e.target.value)}
+                rows={4}
+                maxLength={5000}
+                placeholder={t('product.ingredientsHint')}
+                className="w-full rounded-button border border-navy-300 bg-white px-4 py-2.5 text-navy-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
 

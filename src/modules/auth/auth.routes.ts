@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import { createHash, randomBytes } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import { badRequest, conflict, unauthorized } from '../../db/errors.js';
 import { ANONYMOUS, withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor, signAccessToken } from '../../middleware/auth.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
+import { config } from '../../config.js';
+import { sendPasswordResetEmail } from '../admin/mailer.js';
 import { isEmailLike, normalisePhone, PhoneValidationError } from './phone.js';
 
 /**
@@ -85,6 +88,11 @@ function optionalPhone(value: string | null | undefined, field: 'phone' | 'whats
 
 const authLimiter = rateLimiter('auth');
 const writeLimiter = rateLimiter('write');
+const passwordResetRequestSchema = z.object({ email: z.string().email().max(254) });
+const passwordResetConfirmSchema = z.object({
+    token: z.string().regex(/^[a-f0-9]{64}$/i),
+    password: z.string().min(8).max(128),
+});
 
 export const authRoutes: Router = Router();
 
@@ -220,6 +228,67 @@ authRoutes.post('/auth/login', authLimiter, async (req, res, next) => {
             isPlatformAdmin: user.is_platform_admin,
         });
         res.json({ data: { user: { user_id: user.user_id, email: user.email, full_name: user.full_name }, token } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * Password recovery is email-only. A generic response prevents this endpoint
+ * from confirming whether an account exists; one-time tokens are stored hashed.
+ */
+authRoutes.post('/auth/password-reset/request', authLimiter, async (req, res, next) => {
+    try {
+        const { email } = passwordResetRequestSchema.parse(req.body);
+        const token = randomBytes(32).toString('hex');
+        const tokenHash = createHash('sha256').update(token).digest('hex');
+        const resetRecipient = await withTenant(ANONYMOUS, async (client) => {
+            const { rows } = await client.query<{ user_email: string; user_name: string }>(
+                'SELECT * FROM create_user_password_reset_token($1, $2, now() + interval \'30 minutes\')',
+                [email.toLowerCase(), tokenHash],
+            );
+            return rows[0] ?? null;
+        });
+
+        if (resetRecipient) {
+            const resetUrl = new URL('/reset-password', config.PUBLIC_APP_URL);
+            resetUrl.searchParams.set('token', token);
+            void sendPasswordResetEmail({
+                recipient: resetRecipient.user_email,
+                fullName: resetRecipient.user_name,
+                resetUrl: resetUrl.toString(),
+            }).catch((error: unknown) => {
+                console.error('[auth] Password reset email could not be sent:', error);
+            });
+        }
+
+        res.json({
+            data: {
+                message: 'If an active account uses that email, password reset instructions will be sent.',
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+authRoutes.post('/auth/password-reset/confirm', authLimiter, async (req, res, next) => {
+    try {
+        const input = passwordResetConfirmSchema.parse(req.body);
+        const tokenHash = createHash('sha256').update(input.token).digest('hex');
+        const passwordHash = await bcrypt.hash(input.password, 12);
+        const updated = await withTenant(ANONYMOUS, async (client) => {
+            const { rows } = await client.query<{ consume_user_password_reset_token: boolean }>(
+                'SELECT consume_user_password_reset_token($1, $2)',
+                [tokenHash, passwordHash],
+            );
+            return rows[0]?.consume_user_password_reset_token === true;
+        });
+        if (!updated) {
+            next(badRequest('This password reset link is invalid or has expired'));
+            return;
+        }
+        res.json({ data: { message: 'Password updated successfully' } });
     } catch (error) {
         next(error);
     }

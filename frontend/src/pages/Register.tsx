@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Eye, EyeOff, Mail, Lock, User, Phone, Store, UserRound, AlertCircle,
 } from 'lucide-react';
@@ -29,6 +29,7 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export function RegisterPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { register } = useAuth();
 
   const [role, setRole] = useState<AccountRole>('customer');
@@ -129,7 +130,9 @@ export function RegisterPage() {
       if (isBusiness && outcome.businessId) {
         navigate(`/list-your-business?complete=${outcome.businessId}`, { replace: true });
       } else {
-        navigate(isBusiness ? '/dashboard' : '/', { replace: true });
+        const next = searchParams.get('next');
+        const destination = next?.startsWith('/') && !next.startsWith('//') ? next : '/';
+        navigate(isBusiness ? '/dashboard' : destination, { replace: true });
       }
     } catch (error) {
       setIssue(toFieldIssue(error));

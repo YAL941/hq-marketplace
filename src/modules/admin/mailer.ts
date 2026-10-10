@@ -22,6 +22,31 @@ const transporter = config.SMTP_HOST
     })
     : null;
 
+export async function sendPasswordResetEmail(input: {
+    recipient: string;
+    fullName: string;
+    resetUrl: string;
+}): Promise<void> {
+    if (!transporter) throw new Error('SMTP is not configured');
+    const safeName = escapeHtml(input.fullName);
+    const safeUrl = escapeHtml(input.resetUrl);
+    await transporter.sendMail({
+        from: config.MAIL_FROM,
+        to: input.recipient,
+        subject: 'استعادة كلمة المرور | Reset your password',
+        html: `<div style="font-family:Arial,sans-serif;line-height:1.7;color:#172554;max-width:600px;margin:auto">
+          <h2>استعادة كلمة المرور</h2>
+          <p>مرحباً ${safeName}،</p>
+          <p>استخدم الرابط أدناه لاختيار كلمة مرور جديدة. تنتهي صلاحية الرابط خلال 30 دقيقة، ولا يمكن استخدامه أكثر من مرة.</p>
+          <p><a href="${safeUrl}" style="display:inline-block;padding:12px 20px;background:#1769C4;color:#fff;text-decoration:none;border-radius:8px">إعادة تعيين كلمة المرور</a></p>
+          <hr>
+          <h2>Reset your password</h2>
+          <p>Hello ${safeName}, use the link above to choose a new password. It expires in 30 minutes and can only be used once.</p>
+          <p>If you did not request this, you can ignore this email.</p>
+        </div>`,
+    });
+}
+
 function escapeHtml(value: string): string {
     return value.replace(/[&<>"']/g, (character) => ({
         '&': '&amp;',

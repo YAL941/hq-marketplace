@@ -40,6 +40,7 @@ export function ExplorePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [draftQuery, setDraftQuery] = useState(searchParams.get('q') ?? '');
 
   // URL is the single source of truth, so a filtered view can be shared as a
   // link and the back button behaves the way people expect.
@@ -49,6 +50,23 @@ export function ExplorePage() {
   const featuredOnly = searchParams.get('featured') === 'true';
   const sort = (searchParams.get('sort') as DirectorySort | null) ?? 'newest';
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
+
+  useEffect(() => {
+    setDraftQuery(q);
+  }, [q]);
+
+  useEffect(() => {
+    if (draftQuery.trim() === q) return;
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams(searchParams);
+      const value = draftQuery.trim();
+      if (value) params.set('q', value);
+      else params.delete('q');
+      params.set('page', '1');
+      setSearchParams(params, { replace: true });
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [draftQuery, q, searchParams, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,7 +127,7 @@ export function ExplorePage() {
   };
 
   const activeCategory = categories.find((c) => c.category_slug === category);
-  const activeFilterCount = [category, city, featuredOnly].filter(Boolean).length;
+  const activeFilterCount = [q, category, city, featuredOnly].filter(Boolean).length;
   const hasActiveFilters = activeFilterCount > 0;
 
   return (
@@ -127,8 +145,8 @@ export function ExplorePage() {
             </div>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <SearchBar
-                value={q}
-                onChange={(v) => updateFilter('q', v)}
+                value={draftQuery}
+                onChange={setDraftQuery}
                 onSearch={(v) => updateFilter('q', v)}
                 placeholder={t('explore.searchPlaceholder')}
                 className="flex-1"
@@ -144,7 +162,7 @@ export function ExplorePage() {
                 )}
               >
                 <Filter className="w-4 h-4" />
-                <span className="hidden sm:inline">{t('explore.filters')}</span>
+                <span>{t('explore.filters')}</span>
                 {activeFilterCount > 0 && (
                   <Badge variant="info" size="sm">{activeFilterCount}</Badge>
                 )}
@@ -157,6 +175,11 @@ export function ExplorePage() {
 
           {hasActiveFilters && (
             <div className="mt-4 flex flex-wrap gap-2">
+              {q && (
+                <Badge variant="info" onRemove={() => updateFilter('q', null)}>
+                  {t('search.label')}: {q}
+                </Badge>
+              )}
               {activeCategory && (
                 <Badge variant="info" onRemove={() => updateFilter('category', null)}>
                   {activeCategory.category_name}

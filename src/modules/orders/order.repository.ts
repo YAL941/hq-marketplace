@@ -221,7 +221,18 @@ export async function listOrdersForBusiness(
     const offsetIdx = params.length;
 
     const { rows } = await client.query<OrderRow>(
-        `SELECT o.* FROM orders o
+        `SELECT o.*,
+                order_preview.item_name AS preview_item_name,
+                order_preview.image_url AS preview_image_url
+           FROM orders o
+           LEFT JOIN LATERAL (
+               SELECT oi.item_name, p.image_url
+                 FROM order_items oi
+                 LEFT JOIN products p ON p.product_id = oi.product_id
+                WHERE oi.order_id = o.order_id
+                ORDER BY oi.order_item_id
+                LIMIT 1
+           ) order_preview ON TRUE
           WHERE ${conditions.join(' AND ')}
           ORDER BY o.created_at DESC, o.order_id DESC
           LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
@@ -232,8 +243,12 @@ export async function listOrdersForBusiness(
 
 export async function listOrderItems(client: PoolClient, orderId: number): Promise<Array<Record<string, unknown>>> {
     const { rows } = await client.query(
-        `SELECT order_item_id, product_id, service_id, item_type, item_name, quantity, unit_price, total_price, notes
-           FROM order_items WHERE order_id = $1 ORDER BY order_item_id`,
+        `SELECT oi.order_item_id, oi.product_id, oi.service_id, oi.item_type, oi.item_name,
+                oi.quantity, oi.unit_price, oi.total_price, oi.notes, p.image_url, p.ingredients
+           FROM order_items oi
+           LEFT JOIN products p ON p.product_id = oi.product_id
+          WHERE oi.order_id = $1
+          ORDER BY oi.order_item_id`,
         [orderId],
     );
     return rows;
@@ -247,17 +262,36 @@ export async function updateOrderStatus(
 ): Promise<OrderRow> {
     await assertPermission(client, businessId, 'orders.update');
 
-    const timestampColumn =
-        orderStatus === 'completed' ? ', completed_at = now()' : orderStatus === 'cancelled' ? ', cancelled_at = now()' : '';
+    const transitions: Record<string, string[]> = {
+        pending: ['confirmed', 'cancelled', 'rejected'],
+        confirmed: ['in_progress', 'cancelled'],
+        in_progress: ['ready', 'out_for_delivery', 'completed', 'cancelled'],
+        ready: ['out_for_delivery', 'completed', 'cancelled'],
+        out_for_delivery: ['completed', 'cancelled'],
+    };
+    const { rows: currentRows } = await client.query<{ order_status: string }>(
+        'SELECT order_status FROM orders WHERE order_id = $1 AND business_id = $2',
+        [orderId, businessId],
+    );
+    const currentStatus = currentRows[0]?.order_status;
+    if (!currentStatus) throw notFound('Order not found in this business');
+    if (!transitions[currentStatus]?.includes(orderStatus)) {
+        throw badRequest(`Order cannot transition from ${currentStatus} to ${orderStatus}`);
+    }
+
+    let timestampColumn = '';
+    if (orderStatus === 'confirmed') timestampColumn = ', confirmed_at = now()';
+    if (orderStatus === 'completed') timestampColumn = ', completed_at = now()';
+    if (orderStatus === 'cancelled') timestampColumn = ', cancelled_at = now()';
 
     const { rows } = await client.query<OrderRow>(
         `UPDATE orders
             SET order_status = $3 ${timestampColumn}
-          WHERE order_id = $1 AND business_id = $2
+          WHERE order_id = $1 AND business_id = $2 AND order_status = $4
           RETURNING *`,
-        [orderId, businessId, orderStatus],
+        [orderId, businessId, orderStatus, currentStatus],
     );
-    if (!rows[0]) throw notFound('Order not found in this business');
+    if (!rows[0]) throw conflict('Order status changed before this update could be applied');
     return rows[0];
 }
 

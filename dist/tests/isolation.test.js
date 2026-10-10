@@ -356,6 +356,96 @@ describe('Test 6: Reviews stay inside their business', () => {
         assert.ok(!publicIds.includes(Number(reviewA.body.data.review_id)));
     });
 });
+describe('Order status transitions and product reviews', () => {
+    it('allows only the next valid business-side order status', async () => {
+        const { rows } = await adminPool.query(`INSERT INTO orders (business_id, customer_id, order_status, subtotal, total_amount)
+             VALUES ($1, $2, 'pending', 0, 0) RETURNING order_id`, [fixtures.ownerA.businessA, fixtures.customer.id]);
+        const orderId = rows[0].order_id;
+        const confirmed = await request(app)
+            .patch(`/api/business/${fixtures.ownerA.businessA}/orders/${orderId}/status`)
+            .set('Authorization', `Bearer ${fixtures.ownerA.token}`)
+            .send({ orderStatus: 'confirmed' });
+        assert.equal(confirmed.status, 200, JSON.stringify(confirmed.body));
+        assert.equal(confirmed.body.data.order_status, 'confirmed');
+        assert.ok(confirmed.body.data.confirmed_at);
+        const illegalJump = await request(app)
+            .patch(`/api/business/${fixtures.ownerA.businessA}/orders/${orderId}/status`)
+            .set('Authorization', `Bearer ${fixtures.ownerA.token}`)
+            .send({ orderStatus: 'completed' });
+        assert.equal(illegalJump.status, 400);
+        const inProgress = await request(app)
+            .patch(`/api/business/${fixtures.ownerA.businessA}/orders/${orderId}/status`)
+            .set('Authorization', `Bearer ${fixtures.ownerA.token}`)
+            .send({ orderStatus: 'in_progress' });
+        assert.equal(inProgress.status, 200, JSON.stringify(inProgress.body));
+    });
+    it('accepts product feedback only from customers with a completed purchase', async () => {
+        const productResponse = await request(app)
+            .post(`/api/business/${fixtures.ownerA.businessA}/products`)
+            .set('Authorization', `Bearer ${fixtures.ownerA.token}`)
+            .send({
+            productName: 'Feedback Product',
+            description: 'Test product description',
+            ingredients: 'Water, natural extract',
+            price: 10,
+            currency: 'USD',
+            stockQuantity: 4,
+            status: 'active',
+        });
+        assert.equal(productResponse.status, 201, JSON.stringify(productResponse.body));
+        const productId = productResponse.body.data.product_id;
+        assert.equal(productResponse.body.data.ingredients, 'Water, natural extract');
+        const orderResult = await adminPool.query(`INSERT INTO orders (business_id, customer_id, order_status, subtotal, total_amount, completed_at)
+             VALUES ($1, $2, 'completed', 10, 10, now()) RETURNING order_id`, [fixtures.ownerA.businessA, fixtures.customer.id]);
+        const orderId = orderResult.rows[0].order_id;
+        await adminPool.query(`INSERT INTO order_items
+                (order_id, business_id, product_id, item_type, item_name, quantity, unit_price, total_price)
+             VALUES ($1, $2, $3, 'product', 'Feedback Product', 1, 10, 10)`, [orderId, fixtures.ownerA.businessA, productId]);
+        const eligibility = await request(app)
+            .get(`/api/product-reviews/eligibility/${productId}`)
+            .set('Authorization', `Bearer ${fixtures.customer.token}`);
+        assert.equal(eligibility.status, 200, JSON.stringify(eligibility.body));
+        assert.equal(eligibility.body.data.eligible, true);
+        const review = await request(app)
+            .post('/api/product-reviews')
+            .set('Authorization', `Bearer ${fixtures.customer.token}`)
+            .send({
+            productId: Number(productId),
+            orderId: Number(orderId),
+            rating: 5,
+            reviewText: 'Exactly as described',
+        });
+        assert.equal(review.status, 201, JSON.stringify(review.body));
+        assert.equal(review.body.data.status, 'pending');
+        const hiddenUntilApproved = await request(app).get(`/api/product-reviews?productId=${productId}`);
+        assert.equal(hiddenUntilApproved.body.data.length, 0);
+        const unpurchased = await request(app)
+            .post('/api/product-reviews')
+            .set('Authorization', `Bearer ${fixtures.ownerB.token}`)
+            .send({ productId: Number(productId), orderId: Number(orderId), rating: 4 });
+        assert.equal(unpurchased.status, 400);
+        const published = await request(app)
+            .patch(`/api/business/${fixtures.ownerA.businessA}/product-reviews/${review.body.data.product_review_id}/moderate`)
+            .set('Authorization', `Bearer ${fixtures.ownerA.token}`)
+            .send({ status: 'published' });
+        assert.equal(published.status, 200, JSON.stringify(published.body));
+        const response = await request(app)
+            .post(`/api/business/${fixtures.ownerA.businessA}/product-reviews/${review.body.data.product_review_id}/respond`)
+            .set('Authorization', `Bearer ${fixtures.ownerA.token}`)
+            .send({ response: 'Thank you for your feedback.' });
+        assert.equal(response.status, 200, JSON.stringify(response.body));
+        const visible = await request(app).get(`/api/product-reviews?productId=${productId}`);
+        assert.equal(visible.status, 200);
+        assert.equal(visible.body.data.length, 1);
+        assert.equal(visible.body.data[0].review_text, 'Exactly as described');
+        assert.equal(visible.body.data[0].author_name, 'Customer');
+        assert.equal(visible.body.data[0].business_response, 'Thank you for your feedback.');
+        const updatedProduct = await request(app).get(`/api/products?businessId=${fixtures.ownerA.businessA}`);
+        const ratedProduct = updatedProduct.body.data.find((item) => item.product_id === productId);
+        assert.equal(ratedProduct.rating_count, 1);
+        assert.equal(Number(ratedProduct.rating_avg), 5);
+    });
+});
 // ---------------------------------------------------------------------------
 // Test 7 - a business can have many branches
 // ---------------------------------------------------------------------------

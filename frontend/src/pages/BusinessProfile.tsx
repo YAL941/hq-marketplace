@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
-  MapPin, Phone, Globe, Clock, Star, MessageCircle, Tag, Building2, ArrowLeft, ExternalLink, ShoppingBag,
+  MapPin, Phone, Globe, Clock, Star, MessageCircle, Tag, Building2, ArrowLeft, ExternalLink, ShoppingBag, X,
 } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
@@ -13,6 +13,7 @@ import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { ErrorState } from '../components/common/ErrorState';
 import { SmartImage } from '../components/common/SmartImage';
 import { ReportBusinessLink } from '../components/business/ReportBusinessLink';
+import { ProductFeedback } from '../components/business/ProductFeedback';
 import { businessApi, orderApi, productApi, reviewApi, serviceApi } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import { safeExternalUrl } from '../lib/safeUrl';
@@ -49,16 +50,19 @@ function telHref(phone: string): string | null {
 
 export function BusinessProfilePage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
+  const [searchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
 
   const [business, setBusiness] = useState<PublicBusinessProfile | null>(null);
   const [reviews, setReviews] = useState<PublicReview[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [productDetails, setProductDetails] = useState<Product | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [catalogueError, setCatalogueError] = useState(false);
-  const [reviewEligibility, setReviewEligibility] = useState<{ eligible: boolean; order_id: string | null; already_reviewed: boolean } | null>(null);
+  const [reviewEligibility, setReviewEligibility] = useState<{ eligible: boolean; order_id: string | null; already_reviewed: boolean; is_member: boolean } | null>(null);
   const [reviewEligibilityError, setReviewEligibilityError] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
@@ -66,6 +70,7 @@ export function BusinessProfilePage() {
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [selectedItem, setSelectedItem] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [productQuantity, setProductQuantity] = useState(1);
   const [scheduledFor, setScheduledFor] = useState('');
   const [orderError, setOrderError] = useState('');
   const [orderSubmitted, setOrderSubmitted] = useState(false);
@@ -131,6 +136,29 @@ export function BusinessProfilePage() {
   }, [load]);
 
   useEffect(() => {
+    const requestedProductId = searchParams.get('product');
+    if (!requestedProductId || products.length === 0) return;
+    const requestedProduct = products.find((product) => product.product_id === requestedProductId);
+    if (!requestedProduct) return;
+
+    setProductQuantity(1);
+    setProductDetails(requestedProduct);
+    const params = new URLSearchParams(searchParams);
+    params.delete('product');
+    const remainingSearch = params.toString();
+    const targetHash = window.location.hash;
+    navigate(
+      { search: remainingSearch ? `?${remainingSearch}` : '', hash: targetHash },
+      { replace: true },
+    );
+  }, [navigate, products, searchParams]);
+
+  useEffect(() => {
+    if (!productDetails || window.location.hash !== '#product-feedback') return;
+    document.getElementById('product-feedback')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [productDetails]);
+
+  useEffect(() => {
     if (!isAuthenticated || !business) {
       setReviewEligibility(null);
       setReviewEligibilityError(false);
@@ -150,6 +178,15 @@ export function BusinessProfilePage() {
     });
     return () => { cancelled = true; };
   }, [business, isAuthenticated]);
+
+  useEffect(() => {
+    if (!productDetails) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setProductDetails(null);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [productDetails]);
 
   if (loading) {
     return (
@@ -237,6 +274,25 @@ export function BusinessProfilePage() {
     }
   };
 
+  const placeProductOrder = async () => {
+    if (!productDetails || !isAuthenticated) return;
+    setOrderError('');
+    setOrderSubmitted(false);
+    setOrderLoading(true);
+    try {
+      await orderApi.create({
+        businessId: Number(business.business_id),
+        items: [{ productId: Number(productDetails.product_id), quantity: productQuantity }],
+      });
+      setOrderSubmitted(true);
+      setProductQuantity(1);
+    } catch {
+      setOrderError(t('business.orderError'));
+    } finally {
+      setOrderLoading(false);
+    }
+  };
+
   const submitReview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!reviewEligibility?.order_id || reviewRating < 1) return;
@@ -249,7 +305,7 @@ export function BusinessProfilePage() {
         reviewText: reviewText.trim(),
       });
       setReviewSubmitted(true);
-      setReviewEligibility({ eligible: false, order_id: null, already_reviewed: true });
+      setReviewEligibility({ eligible: false, order_id: null, already_reviewed: true, is_member: false });
     } catch {
       setReviewError(t('business.reviewSubmitError'));
     }
@@ -399,22 +455,41 @@ export function BusinessProfilePage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {products.map((product) => (
                     <article key={product.product_id} className="overflow-hidden rounded-xl border border-navy-100 bg-white">
-                      {product.image_url && (
-                        <SmartImage
-                          value={product.image_url}
-                          width={640}
-                          height={360}
-                          className="h-40 w-full object-cover"
-                          fallback={<div className="h-40 bg-navy-50" />}
-                        />
-                      )}
-                      <div className="p-4">
-                        <h3 className="font-semibold text-navy-900">{product.product_name}</h3>
-                        {product.description && <p className="mt-1 line-clamp-2 text-sm text-navy-500">{product.description}</p>}
-                        <p className="mt-3 font-semibold text-navy-800">
-                          {product.discount_price ?? product.price} {product.currency}
-                        </p>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductQuantity(1);
+                          setOrderError('');
+                          setOrderSubmitted(false);
+                          setProductDetails(product);
+                        }}
+                        aria-label={t('business.openProductDetails', { name: product.product_name })}
+                        className="w-full text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
+                      >
+                        {product.image_url ? (
+                          <SmartImage
+                            value={product.image_url}
+                            width={640}
+                            height={360}
+                            className="h-40 w-full object-cover"
+                            fallback={<div className="h-40 bg-navy-50" />}
+                          />
+                        ) : (
+                          <div className="flex h-40 items-center justify-center bg-navy-50">
+                            <ShoppingBag className="h-10 w-10 text-navy-300" aria-hidden="true" />
+                          </div>
+                        )}
+                        <div className="p-4">
+                          <h3 className="font-semibold text-navy-900">{product.product_name}</h3>
+                          {product.description && <p className="mt-1 line-clamp-2 text-sm text-navy-500">{product.description}</p>}
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                            <p className="font-semibold text-navy-800">
+                              {product.discount_price ?? product.price} {product.currency}
+                            </p>
+                            <span className="text-sm font-medium text-primary-700">{t('business.viewProduct')}</span>
+                          </div>
+                        </div>
+                      </button>
                     </article>
                   ))}
                   {services.map((service) => (
@@ -616,7 +691,10 @@ export function BusinessProfilePage() {
                   </Button>
                 </form>
               )}
-              {isAuthenticated && reviewEligibility && !reviewEligibility.eligible && !reviewEligibility.already_reviewed && (
+              {isAuthenticated && reviewEligibility?.is_member && !reviewEligibility.already_reviewed && (
+                <p className="mt-5 rounded-xl bg-navy-50 p-3 text-sm text-navy-600">{t('business.reviewMemberCannotReview')}</p>
+              )}
+              {isAuthenticated && reviewEligibility && !reviewEligibility.eligible && !reviewEligibility.already_reviewed && !reviewEligibility.is_member && (
                 <p className="mt-5 rounded-xl bg-navy-50 p-3 text-sm text-navy-600">{t('business.reviewRequiresCompletedOrder')}</p>
               )}
               {isAuthenticated && reviewEligibility?.already_reviewed && !reviewSubmitted && (
@@ -740,6 +818,152 @@ export function BusinessProfilePage() {
             )}
           </div>
         </div>
+
+        {productDetails && (
+          <div
+            key={productDetails.product_id}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-navy-950/60 p-4"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setProductDetails(null);
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="product-details-title"
+              className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-navy-100 bg-white/95 p-4 backdrop-blur">
+                <h2 id="product-details-title" className="text-xl font-bold text-navy-900">
+                  {productDetails.product_name}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setProductDetails(null)}
+                  aria-label={t('common.close')}
+                  className="rounded-full p-2 text-navy-500 hover:bg-navy-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+              <div className="space-y-6 p-4 sm:p-6">
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="space-y-5">
+                    {productDetails.image_url && (
+                      <SmartImage
+                        value={productDetails.image_url}
+                        width={960}
+                        height={540}
+                        className="max-h-96 w-full rounded-xl object-cover"
+                        fallback={<div className="h-48 rounded-xl bg-navy-50" />}
+                      />
+                    )}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xl font-bold text-navy-900">
+                        {productDetails.discount_price ?? productDetails.price} {productDetails.currency}
+                      </p>
+                      {productDetails.rating_count > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <RatingStars rating={Number(productDetails.rating_avg)} size="sm" showValue />
+                          <span className="text-sm text-navy-500">
+                            {t('business.productRatingCount', { count: productDetails.rating_count })}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-navy-500">{t('business.productRatingCount', { count: 0 })}</span>
+                      )}
+                    </div>
+                    {productDetails.description && (
+                      <section>
+                        <h3 className="mb-1 font-semibold text-navy-900">{t('business.productDescription')}</h3>
+                        <p className="whitespace-pre-line text-sm text-navy-600">{productDetails.description}</p>
+                      </section>
+                    )}
+                    <section>
+                      <h3 className="mb-1 font-semibold text-navy-900">{t('business.productIngredients')}</h3>
+                      <p className="whitespace-pre-line text-sm text-navy-600">
+                        {productDetails.ingredients || t('business.productIngredientsUnavailable')}
+                      </p>
+                    </section>
+                  </div>
+
+                  <section id="product-order" className="h-fit scroll-mt-20 rounded-2xl border border-primary-100 bg-primary-50/50 p-4 sm:p-5">
+                    <h3 className="mb-2 text-lg font-semibold text-navy-900">{t('business.orderTitle')}</h3>
+                    <p className="mb-4 text-sm text-navy-600">{t('business.orderDescription')}</p>
+                    {isAuthenticated ? (
+                      <div className="space-y-3">
+                        {productDetails.is_stock_tracked && productDetails.stock_quantity === 0 ? (
+                          <p className="text-sm text-error-600">{t('business.productOutOfStock')}</p>
+                        ) : (
+                          <>
+                            <label className="block">
+                              <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.quantity')}</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={productDetails.is_stock_tracked ? productDetails.stock_quantity : 999}
+                                step={1}
+                                value={productQuantity}
+                                onChange={(event) => {
+                                  const next = Number(event.target.value);
+                                  if (Number.isInteger(next)) {
+                                    setProductQuantity(Math.min(
+                                      productDetails.is_stock_tracked ? productDetails.stock_quantity : 999,
+                                      Math.max(1, next),
+                                    ));
+                                  }
+                                }}
+                                className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 sm:w-40"
+                              />
+                            </label>
+                            <p className="font-semibold text-navy-800">
+                              {t('business.orderTotal')}: {(
+                                Number(productDetails.discount_price ?? productDetails.price) * productQuantity
+                              ).toFixed(2)} {productDetails.currency}
+                            </p>
+                            {orderError && <p role="alert" className="text-sm text-error-600">{orderError}</p>}
+                            {orderSubmitted && <p role="status" className="text-sm text-success-600">{t('business.orderSuccess')}</p>}
+                            <Button
+                              type="button"
+                              loading={orderLoading}
+                              disabled={orderLoading}
+                              onClick={() => void placeProductOrder()}
+                            >
+                              {t('business.placeOrder')}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Link
+                          to={`/login?next=${encodeURIComponent(`/business/${businessSlug}?product=${productDetails.product_id}`)}`}
+                          className="inline-flex min-h-11 items-center rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+                        >
+                          {t('business.signInToOrder')}
+                        </Link>
+                        <Link
+                          to={`/register?next=${encodeURIComponent(`/business/${businessSlug}?product=${productDetails.product_id}`)}`}
+                          className="text-sm font-semibold text-primary-700 underline"
+                        >
+                          {t('business.productFeedback.createAccount')}
+                        </Link>
+                      </div>
+                    )}
+                  </section>
+                </div>
+
+                <ProductFeedback
+                  product={productDetails}
+                  isAuthenticated={isAuthenticated}
+                  loginHref={`/login?next=${encodeURIComponent(`/business/${businessSlug}?product=${productDetails.product_id}#product-feedback`)}`}
+                  registerHref={`/register?next=${encodeURIComponent(`/business/${businessSlug}?product=${productDetails.product_id}#product-feedback`)}`}
+                  orderTarget="#product-order"
+                />
+              </div>
+            </section>
+          </div>
+        )}
       </div>
     </div>
   );

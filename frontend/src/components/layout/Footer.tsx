@@ -26,6 +26,7 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
       { to: '/categories', label: t('nav.categories') },
       { to: '/explore?sort=rating', label: t('footer.topRated') },
       { to: '/explore?sort=newest', label: t('footer.newBusinesses') },
+      { to: '/how-it-works', label: t('nav.howItWorks') },
     ];
     const categoryLinks = [
       { to: '/categories/healthcare', label: t('footer.healthcare') },
@@ -35,6 +36,7 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
     ];
     const supportLinks = [
       { to: '/faq', label: t('footer.faq') },
+      { to: '/contact', label: t('footer.contactUs') },
       { to: '/safety', label: t('footer.safetyGuidelines') },
       { to: '/privacy', label: t('footer.privacyPolicy') },
       { to: '/terms', label: t('footer.termsOfService') },

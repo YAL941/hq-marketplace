@@ -236,6 +236,36 @@ and provider SMTP credentials, verify that outbound SMTP is allowed, and publish
 the provider's SPF and DKIM DNS records (plus DMARC where available). Do not
 disable certificate verification to work around TLS errors.
 
+## Account recovery and navigation
+
+Password recovery is email-based and uses a random, single-use token stored
+only as a SHA-256 hash. Tokens expire after 30 minutes. Apply migration `019`
+and refresh the application role's grants before deploying:
+
+```sh
+npm run db:migrate
+npm run db:grants
+```
+
+Set `PUBLIC_APP_URL` to the exact public frontend origin so reset emails link
+back to the right site, for example `https://omnihq.example`. Configure the
+SMTP values above to deliver reset links. Accounts created with a phone number
+only cannot use email recovery until an email address is associated with them.
+The request endpoint always returns the same message whether or not an active
+account uses the submitted email.
+
+The public header links to Explore, Categories, How it works and Favorites;
+signed-in visitors see their account actions instead of Sign in / Get started.
+Business dashboards include branch management, backed by the existing
+locations API. The Contact and report page prepares email/WhatsApp messages when
+contact details are configured: set `contactEmail` and/or `contactWhatsapp` in
+`frontend/src/config/legal.ts` before launch. Until at least one is set, the
+page explains that support channels are not yet available instead of presenting
+a non-working report action.
+
+The branch manager can add locations, set one as primary and hide/show branches.
+Opening hours remain managed at business level and are not copied to branches.
+
 Implementation locations in this repository:
 
 - `src/modules/admin/admin.routes.ts` — admin-only list, notification and atomic review APIs.
@@ -243,6 +273,9 @@ Implementation locations in this repository:
 - `db/migrations/017_admin_business_notifications.sql` — reviewer fields, unseen state and indexes.
 - `frontend/src/pages/AdminBusinesses.tsx` — responsive React review UI and notification panel.
 - `frontend/src/services/api.ts`, `frontend/src/types/index.ts` — typed API integration.
+- `frontend/src/pages/HowItWorks.tsx` — public onboarding and directory guidance.
+- `frontend/src/pages/LocationManage.tsx` — owner branch management.
+- `src/modules/auth/auth.routes.ts` and `db/migrations/019_password_reset_tokens.sql` — password recovery.
 
 ## Image uploads
 

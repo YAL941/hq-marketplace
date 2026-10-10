@@ -17,6 +17,7 @@ const envSchema = z.object({
     SMTP_USER: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
     MAIL_FROM: z.string().min(1).default('OmniHQ <no-reply@omnihq.local>'),
+    PUBLIC_APP_URL: z.string().url().default('http://localhost:3001'),
     ORDERS_ENABLED: z.enum(['true', 'false']).optional(),
     // The production floor is checked separately and is stricter (32 chars,
     // no placeholders); this is only the minimum for a runnable dev setup.

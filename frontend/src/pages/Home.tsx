@@ -7,6 +7,7 @@ import { Button } from '../components/common/Button';
 import { HeroSearch } from '../components/home/HeroSearch';
 import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { ErrorState } from '../components/common/ErrorState';
+import { VerificationJourney } from '../components/home/VerificationJourney';
 import { businessApi, directoryApi } from '../services/api';
 import { formatNumber } from '../lib/utils';
 import { useCategories } from '../hooks/useCategories';
@@ -66,6 +67,7 @@ export function HomePage() {
   return (
     <div className="min-h-screen min-w-0 bg-navy-50">
       <HeroSearch cities={cities} />
+      <VerificationJourney />
 
       <section className="bg-white py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
