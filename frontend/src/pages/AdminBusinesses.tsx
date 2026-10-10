@@ -1,24 +1,31 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, XCircle, Clock, RefreshCw, ChevronDown } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, RefreshCw, ChevronDown, Bell, Search } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
+import { Input } from '../components/common/Input';
 import { EmptyState } from '../components/common/EmptyState';
 import { TableSkeleton } from '../components/common/Skeleton';
 import { adminApi } from '../services/api';
 import { formatDate, formatDateTime, cn, getStatusLabel } from '../lib/utils';
 import { isAxiosError } from 'axios';
-import type { AdminBusinessRow, AdminBusinessStatus, PageMeta } from '../types';
+import type {
+  AdminBusinessCounts,
+  AdminBusinessFilter,
+  AdminBusinessNotifications,
+  AdminBusinessRow,
+  PageMeta,
+} from '../types';
 
 const PAGE_SIZE = 20;
-const STATUS_TABS: AdminBusinessStatus[] = ['pending', 'active', 'rejected'];
-const REASON_MIN_LENGTH = 5;
+const STATUS_TABS: AdminBusinessFilter[] = ['all', 'pending', 'active', 'rejected'];
+const EMPTY_COUNTS: AdminBusinessCounts = { all: 0, pending: 0, active: 0, rejected: 0 };
 
 interface Toast {
   id: number;
   message: string;
-  kind: 'success' | 'error';
+  kind: 'success' | 'error' | 'warning';
 }
 
 type Decision = 'approve' | 'reject';
@@ -28,7 +35,6 @@ interface RowAction {
   decision: Decision;
   reason: string;
   committing: boolean;
-  noop: boolean;
   error: string | null;
 }
 
@@ -52,6 +58,24 @@ function verificationBadgeVariant(status: string): 'success' | 'warning' | 'dang
 
 function capitalize(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+function relativeTime(value: string, language: string): string {
+  const ageSeconds = Math.round((new Date(value).getTime() - Date.now()) / 1000);
+  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+    ['year', 31_536_000],
+    ['month', 2_592_000],
+    ['week', 604_800],
+    ['day', 86_400],
+    ['hour', 3_600],
+    ['minute', 60],
+  ];
+  const locale = language.startsWith('ar') ? 'ar' : language.startsWith('so') ? 'so' : 'en';
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  for (const [unit, seconds] of units) {
+    if (Math.abs(ageSeconds) >= seconds) return formatter.format(Math.round(ageSeconds / seconds), unit);
+  }
+  return formatter.format(0, 'minute');
 }
 
 function DetailsPanel({ row }: { row: AdminBusinessRow }) {
@@ -98,7 +122,9 @@ function Toast({ toast, onRemove }: { toast: Toast; onRemove: () => void }) {
         'fixed bottom-4 start-4 max-w-sm rounded-card border px-4 py-3 shadow-card text-sm',
         toast.kind === 'success'
           ? 'bg-success-50 text-success-700 border-success-200'
-          : 'bg-error-50 text-error-700 border-error-200',
+          : toast.kind === 'warning'
+            ? 'bg-gold-50 text-navy-800 border-gold-200'
+            : 'bg-error-50 text-error-700 border-error-200',
       )}
     >
       {toast.message}
@@ -115,19 +141,28 @@ function Toast({ toast, onRemove }: { toast: Toast; onRemove: () => void }) {
 }
 
 export function AdminBusinessesPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
-  const [activeTab, setActiveTab] = useState<AdminBusinessStatus>('pending');
+  const [activeTab, setActiveTab] = useState<AdminBusinessFilter>('pending');
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [businesses, setBusinesses] = useState<AdminBusinessRow[]>([]);
+  const [counts, setCounts] = useState<AdminBusinessCounts>(EMPTY_COUNTS);
   const [meta, setMeta] = useState<PageMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [action, setAction] = useState<RowAction | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [notifications, setNotifications] = useState<AdminBusinessNotifications | null>(null);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notificationError, setNotificationError] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const previousUnreadCount = useRef(0);
+  const [badgePulse, setBadgePulse] = useState(false);
 
-  const showToast = useCallback((message: string, kind: 'success' | 'error') => {
+  const showToast = useCallback((message: string, kind: Toast['kind']) => {
     const timer = window.setTimeout(() => {
       setToasts((current) => current.filter((toast) => toast.id !== timer));
     }, 4000);
@@ -140,35 +175,116 @@ export function AdminBusinessesPage() {
     try {
       const res = await adminApi.listBusinesses({
         status: activeTab,
+        search,
         page,
         limit: PAGE_SIZE,
       });
       setBusinesses(res.data.data);
+      setCounts(res.data.counts ?? EMPTY_COUNTS);
       setMeta((res.data.meta ?? null) as PageMeta | null);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, [activeTab, page]);
+  }, [activeTab, page, search]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const switchTab = (status: AdminBusinessStatus) => {
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setSearch(searchInput.trim());
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  const refreshNotifications = useCallback(async () => {
+    try {
+      const response = await adminApi.getBusinessNotifications();
+      setNotifications(response.data.data);
+      setNotificationError(false);
+      if (response.data.data.unreadCount > previousUnreadCount.current) {
+        setBadgePulse(true);
+        window.setTimeout(() => setBadgePulse(false), 700);
+      }
+      previousUnreadCount.current = response.data.data.unreadCount;
+    } catch {
+      setNotificationError(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshNotifications();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void refreshNotifications();
+    }, 30_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshNotifications();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [refreshNotifications]);
+
+  useEffect(() => {
+    if (!notificationOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && !notificationRef.current?.contains(event.target)) {
+        setNotificationOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setNotificationOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [notificationOpen]);
+
+  useEffect(() => {
+    if (!action) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !action.committing) setAction(null);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [action]);
+
+  const switchTab = (status: AdminBusinessFilter) => {
     setActiveTab(status);
     setPage(1);
     setAction(null);
   };
 
   const closeAction = () => setAction(null);
+  const openNotifications = async () => {
+    setNotificationOpen((isOpen) => !isOpen);
+    if (notificationOpen) return;
+    try {
+      await adminApi.markBusinessNotificationsSeen();
+      await refreshNotifications();
+    } catch {
+      setNotificationError(true);
+    }
+  };
+  const viewPending = () => {
+    setNotificationOpen(false);
+    switchTab('pending');
+  };
 
   const beginApprove = (row: AdminBusinessRow) => {
-    setAction({ row, decision: 'approve', reason: '', committing: false, noop: false, error: null });
+    setAction({ row, decision: 'approve', reason: '', committing: false, error: null });
   };
   const beginReject = (row: AdminBusinessRow) => {
-    setAction({ row, decision: 'reject', reason: '', committing: false, noop: false, error: null });
+    setAction({ row, decision: 'reject', reason: '', committing: false, error: null });
   };
 
   const updateRow = (row: AdminBusinessRow, decision: Decision, reason: string) => {
@@ -179,14 +295,14 @@ export function AdminBusinessesPage() {
           ...b,
           ...(decision === 'approve'
             ? {
-                status: 'active' as AdminBusinessStatus,
+              status: 'active',
                 verification_status: 'verified',
                 is_verified: true,
                 verified_at: new Date().toISOString(),
                 rejection_reason: null,
               }
             : {
-                status: 'rejected' as AdminBusinessStatus,
+                status: 'rejected',
                 verification_status: 'rejected',
                 is_verified: false,
                 verified_at: null,
@@ -199,27 +315,31 @@ export function AdminBusinessesPage() {
 
   const commit = async () => {
     if (!action) return;
-    const { row, decision, reason, noop } = action;
+    const { row, decision, reason } = action;
     setAction((prev) => prev && { ...prev, committing: true, error: null });
     try {
-      await adminApi.decideVerification(row.business_id, {
-        decision,
+      const result = await adminApi.setBusinessStatus(row.business_id, {
+        status: decision === 'approve' ? 'active' : 'rejected',
         reason,
-        force: noop,
       });
       updateRow(row, decision, reason);
       showToast(
-        decision === 'approve' ? t('admin.successApprove', { name: row.business_name }) : t('admin.successReject', { name: row.business_name }),
-        'success',
+        t(result.data.email.sent ? 'admin.successEmailSent' : 'admin.successEmailFailed', {
+          name: row.business_name,
+        }),
+        result.data.email.sent ? 'success' : 'warning',
       );
       setAction(null);
       void load();
+      void refreshNotifications();
     } catch (err) {
       if (isAxiosError(err)) {
         const status = err.response?.status;
         const message = err.response?.data?.error?.message;
         if (status === 409) {
-          setAction((prev) => prev && { ...prev, committing: false, noop: true, error: null });
+          setAction(null);
+          showToast(t('admin.errorAlreadyReviewed'), 'error');
+          void load();
           return;
         }
         if (status === 400) {
@@ -247,11 +367,8 @@ export function AdminBusinessesPage() {
     }
   };
 
-  const handleReasonChange = (value: string) => {
-    setAction((prev) => prev && { ...prev, reason: value, error: null });
-  };
-
-  const reasonValid = (action?.reason?.trim().length ?? 0) >= REASON_MIN_LENGTH;
+  const handleReasonChange = (value: string) =>
+    setAction((prev) => prev && { ...prev, reason: value.slice(0, 500), error: null });
 
   const renderActionCell = (row: AdminBusinessRow) => {
     const open = action?.row.business_id === row.business_id;
@@ -279,95 +396,100 @@ export function AdminBusinessesPage() {
       );
     }
 
-    const { decision, committing, noop, error: actionError } = action;
-    const confirmingApprove = decision === 'approve' && !noop;
-    const confirmingReject = decision === 'reject' && !noop;
-    const forceApprove = decision === 'approve' && noop;
-    const forceReject = decision === 'reject' && noop;
-
-    return (
-      <div className="flex flex-col gap-3 min-w-[240px]">
-        {confirmingApprove && (
-          <>
-            <p className="text-sm text-navy-700">{t('admin.approveConfirmBody')}</p>
-            {actionError && <p className="text-sm text-error-600">{actionError}</p>}
-            <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={closeAction} disabled={committing}>
-                {t('admin.cancel')}
-              </Button>
-              <Button size="sm" variant="primary" loading={committing} onClick={commit}>
-                {t('admin.approveConfirmAction')}
-              </Button>
-            </div>
-          </>
-        )}
-
-        {confirmingReject && (
-          <>
-            <label className="text-sm font-medium text-navy-700">{t('admin.rejectReasonLabel')}</label>
-            <textarea
-              value={action.reason}
-              onChange={(e) => handleReasonChange(e.target.value)}
-              placeholder={t('admin.rejectReasonPlaceholder')}
-              className="w-full rounded-button border border-navy-300 bg-white px-3 py-2 text-sm text-navy-900 resize-y-none focus:outline-none focus:ring-2 focus:ring-primary-500"
-              rows={3}
-              maxLength={500}
-              disabled={committing}
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-navy-500">
-                {t('admin.rejectReasonHint')} ({action.reason.trim().length}/{REASON_MIN_LENGTH})
-              </span>
-              {actionError && <p className="text-sm text-error-600">{actionError}</p>}
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={closeAction} disabled={committing}>
-                {t('admin.cancel')}
-              </Button>
-              <Button
-                size="sm"
-                variant="danger"
-                loading={committing}
-                disabled={!reasonValid}
-                onClick={commit}
-              >
-                {t('admin.rejectConfirmAction')}
-              </Button>
-            </div>
-          </>
-        )}
-
-        {forceApprove && (
-          <>
-            <p className="text-sm text-navy-700">{t('admin.alreadyVerifiedBody')}</p>
-            <Button size="sm" variant="primary" loading={committing} onClick={commit}>
-              {t('admin.forceApprove')}
-            </Button>
-          </>
-        )}
-
-        {forceReject && (
-          <>
-            <p className="text-sm text-navy-700">{t('admin.alreadyRejectedBody')}</p>
-            <Button size="sm" variant="danger" loading={committing} onClick={commit}>
-              {t('admin.forceReject')}
-            </Button>
-          </>
-        )}
-      </div>
-    );
+    return null;
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-navy-900">{t('admin.title')}</h1>
-        <Button size="sm" variant="ghost" onClick={() => void load()} aria-label={t('common.retry')}>
-          <RefreshCw className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="relative" ref={notificationRef}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void openNotifications()}
+              aria-label={t('admin.notifications')}
+              aria-expanded={notificationOpen}
+              aria-haspopup="true"
+              className="relative"
+            >
+              <Bell className="w-5 h-5" />
+              {!!notifications?.unreadCount && (
+                <span
+                  className={cn(
+                    'absolute -top-1 -end-1 min-w-5 h-5 px-1 rounded-full bg-error-500 text-white text-xs flex items-center justify-center',
+                    badgePulse && 'animate-bounce',
+                  )}
+                >
+                  {notifications.unreadCount > 99 ? '99+' : notifications.unreadCount}
+                </span>
+              )}
+            </Button>
+            {notificationOpen && (
+              <div
+                className="absolute end-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-card border border-navy-200 bg-white p-3 shadow-card animate-slide-down"
+                role="dialog"
+                aria-label={t('admin.notifications')}
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-navy-100 pb-2">
+                  <h2 className="font-semibold text-navy-900">{t('admin.recentRegistrations')}</h2>
+                  <span className="text-xs text-navy-500">{t('admin.unreadCount', { count: notifications?.unreadCount ?? 0 })}</span>
+                </div>
+                {notificationError ? (
+                  <p className="py-4 text-sm text-error-600" role="alert">{t('admin.notificationsError')}</p>
+                ) : notifications?.recent.length ? (
+                  <ul className="max-h-80 overflow-y-auto divide-y divide-navy-100">
+                    {notifications.recent.map((item) => (
+                      <li key={item.business_id}>
+                        <button
+                          type="button"
+                          className="flex w-full items-start gap-3 py-3 text-start hover:bg-navy-50"
+                          onClick={() => {
+                            setNotificationOpen(false);
+                            setSearchInput(item.business_name);
+                            setActiveTab('all');
+                            setPage(1);
+                          }}
+                        >
+                          <span className={cn('mt-2 h-2 w-2 shrink-0 rounded-full', item.is_new ? 'bg-primary-600' : 'bg-transparent')} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-navy-900">{item.business_name}</span>
+                            <span className="block text-xs text-navy-500">
+                              {relativeTime(item.created_at, i18n.language)} · {getStatusLabel(item.status)}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="py-5 text-center text-sm text-navy-500">{t('admin.noNotifications')}</p>
+                )}
+                <Button variant="outline" size="sm" className="mt-2 w-full" onClick={viewPending}>
+                  {t('admin.viewAllPending')}
+                </Button>
+              </div>
+            )}
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => void load()} aria-label={t('common.retry')}>
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
-      <nav className="flex items-center gap-2 mb-6" aria-label={t('nav.dashboardNavigation')}>
+      <div className="mb-5 max-w-xl">
+        <Input
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value.slice(0, 120))}
+          placeholder={t('admin.searchPlaceholder')}
+          aria-label={t('admin.searchPlaceholder')}
+          maxLength={120}
+          leftIcon={<Search className="h-4 w-4" />}
+        />
+      </div>
+
+      <nav className="flex flex-wrap items-center gap-2 mb-6" aria-label={t('nav.dashboardNavigation')}>
         {STATUS_TABS.map((status) => {
           const isActive = activeTab === status;
           return (
@@ -380,8 +502,11 @@ export function AdminBusinessesPage() {
                 isActive ? 'bg-primary-600 text-white' : 'text-navy-600 hover:bg-navy-100',
               )}
             >
-              {iconForStatus(status)}
+              {status !== 'all' && iconForStatus(status)}
               <span className="ms-2">{t(`admin.${status}Tab`)}</span>
+              <span className={cn('ms-2 rounded-full px-2 py-0.5 text-xs', isActive ? 'bg-white/20' : 'bg-navy-100')}>
+                {counts[status]}
+              </span>
             </button>
           );
         })}
@@ -400,7 +525,7 @@ export function AdminBusinessesPage() {
           }
         />
       ) : businesses.length === 0 ? (
-        <EmptyState title={t(`admin.empty${capitalize(activeTab)}`)} />
+        <EmptyState title={search ? t('admin.noResults') : t(`admin.empty${capitalize(activeTab)}`)} />
       ) : (
         <>
           <div className="hidden sm:block">
@@ -534,6 +659,66 @@ export function AdminBusinessesPage() {
           onRemove={() => setToasts((current) => current.filter((t) => t.id !== toast.id))}
         />
       ))}
+
+      {action && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !action.committing) closeAction();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="business-review-title"
+            className="w-full max-w-lg rounded-card bg-white p-6 shadow-card"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="business-review-title" className="text-lg font-semibold text-navy-900">
+              {t(action.decision === 'approve' ? 'admin.approveConfirm' : 'admin.rejectConfirm')}
+            </h2>
+            <p className="mt-2 text-sm text-navy-600">
+              {action.decision === 'approve'
+                ? t('admin.approveConfirmBody')
+                : action.row.business_name}
+            </p>
+            {action.decision === 'reject' && (
+              <div className="mt-4">
+                <label htmlFor="business-rejection-reason" className="text-sm font-medium text-navy-700">
+                  {t('admin.rejectReasonLabel')}
+                </label>
+                <textarea
+                  id="business-rejection-reason"
+                  value={action.reason}
+                  onChange={(event) => handleReasonChange(event.target.value)}
+                  placeholder={t('admin.rejectReasonPlaceholder')}
+                  className="mt-1 w-full rounded-button border border-navy-300 bg-white px-3 py-2 text-sm text-navy-900 resize-y focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  rows={4}
+                  maxLength={500}
+                  disabled={action.committing}
+                  autoFocus
+                />
+                <p className="mt-1 text-xs text-navy-500">{t('admin.rejectReasonHint')} ({action.reason.length}/500)</p>
+              </div>
+            )}
+            {action.error && <p className="mt-3 text-sm text-error-600" role="alert">{action.error}</p>}
+            <div className="mt-6 flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={closeAction} disabled={action.committing}>
+                {t('admin.cancel')}
+              </Button>
+              <Button
+                size="sm"
+                variant={action.decision === 'approve' ? 'primary' : 'danger'}
+                loading={action.committing}
+                onClick={() => void commit()}
+                autoFocus={action.decision === 'approve'}
+              >
+                {t(action.decision === 'approve' ? 'admin.approveConfirmAction' : 'admin.rejectConfirmAction')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

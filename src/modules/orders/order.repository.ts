@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg';
-import { badRequest, forbidden, notFound } from '../../db/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../../db/errors.js';
 import { assertPermission } from '../services/service.repository.js';
 
 export interface OrderRow {
@@ -33,10 +33,6 @@ export interface CreateOrderInput {
     businessId: number;
     locationId?: number | null;
     items: OrderItemInput[];
-    deliveryFee?: number;
-    discountAmount?: number;
-    taxAmount?: number;
-    currency?: string;
     customerNote?: string | null;
     deliveryAddress?: string | null;
     scheduledFor?: string | null;
@@ -57,7 +53,6 @@ export async function createOrder(client: PoolClient, customerId: number, input:
         throw badRequest('An order must contain at least one item');
     }
 
-    const currency = (input.currency ?? 'USD').toUpperCase();
     const snapshots: Array<{
         itemType: 'product' | 'service';
         productId: number | null;
@@ -66,22 +61,35 @@ export async function createOrder(client: PoolClient, customerId: number, input:
         quantity: number;
         unitPrice: number;
         totalPrice: number;
+        currency: string;
     }> = [];
+    let containsService = false;
 
     for (const item of input.items) {
         const quantity = item.quantity ?? 1;
         if (quantity <= 0) throw badRequest('Quantity must be greater than zero');
 
         if (item.productId !== undefined) {
-            const { rows } = await client.query<{ product_name: string; price: string; currency: string; status: string }>(
-                `SELECT product_name, price, currency, status
-                   FROM products
-                  WHERE product_id = $1 AND business_id = $2 AND deleted_at IS NULL AND status = 'active'`,
-                [item.productId, input.businessId],
+            const { rows } = await client.query<{
+                reservation_status: 'not_found' | 'shortage' | 'reserved';
+                product_name: string;
+                price: string;
+                discount_price: string | null;
+                currency: string;
+                stock_quantity: number;
+                is_stock_tracked: boolean;
+            }>(
+                `SELECT * FROM reserve_order_product($1, $2, $3)`,
+                [item.productId, input.businessId, quantity],
             );
             const product = rows[0];
-            if (!product) throw notFound(`Product ${item.productId} is not available in this business`);
-            const unitPrice = Number(product.price);
+            if (!product || product.reservation_status === 'not_found') {
+                throw notFound(`Product ${item.productId} is not available in this business`);
+            }
+            if (product.reservation_status === 'shortage') {
+                throw conflict(`Product ${item.productId} does not have enough stock`);
+            }
+            const unitPrice = Number(product.discount_price ?? product.price);
             snapshots.push({
                 itemType: 'product',
                 productId: item.productId,
@@ -90,16 +98,24 @@ export async function createOrder(client: PoolClient, customerId: number, input:
                 quantity,
                 unitPrice,
                 totalPrice: round(unitPrice * quantity),
+                currency: product.currency,
             });
         } else if (item.serviceId !== undefined) {
-            const { rows } = await client.query<{ service_name: string; price: string; status: string }>(
-                `SELECT service_name, price, status
+            const { rows } = await client.query<{
+                service_name: string;
+                price: string;
+                currency: string;
+                is_bookable: boolean;
+            }>(
+                `SELECT service_name, price, currency, is_bookable
                    FROM services
                   WHERE service_id = $1 AND business_id = $2 AND deleted_at IS NULL AND status = 'active'`,
                 [item.serviceId, input.businessId],
             );
             const service = rows[0];
             if (!service) throw notFound(`Service ${item.serviceId} is not available in this business`);
+            if (!service.is_bookable) throw badRequest(`Service ${item.serviceId} is not bookable`);
+            containsService = true;
             const unitPrice = Number(service.price);
             snapshots.push({
                 itemType: 'service',
@@ -109,18 +125,28 @@ export async function createOrder(client: PoolClient, customerId: number, input:
                 quantity,
                 unitPrice,
                 totalPrice: round(unitPrice * quantity),
+                currency: service.currency,
             });
         } else {
             throw badRequest('Each item needs a productId or a serviceId');
         }
     }
 
+    if (containsService && !input.scheduledFor) {
+        throw badRequest('A booking time is required for service orders');
+    }
+    if (input.scheduledFor && new Date(input.scheduledFor).getTime() <= Date.now()) {
+        throw badRequest('A booking time must be in the future');
+    }
+    const currencies = new Set(snapshots.map((item) => item.currency.toUpperCase()));
+    if (currencies.size !== 1) throw badRequest('All items in an order must use the same currency');
+
     const subtotal = round(snapshots.reduce((sum, item) => sum + item.totalPrice, 0));
-    const deliveryFee = round(input.deliveryFee ?? 0);
-    const discount = round(input.discountAmount ?? 0);
-    const tax = round(input.taxAmount ?? 0);
-    const total = round(subtotal + deliveryFee + tax - discount);
-    if (total < 0) throw badRequest('Discount cannot exceed the order total');
+    const deliveryFee = 0;
+    const discount = 0;
+    const tax = 0;
+    const total = subtotal;
+    const currency = snapshots[0]!.currency.toUpperCase();
 
     const hasProduct = snapshots.some((i) => i.itemType === 'product');
     const hasService = snapshots.some((i) => i.itemType === 'service');

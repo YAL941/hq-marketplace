@@ -11,6 +11,12 @@ const envSchema = z.object({
     APP_DB_USER: z.string().default('hq_app'),
     APP_DB_PASSWORD: z.string().default('hq_app'),
     PORT: z.coerce.number().int().positive().default(4000),
+    SMTP_HOST: z.string().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().positive().default(587),
+    SMTP_SECURE: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+    SMTP_USER: z.string().optional(),
+    SMTP_PASSWORD: z.string().optional(),
+    MAIL_FROM: z.string().min(1).default('OmniHQ <no-reply@omnihq.local>'),
     ORDERS_ENABLED: z.enum(['true', 'false']).optional(),
     // The production floor is checked separately and is stricter (32 chars,
     // no placeholders); this is only the minimum for a runnable dev setup.
@@ -74,7 +80,7 @@ const envSchema = z.object({
      * resize is attempted.
      */
     UPLOAD_MAX_PIXELS: z.coerce.number().int().positive().default(40_000_000),
-});
+}).refine((value) => Boolean(value.SMTP_USER) === Boolean(value.SMTP_PASSWORD), { message: 'SMTP_USER and SMTP_PASSWORD must both be set or both be empty' });
 /** The Vite dev server, used when CORS_ORIGIN is unset or unusable. */
 const DEFAULT_DEV_ORIGIN = 'http://localhost:5173';
 /**
@@ -270,18 +276,16 @@ if (parsed.data.NODE_ENV === 'production') {
 }
 export const config = {
     ...parsed.data,
+    // Internal orders are enabled unless a deployment explicitly pauses them.
     ORDERS_ENABLED: parsed.data.ORDERS_ENABLED === undefined
-        ? parsed.data.NODE_ENV !== 'production'
+        ? true
         : parsed.data.ORDERS_ENABLED === 'true',
     isProduction: parsed.data.NODE_ENV === 'production',
     isTest: parsed.data.NODE_ENV === 'test',
     corsOrigins: parseCorsOrigins(parsed.data.CORS_ORIGIN, parsed.data.NODE_ENV === 'production'),
     /**
-     * Resolved here rather than defaulted in the schema, because the default
-     * depends on the environment and that is not expressible in one `z.default()`:
-     * a developer running the API directly has no proxy at all, while production
-     * is expected to sit behind exactly one.
-     *
+     * The schema intentionally has no default: production startup requires an
+     * explicit trust-proxy count, while non-production can safely use zero.
      * Production never reaches the fallback — `assertExplicitTrustProxyHops()`
      * has already refused to start by then. The `1` below is therefore only
      * ever the answer for a development run that happens to set the variable.

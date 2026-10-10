@@ -14,6 +14,7 @@ import {
 
 const listQuerySchema = z.object({
     status: z.enum(['draft', 'active', 'inactive', 'archived']).optional(),
+    businessId: z.coerce.number().int().positive().optional(),
     serviceCategoryId: z.coerce.number().int().positive().optional(),
     search: z.string().min(1).max(120).optional(),
     limit: z.coerce.number().int().positive().max(100).optional(),

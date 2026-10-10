@@ -356,6 +356,39 @@ describe('GET /api/admin/businesses: the verification queue', () => {
     });
 });
 
+describe('admin business search and notifications', () => {
+    it('searches and returns state counts in one paginated response', async () => {
+        const res = await request(app)
+            .get('/api/admin/businesses?status=all&search=Verify%20Grill&page=1&limit=5')
+            .set('Authorization', `Bearer ${admin.token}`)
+        assert.equal(res.status, 200, JSON.stringify(res.body));
+        assert.ok(res.body.data.some((row: { business_name: string }) => row.business_name === 'Verify Grill House'));
+        assert.ok(res.body.counts.all >= 1);
+        assert.ok(res.body.counts.pending >= 1);
+        assert.equal(res.body.meta.page, 1);
+        assert.equal(res.body.meta.limit, 5);
+    });
+
+    it('returns recent registrations and marks unseen pending businesses as seen', async () => {
+        const recent = await request(app)
+            .get('/api/admin/businesses/notifications')
+            .set('Authorization', `Bearer ${admin.token}`)
+        assert.equal(recent.status, 200, JSON.stringify(recent.body));
+        assert.ok(recent.body.data.unreadCount >= 3);
+        assert.ok(recent.body.data.recent.length <= 10);
+        assert.ok(recent.body.data.recent.some((row: { is_new: boolean }) => row.is_new));
+
+        const marked = await request(app)
+            .post('/api/admin/businesses/notifications/mark-seen')
+            .set('Authorization', `Bearer ${admin.token}`)
+        assert.equal(marked.status, 200);
+        const after = await request(app)
+            .get('/api/admin/businesses/notifications')
+            .set('Authorization', `Bearer ${admin.token}`)
+        assert.equal(after.body.data.unreadCount, 0);
+    });
+});
+
 describe('PATCH /api/admin/businesses/:id/verification: approve', () => {
     it('makes the business public, by id and by slug', async () => {
         const slug = (await businessRow(ownerA.businessId!))['business_slug'] as string;
@@ -402,17 +435,17 @@ describe('PATCH /api/admin/businesses/:id/verification: approve', () => {
             .send({ decision: 'approve' });
 
         assert.equal(res.status, 409);
-        assert.equal(res.body.error.details.current_verification_status, 'verified');
+        assert.equal(res.body.error.details.current_status, 'active');
     });
 
-    it('re-decides only when the admin says so explicitly', async () => {
+    it('does not let the legacy force flag bypass the pending-only transition', async () => {
         const res = await request(app)
             .patch(`/api/admin/businesses/${ownerA.businessId}/verification`)
             .set('Authorization', `Bearer ${admin.token}`)
             .send({ decision: 'approve', force: true });
 
-        assert.equal(res.status, 200, JSON.stringify(res.body));
-        assert.equal(res.body.data.verification_status, 'verified');
+        assert.equal(res.status, 409, JSON.stringify(res.body));
+        assert.equal(res.body.error.details.current_status, 'active');
     });
 
     it('answers 404 for a business that does not exist', async () => {
@@ -425,14 +458,19 @@ describe('PATCH /api/admin/businesses/:id/verification: approve', () => {
 });
 
 describe('PATCH /api/admin/businesses/:id/verification: reject', () => {
-    it('insists on a reason', async () => {
+    it('accepts a rejection without a reason on the status endpoint', async () => {
+        const businessId = await requestBusiness('Verify Rejection Without Reason', {});
         const res = await request(app)
-            .patch(`/api/admin/businesses/${ownerB.businessId}/verification`)
+            .patch(`/api/admin/businesses/${businessId}/status`)
             .set('Authorization', `Bearer ${admin.token}`)
-            .send({ decision: 'reject', reason: 'no' });
+            .send({ status: 'rejected' });
 
-        assert.equal(res.status, 400);
-        assert.equal(res.body.error.details.field, 'reason');
+        assert.equal(res.status, 200, JSON.stringify(res.body));
+        assert.equal(res.body.data.rejection_reason, null);
+        assert.equal(res.body.email.sent, false, 'SMTP is intentionally optional in tests');
+        const row = await businessRow(businessId);
+        assert.equal(String(row['reviewed_by']), String(admin.id));
+        assert.ok(row['reviewed_at']);
     });
 
     it('keeps the business hidden and hands the reason to its owner', async () => {

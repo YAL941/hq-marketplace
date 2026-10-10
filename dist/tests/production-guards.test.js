@@ -86,9 +86,9 @@ describe('production guards', () => {
         // without proving which guard fired.
         const { ok, output } = await bootProductionConfig({});
         assert.equal(ok, true, `a valid production environment should boot, but:\n${output}`);
-        assert.match(output, /ORDERS_ENABLED=false/);
+        assert.match(output, /ORDERS_ENABLED=true/);
     });
-    it('defaults order creation on in development and test, and off in production', async () => {
+    it('defaults internal order creation on in every environment', async () => {
         const development = await bootProductionConfig({ NODE_ENV: 'development', ORDERS_ENABLED: undefined });
         const test = await bootProductionConfig({ NODE_ENV: 'test', ORDERS_ENABLED: undefined });
         const production = await bootProductionConfig({ ORDERS_ENABLED: undefined });
@@ -97,7 +97,7 @@ describe('production guards', () => {
         assert.equal(production.ok, true, production.output);
         assert.match(development.output, /ORDERS_ENABLED=true/);
         assert.match(test.output, /ORDERS_ENABLED=true/);
-        assert.match(production.output, /ORDERS_ENABLED=false/);
+        assert.match(production.output, /ORDERS_ENABLED=true/);
     });
     it('refuses a placeholder admin password', async () => {
         // PGPASSWORD is the schema owner's password — the one role that

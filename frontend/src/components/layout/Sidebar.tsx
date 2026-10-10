@@ -192,16 +192,16 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                   key={item.key}
                   to={href}
                   className={({ isActive: active }) => cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-button text-sm font-medium transition-colors',
+                    'relative flex items-center gap-3 rounded-xl border-s-4 px-3 py-2.5 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
                     active
-                      ? 'bg-primary-50 text-primary-600'
-                      : 'text-navy-600 hover:bg-navy-50 hover:text-navy-900',
+                      ? 'border-s-primary-600 bg-primary-50 text-primary-700 shadow-sm'
+                      : 'border-s-transparent text-navy-600 hover:bg-navy-50 hover:text-navy-900',
                     collapsed && 'justify-center'
                   )}
                   title={collapsed ? label : undefined}
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+                  <item.icon className="w-5 h-5 flex-shrink-0 opacity-80" aria-hidden="true" />
                   {!collapsed && <span>{label}</span>}
                 </NavLink>
               );
@@ -209,10 +209,10 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
             <NavLink
               to="/dashboard/settings"
               className={({ isActive }) => cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-button text-sm font-medium transition-colors',
+                'relative flex items-center gap-3 rounded-xl border-s-4 px-3 py-2.5 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
                 isActive
-                  ? 'bg-primary-50 text-primary-600'
-                  : 'text-navy-600 hover:bg-navy-50 hover:text-navy-900',
+                  ? 'border-s-primary-600 bg-primary-50 text-primary-700 shadow-sm'
+                  : 'border-s-transparent text-navy-600 hover:bg-navy-50 hover:text-navy-900',
                 collapsed && 'justify-center'
               )}
               title={collapsed ? t('sidebar.settings') : undefined}

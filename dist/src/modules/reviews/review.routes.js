@@ -5,7 +5,7 @@ import { withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
-import { createReview, listPublicReviews, listReviewsForBusiness, moderateReview, respondToReview, } from './review.repository.js';
+import { createReview, getReviewEligibility, listPublicReviews, listReviewsForBusiness, moderateReview, respondToReview, } from './review.repository.js';
 const listQuerySchema = z.object({
     status: z.enum(['pending', 'published', 'rejected', 'hidden']).optional(),
     minRating: z.coerce.number().int().min(1).max(5).optional(),
@@ -15,12 +15,24 @@ const listQuerySchema = z.object({
 });
 const createSchema = z.object({
     businessId: z.number().int().positive(),
-    orderId: z.number().int().positive().nullish(),
+    orderId: z.number().int().positive(),
     rating: z.number().int().min(1).max(5),
     reviewText: z.string().max(4000).nullish(),
 });
 export const reviewRoutes = Router();
 const writeLimiter = rateLimiter('write');
+reviewRoutes.get('/reviews/eligibility/:businessId', authenticate, async (req, res, next) => {
+    try {
+        if (!req.user)
+            throw unauthorized();
+        const businessId = z.coerce.number().int().positive().parse(req.params['businessId']);
+        const eligibility = await withTenant(contextFor(req), (client) => getReviewEligibility(client, req.user.id, businessId));
+        res.json({ data: eligibility });
+    }
+    catch (error) {
+        next(error);
+    }
+});
 /** Customer writes a review for a business. */
 reviewRoutes.post('/reviews', writeLimiter, authenticate, async (req, res, next) => {
     try {

@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg';
-import { forbidden, notFound } from '../../db/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../../db/errors.js';
 
 export interface ReviewRow {
     review_id: string;
@@ -14,17 +14,77 @@ export interface ReviewRow {
     updated_at: Date;
 }
 
+export interface ReviewEligibility {
+    eligible: boolean;
+    order_id: string | null;
+    already_reviewed: boolean;
+}
+
+export async function getReviewEligibility(
+    client: PoolClient,
+    userId: number,
+    businessId: number,
+): Promise<ReviewEligibility> {
+    const { rows } = await client.query<{
+        order_id: string | null;
+        already_reviewed: boolean;
+        is_member: boolean;
+    }>(
+        `SELECT
+             (
+                 SELECT o.order_id
+                   FROM orders o
+                  WHERE o.business_id = $2
+                    AND o.customer_id = $1
+                    AND o.order_status = 'completed'
+                  ORDER BY o.completed_at DESC NULLS LAST, o.order_id DESC
+                  LIMIT 1
+             ) AS order_id,
+             EXISTS (
+                 SELECT 1 FROM reviews r
+                  WHERE r.business_id = $2 AND r.user_id = $1
+             ) AS already_reviewed,
+             app_is_business_member($2) AS is_member`,
+        [userId, businessId],
+    );
+    const eligibility = rows[0];
+    if (!eligibility) throw notFound('Business not found');
+    const allowed = !eligibility.is_member && !eligibility.already_reviewed && eligibility.order_id !== null;
+    return {
+        eligible: allowed,
+        order_id: allowed ? eligibility.order_id : null,
+        already_reviewed: eligibility.already_reviewed,
+    };
+}
+
 export async function createReview(
     client: PoolClient,
     userId: number,
-    input: { businessId: number; orderId?: number | null; rating: number; reviewText?: string | null },
+    input: { businessId: number; orderId: number; rating: number; reviewText?: string | null },
 ): Promise<ReviewRow> {
+    const { rows: eligibleRows } = await client.query<{ allowed: boolean }>(
+        `SELECT EXISTS (
+             SELECT 1
+               FROM orders o
+              WHERE o.order_id = $1
+                AND o.business_id = $2
+                AND o.customer_id = $3
+                AND o.order_status = 'completed'
+         ) AND NOT app_is_business_member($2) AS allowed`,
+        [input.orderId, input.businessId, userId],
+    );
+    if (eligibleRows[0]?.allowed !== true) {
+        throw badRequest('A completed order for this business is required to write a review');
+    }
+
     const { rows } = await client.query<ReviewRow>(
         `INSERT INTO reviews (business_id, user_id, order_id, rating, review_text, status)
          VALUES ($1, $2, $3, $4, $5, 'pending')
+         ON CONFLICT (business_id, user_id) DO NOTHING
          RETURNING *`,
-        [input.businessId, userId, input.orderId ?? null, input.rating, input.reviewText ?? null],
+        [input.businessId, userId, input.orderId, input.rating, input.reviewText ?? null],
     );
+    if (!rows[0]) throw conflict('You have already reviewed this business');
     return rows[0]!;
 }
 

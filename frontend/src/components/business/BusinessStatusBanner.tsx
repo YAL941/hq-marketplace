@@ -53,7 +53,7 @@ export function BusinessStatusBanner({ businessId }: { businessId: Id }) {
     return (
       <div
         role="status"
-        className="bg-error-50 border-b border-error-200 px-4 sm:px-6 py-3 flex items-start gap-3"
+        className="flex items-start gap-3 border-b border-error-600/20 bg-error-50 px-4 py-3 sm:px-6"
       >
         <AlertTriangle className="w-5 h-5 text-error-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
         <div className="min-w-0 flex-1">
@@ -76,7 +76,7 @@ export function BusinessStatusBanner({ businessId }: { businessId: Id }) {
 
   if (pending) {
     return (
-      <div role="status" className="bg-warning-50 border-b border-warning-200 px-4 sm:px-6 py-3 flex items-start gap-3">
+      <div role="status" className="flex items-start gap-3 border-b border-warning-600/20 bg-warning-50 px-4 py-3 sm:px-6">
         <Clock className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-navy-900">{t('statusBanner.pendingTitle')}</p>
@@ -88,15 +88,15 @@ export function BusinessStatusBanner({ businessId }: { businessId: Id }) {
 
   if (live) {
     return (
-      <div role="status" className="bg-success-50 border-b border-success-200 px-4 sm:px-6 py-2.5 flex items-center gap-3">
-        <CheckCircle2 className="w-5 h-5 text-success-600 flex-shrink-0" aria-hidden="true" />
-        <p className="text-sm text-navy-900 flex-1 min-w-0">
-          <span className="font-semibold">{t('statusBanner.liveLabel')}</span>{' '}
-          <span className="text-navy-600">{t('statusBanner.liveBody')}</span>
-        </p>
+      <div role="status" className="flex flex-wrap items-center gap-3 border-b border-success-600/20 bg-success-50 px-4 py-3 sm:px-6">
+        <span className="inline-flex items-center gap-2 rounded-full border border-success-600/20 bg-white px-3 py-1.5 text-sm font-semibold text-success-600 shadow-sm">
+          <CheckCircle2 className="h-4 w-4 text-success-600" aria-hidden="true" />
+          {t('statusBanner.liveLabel')}
+        </span>
+        <p className="min-w-0 flex-1 text-sm text-navy-600">{t('statusBanner.liveBody')}</p>
         <Link
           to={`/business/${business.business_slug}`}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 flex-shrink-0"
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-success-600/20 bg-white px-3.5 text-sm font-semibold text-success-600 shadow-sm transition hover:border-success-600 hover:bg-success-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success-600"
         >
           {t('statusBanner.viewPublic')}
           <ExternalLink className="w-4 h-4 rtl:rotate-180" aria-hidden="true" />

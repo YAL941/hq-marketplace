@@ -616,6 +616,21 @@ export interface StaffBusinessProfile extends BusinessRecord {
 
 /** The three business states the admin queue can filter by. */
 export type AdminBusinessStatus = 'pending' | 'active' | 'rejected';
+export type AdminBusinessFilter = 'all' | AdminBusinessStatus;
+
+export interface AdminBusinessCounts {
+  all: number;
+  pending: number;
+  active: number;
+  rejected: number;
+}
+
+export interface AdminBusinessNotifications {
+  unreadCount: number;
+  recent: Array<Pick<AdminBusinessRow, 'business_id' | 'business_name' | 'status' | 'created_at'> & {
+    is_new: boolean;
+  }>;
+}
 
 /**
  * One row of the admin verification queue.
@@ -637,11 +652,14 @@ export interface AdminBusinessRow {
   phone: string | null;
   whatsapp_number: string | null;
   email: string | null;
-  status: AdminBusinessStatus;
+  status: string;
   verification_status: string;
   is_verified: boolean;
   rejection_reason: string | null;
   verified_at: string | null;
+  reviewed_by?: Id | null;
+  reviewed_at?: string | null;
+  seen_by_admin?: boolean;
   created_at: string;
   owner_user_id: Id | null;
   owner_full_name: string | null;
@@ -663,14 +681,20 @@ export interface VerificationDecision {
   is_verified: boolean;
   verified_at: string | null;
   rejection_reason: string | null;
+  reviewed_by?: Id | null;
+  reviewed_at?: string | null;
+  owner_email?: string | null;
 }
 
-/** The body of a decision. `reason` is required, and long enough, to reject. */
+export interface AdminBusinessDecisionResponse {
+  data: VerificationDecision;
+  email: { sent: boolean; reason?: string };
+}
+
+/** The compatibility body for the original verification route. */
 export interface VerificationInput {
   decision: 'approve' | 'reject';
   reason?: string;
-  /** Re-deciding a business that already carries this decision is a 409. */
-  force?: boolean;
 }
 
 export interface BusinessRecord {
@@ -713,6 +737,7 @@ export interface StaffListQuery {
 
 export interface ProductListQuery extends StaffListQuery {
   status?: CatalogueStatus;
+  businessId?: number;
   categoryId?: number;
   /**
    * Named `search` by the server; `q` is rejected by its schema and silently
@@ -724,6 +749,7 @@ export interface ProductListQuery extends StaffListQuery {
 
 export interface ServiceListQuery extends StaffListQuery {
   status?: CatalogueStatus;
+  businessId?: number;
   serviceCategoryId?: number;
   search?: string;
 }

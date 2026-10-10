@@ -19,7 +19,7 @@ const itemSchema = z
     .object({
         productId: z.number().int().positive().optional(),
         serviceId: z.number().int().positive().optional(),
-        quantity: z.number().positive().max(999).optional(),
+        quantity: z.number().int().positive().max(999).optional(),
     })
     .refine((v) => (v.productId !== undefined) !== (v.serviceId !== undefined), {
         message: 'Provide exactly one of productId or serviceId',
@@ -29,10 +29,6 @@ const createOrderSchema = z.object({
     businessId: z.number().int().positive(),
     locationId: z.number().int().positive().nullish(),
     items: z.array(itemSchema).min(1).max(100),
-    deliveryFee: z.number().nonnegative().optional(),
-    discountAmount: z.number().nonnegative().optional(),
-    taxAmount: z.number().nonnegative().optional(),
-    currency: z.string().regex(/^[A-Za-z]{3}$/).optional(),
     customerNote: z.string().max(2000).nullish(),
     deliveryAddress: z.string().max(500).nullish(),
     scheduledFor: z.string().datetime().nullish(),
@@ -67,9 +63,6 @@ orderRoutes.post(
         try {
             const input = createOrderSchema.parse(req.body);
             const ctx = contextFor(req);
-            // SECURITY: discount, tax, delivery fee and currency currently come from
-            // the client. Replace them with server-side rules before enabling orders
-            // in production.
             const order = await withTenant(ctx, (client) => createOrder(client, req.user!.id, input));
             res.status(201).json({ data: order });
         } catch (error) {

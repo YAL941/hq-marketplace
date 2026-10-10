@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import {
   ShoppingBag, DollarSign, Users, Star, Package, Sparkles, MessageSquare, Clock, AlertCircle,
+  CheckCircle2, XCircle, ArrowUpRight, PackagePlus, Settings,
 } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { DashboardStatsSkeleton } from '../components/common/Skeleton';
@@ -72,8 +73,8 @@ export function DashboardHomePage() {
     { label: t('dashboard.totalCustomers'), value: formatNumber(stats.total_customers), Icon: Users },
     { label: t('dashboard.averageRating'), value: `${formatNumber(stats.average_rating)} / 5`, Icon: Star },
     { label: t('dashboard.pendingOrders'), value: formatNumber(stats.pending_orders), Icon: Clock },
-    { label: t('dashboard.completedOrders'), value: formatNumber(stats.completed_orders), Icon: ShoppingBag },
-    { label: t('dashboard.cancelledOrders'), value: formatNumber(stats.cancelled_orders), Icon: ShoppingBag },
+    { label: t('dashboard.completedOrders'), value: formatNumber(stats.completed_orders), Icon: CheckCircle2 },
+    { label: t('dashboard.cancelledOrders'), value: formatNumber(stats.cancelled_orders), Icon: XCircle },
     { label: t('dashboard.totalProducts'), value: formatNumber(stats.total_products), Icon: Package },
     { label: t('dashboard.totalServices'), value: formatNumber(stats.total_services), Icon: Sparkles },
     { label: t('dashboard.totalReviews'), value: formatNumber(stats.total_reviews), Icon: MessageSquare },
@@ -86,64 +87,88 @@ export function DashboardHomePage() {
     profile && (profile.business_category_id == null || !profile.city || !profile.phone);
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-navy-900">{t('dashboard.title')}</h1>
-        <p className="text-sm text-navy-500 mt-1">
+    <div className="mx-auto w-full max-w-screen-2xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-navy-500">
+            {t('sidebar.overview')}
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-navy-950 sm:text-3xl">{t('dashboard.title')}</h1>
+        </div>
+        <p className="text-xs text-navy-500 sm:text-sm">
           {t('dashboard.computedAt', { date: formatDateTime(stats.computed_at) })}
         </p>
       </div>
 
       {incomplete && (
-        <div className="mb-4 p-3 bg-warning-50 border border-warning-200 rounded-button flex items-center gap-3 text-sm text-warning-800">
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-warning-600/20 bg-warning-50 p-4 text-sm text-warning-600 shadow-sm">
           <AlertCircle className="w-5 h-5 text-warning-600 flex-shrink-0" aria-hidden="true" />
-          <span>{t('dashboard.incompleteProfile')}</span>
+          <span className="flex-1">{t('dashboard.incompleteProfile')}</span>
           <Link
             to={`/list-your-business?complete=${businessId}`}
-            className="ms-auto font-medium text-primary-700 hover:text-primary-800"
+            className="inline-flex items-center gap-1 font-semibold text-primary-700 transition-colors hover:text-primary-800"
           >
             {t('dashboard.completeIt')}
+            <ArrowUpRight className="h-4 w-4 rtl:-scale-x-100" aria-hidden="true" />
           </Link>
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {cards.map(({ label, value, Icon }) => (
-          <Card key={label} className="p-4">
-            <div className="w-9 h-9 rounded-card bg-sky flex items-center justify-center mb-3">
-              <Icon className="w-5 h-5 text-primary-500" strokeWidth={1.75} aria-hidden="true" />
+          <Card key={label} className="rounded-2xl border-navy-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy-50">
+                <Icon className="h-5 w-5 text-navy-700" strokeWidth={1.8} aria-hidden="true" />
+              </span>
+              <p className="min-w-0 break-words text-2xl font-bold tracking-tight text-navy-950">{value}</p>
             </div>
-            <p className="text-xs text-navy-500">{label}</p>
-            <p className="text-xl font-bold text-navy-900 mt-0.5 break-words">{value}</p>
+            <p className="text-sm font-medium text-navy-500">{label}</p>
           </Card>
         ))}
       </div>
 
-      {/* The split is real and it is all the API has: one total, no second
-          point to compare it against. */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="p-5">
-          <h2 className="font-semibold text-navy-900 mb-1">{t('dashboard.orderBreakdown')}</h2>
-          <p className="text-sm text-navy-500 mb-4">{t('dashboard.orderBreakdownBody')}</p>
-          <dl className="space-y-3">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
+        <Card className="rounded-2xl border-navy-100 p-5 shadow-sm sm:p-6 xl:col-span-3">
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-semibold text-navy-950">{t('dashboard.orderBreakdown')}</h2>
+            </div>
+            <div className="shrink-0 rounded-xl bg-navy-50 px-3 py-2 text-end">
+              <p className="text-xs text-navy-500">{t('dashboard.totalOrders')}</p>
+              <p className="font-semibold tabular-nums text-navy-900">{formatNumber(stats.total_orders)}</p>
+            </div>
+          </div>
+          <dl className="space-y-5">
             {[
-              ['pending', stats.pending_orders],
-              ['completed', stats.completed_orders],
-              ['cancelled', stats.cancelled_orders],
-            ].map(([key, count]) => {
+              { key: 'pending', count: stats.pending_orders, color: 'bg-orange-500' },
+              { key: 'completed', count: stats.completed_orders, color: 'bg-blue-500' },
+              { key: 'cancelled', count: stats.cancelled_orders, color: 'bg-red-500' },
+            ].map(({ key, count, color }) => {
               const total = stats.total_orders || 0;
               const share = total === 0 ? 0 : Math.round((Number(count) / total) * 100);
+              const label = t(`orderStatus.${key}`);
               return (
                 <div key={key}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <dt className="text-navy-600">{t(`orderStatus.${key}`)}</dt>
-                    <dd className="text-navy-900">
+                  <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                    <dt className="flex items-center gap-2 font-medium text-navy-700">
+                      <span className={`h-2.5 w-2.5 rounded-full ${color}`} aria-hidden="true" />
+                      {label}
+                    </dt>
+                    <dd className="tabular-nums text-navy-900">
                       {formatNumber(Number(count))}
-                      <span className="text-navy-400 ms-1">({share}%)</span>
+                      <span className="ms-2 text-navy-400">({share}%)</span>
                     </dd>
                   </div>
-                  <div className="h-2 rounded-full bg-navy-100 overflow-hidden">
-                    <div className="h-full bg-primary-500 rounded-full" style={{ width: `${share}%` }} />
+                  <div
+                    className="h-2 overflow-hidden rounded-full bg-navy-100"
+                    role="progressbar"
+                    aria-label={label}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={share}
+                  >
+                    <div className={`h-full rounded-full ${color}`} style={{ width: `${share}%` }} />
                   </div>
                 </div>
               );
@@ -151,22 +176,26 @@ export function DashboardHomePage() {
           </dl>
         </Card>
 
-        <Card className="p-5 lg:col-span-2">
-          <h2 className="font-semibold text-navy-900 mb-4">{t('dashboard.quickActions')}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Card className="rounded-2xl border-navy-100 p-5 shadow-sm sm:p-6 xl:col-span-2">
+          <h2 className="mb-5 font-semibold text-navy-950">{t('dashboard.quickActions')}</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
             {[
-              { to: `/dashboard/business/${businessId}/products/create`, label: t('product.create') },
-              { to: `/dashboard/business/${businessId}/services/create`, label: t('service.create') },
-              { to: `/dashboard/business/${businessId}/orders`, label: t('order.title') },
-              { to: `/dashboard/business/${businessId}/reviews`, label: t('review.title') },
-              { to: '/dashboard/settings', label: t('settings.title') },
+              { to: `/dashboard/business/${businessId}/products/create`, label: t('product.create'), Icon: PackagePlus },
+              { to: `/dashboard/business/${businessId}/services/create`, label: t('service.create'), Icon: Sparkles },
+              { to: `/dashboard/business/${businessId}/orders`, label: t('order.title'), Icon: ShoppingBag },
+              { to: `/dashboard/business/${businessId}/reviews`, label: t('review.title'), Icon: MessageSquare },
+              { to: '/dashboard/settings', label: t('settings.title'), Icon: Settings },
             ].map((action) => (
               <Link
                 key={action.to}
                 to={action.to}
-                className="rounded-button border border-navy-200 px-4 py-3 text-sm font-medium text-navy-700 hover:border-primary-300 hover:text-primary-700 transition-colors"
+                className="group flex items-center justify-between gap-3 rounded-xl border border-navy-100 bg-white px-4 py-3.5 text-sm font-medium text-navy-700 shadow-sm transition duration-150 hover:border-navy-200 hover:bg-navy-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy-500"
               >
-                {action.label}
+                <span className="flex min-w-0 items-center gap-3">
+                  <action.Icon className="h-4 w-4 shrink-0 text-navy-600" aria-hidden="true" />
+                  {action.label}
+                </span>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-navy-400 transition group-hover:text-navy-700 rtl:-scale-x-100" aria-hidden="true" />
               </Link>
             ))}
           </div>

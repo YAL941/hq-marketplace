@@ -7,6 +7,7 @@ import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import {
     createReview,
+    getReviewEligibility,
     listPublicReviews,
     listReviewsForBusiness,
     moderateReview,
@@ -24,7 +25,7 @@ const listQuerySchema = z.object({
 
 const createSchema = z.object({
     businessId: z.number().int().positive(),
-    orderId: z.number().int().positive().nullish(),
+    orderId: z.number().int().positive(),
     rating: z.number().int().min(1).max(5),
     reviewText: z.string().max(4000).nullish(),
 });
@@ -32,6 +33,19 @@ const createSchema = z.object({
 export const reviewRoutes: Router = Router();
 
 const writeLimiter = rateLimiter('write');
+
+reviewRoutes.get('/reviews/eligibility/:businessId', authenticate, async (req, res, next) => {
+    try {
+        if (!req.user) throw unauthorized();
+        const businessId = z.coerce.number().int().positive().parse(req.params['businessId']);
+        const eligibility = await withTenant(contextFor(req), (client) =>
+            getReviewEligibility(client, req.user!.id, businessId),
+        );
+        res.json({ data: eligibility });
+    } catch (error) {
+        next(error);
+    }
+});
 
 /** Customer writes a review for a business. */
 reviewRoutes.post('/reviews', writeLimiter, authenticate, async (req, res, next) => {

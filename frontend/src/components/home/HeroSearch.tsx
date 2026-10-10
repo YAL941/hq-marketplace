@@ -1,11 +1,12 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import { Check, ChevronDown, MapPin, Search, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Building2, Check, ChevronDown, MapPin, Search, X } from 'lucide-react';
 import { CategoryBar } from '../common/CategoryBar';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { useCategories } from '../../hooks/useCategories';
-import type { PublicCategory, PublicCity } from '../../types';
+import { businessApi } from '../../services/api';
+import type { PublicBusinessCard, PublicCategory, PublicCity } from '../../types';
 
 interface HeroSearchProps {
   cities?: PublicCity[];
@@ -20,12 +21,60 @@ export function HeroSearch({ cities = [], children }: HeroSearchProps) {
   const [selectedCategory, setSelectedCategory] = useState<PublicCategory | null>(null);
   const [selectedCity, setSelectedCity] = useState('');
   const [listboxOpen, setListboxOpen] = useState(false);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<PublicBusinessCard[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState(false);
   const searchId = useId();
   const listboxId = useId();
+  const suggestionsId = useId();
   const controlsRef = useRef<HTMLDivElement>(null);
   const categoryButtonRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<Array<HTMLDivElement | null>>([]);
   const options = [null, ...categories] as const;
+  const searchTerm = query.trim().toLocaleLowerCase();
+  const matchingCategories = searchTerm.length >= 2
+    ? categories.filter((category) =>
+        `${category.category_name} ${category.category_slug}`.toLocaleLowerCase().includes(searchTerm),
+      ).slice(0, 3)
+    : [];
+  const matchingCities = searchTerm.length >= 2
+    ? cities.filter((city) => city.city.toLocaleLowerCase().includes(searchTerm)).slice(0, 3)
+    : [];
+
+  useEffect(() => {
+    const term = query.trim();
+    if (term.length < 2) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      setSuggestionsError(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setSuggestionsLoading(true);
+      setSuggestionsError(false);
+      void businessApi.listPublic({
+        q: term,
+        category: selectedCategory?.category_slug,
+        city: selectedCity || undefined,
+        limit: 5,
+      }).then((response) => {
+        if (!cancelled) setSuggestions(response.data.data);
+      }).catch(() => {
+        if (!cancelled) {
+          setSuggestions([]);
+          setSuggestionsError(true);
+        }
+      }).finally(() => {
+        if (!cancelled) setSuggestionsLoading(false);
+      });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query, selectedCategory?.category_slug, selectedCity]);
 
   useEffect(() => {
     if (!listboxOpen) return;
@@ -41,6 +90,7 @@ export function HeroSearch({ cities = [], children }: HeroSearchProps) {
     const closeOnOutsideClick = (event: PointerEvent) => {
       if (event.target instanceof Node && !controlsRef.current?.contains(event.target)) {
         setListboxOpen(false);
+        setSuggestionsOpen(false);
       }
     };
     document.addEventListener('pointerdown', closeOnOutsideClick);
@@ -51,6 +101,7 @@ export function HeroSearch({ cities = [], children }: HeroSearchProps) {
 
   const closeListbox = (restoreFocus = false) => {
     setListboxOpen(false);
+    setSuggestionsOpen(false);
     if (restoreFocus) categoryButtonRef.current?.focus();
   };
 
@@ -95,6 +146,11 @@ export function HeroSearch({ cities = [], children }: HeroSearchProps) {
     if (selectedCity) params.set('city', selectedCity);
     const queryString = params.toString();
     navigate(`/explore${queryString ? `?${queryString}` : ''}`);
+  };
+
+  const chooseSuggestionCity = (city: string) => {
+    setSelectedCity(city);
+    setSuggestionsOpen(false);
   };
 
   return (
@@ -142,6 +198,7 @@ export function HeroSearch({ cities = [], children }: HeroSearchProps) {
               const nextTarget = event.relatedTarget;
               if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
                 setListboxOpen(false);
+                setSuggestionsOpen(false);
               }
             }}
             className="relative"
@@ -166,12 +223,23 @@ export function HeroSearch({ cities = [], children }: HeroSearchProps) {
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                onFocus={() => {
+                  if (query.trim().length >= 2) setSuggestionsOpen(true);
+                }}
                 onKeyDown={(event) => {
-                  if (event.key === 'ArrowDown' && !listboxOpen) {
+                  if (event.key === 'ArrowDown' && suggestionsOpen) {
+                    event.preventDefault();
+                    document.getElementById(suggestionsId)?.querySelector<HTMLElement>('a, button')?.focus();
+                  } else if (event.key === 'ArrowDown' && !listboxOpen) {
                     event.preventDefault();
                     openListbox();
+                  } else if (event.key === 'Escape' && suggestionsOpen) {
+                    event.preventDefault();
+                    setSuggestionsOpen(false);
                   }
                 }}
+                aria-expanded={suggestionsOpen}
+                aria-controls={suggestionsId}
                 placeholder={t('home.heroSearchPlaceholder')}
                 className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-start text-base text-white placeholder:text-white/[0.88] focus:outline-none focus:ring-0 sm:text-lg"
               />
@@ -252,6 +320,70 @@ export function HeroSearch({ cities = [], children }: HeroSearchProps) {
                       <span className="flex-1">{category.category_name}</span>
                       {selectedCategory?.category_id === category.category_id && (
                         <Check className="h-4 w-4" aria-hidden="true" />
+                      )}
+
+                      {suggestionsOpen && searchTerm.length >= 2 && !listboxOpen && (
+                        <div
+                          id={suggestionsId}
+                          className="absolute inset-x-0 top-full z-20 mt-2 max-h-80 overflow-y-auto rounded-2xl border border-white/30 bg-[#0B2A4A]/95 p-2 text-start shadow-2xl backdrop-blur-xl"
+                        >
+                          {matchingCategories.length > 0 && (
+                            <div className="border-b border-white/15 pb-1">
+                              {matchingCategories.map((category) => (
+                                <Link
+                                  key={category.category_id}
+                                  to={`/categories/${category.category_slug}`}
+                                  onClick={() => setSuggestionsOpen(false)}
+                                  className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm text-white hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+                                >
+                                  <CategoryIcon slug={category.category_slug} size="chip" />
+                                  <span className="flex-1">{category.category_name}</span>
+                                  <span className="text-xs text-white/65">{t('home.heroCategorySuggestion')}</span>
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                          {matchingCities.length > 0 && (
+                            <div className="border-b border-white/15 py-1">
+                              {matchingCities.map((city) => (
+                                <button
+                                  key={city.city}
+                                  type="button"
+                                  onClick={() => chooseSuggestionCity(city.city)}
+                                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-start text-sm text-white hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+                                >
+                                  <MapPin className="h-4 w-4 text-white/75" aria-hidden="true" />
+                                  <span className="flex-1">{city.city}</span>
+                                  <span className="text-xs text-white/65">{t('home.heroCitySuggestion')}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {suggestions.map((business) => (
+                            <Link
+                              key={business.business_id}
+                              to={`/business/${business.business_slug}`}
+                              onClick={() => setSuggestionsOpen(false)}
+                              className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm text-white hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+                            >
+                              <Building2 className="h-4 w-4 shrink-0 text-white/75" aria-hidden="true" />
+                              <span className="min-w-0 flex-1 truncate">{business.business_name}</span>
+                              <span className="max-w-[35%] truncate text-xs text-white/65">
+                                {[business.category_name, business.city].filter(Boolean).join(' · ')}
+                              </span>
+                            </Link>
+                          ))}
+                          {suggestionsLoading && (
+                            <p role="status" className="px-3 py-2 text-sm text-white/75">{t('common.loading')}</p>
+                          )}
+                          {suggestionsError && (
+                            <p role="alert" className="px-3 py-2 text-sm text-white">{t('home.heroSuggestionsError')}</p>
+                          )}
+                          {!suggestionsLoading && !suggestionsError && suggestions.length === 0 &&
+                            matchingCategories.length === 0 && matchingCities.length === 0 && (
+                              <p className="px-3 py-2 text-sm text-white/75">{t('home.heroNoSuggestions')}</p>
+                            )}
+                        </div>
                       )}
                     </div>
                   ))}

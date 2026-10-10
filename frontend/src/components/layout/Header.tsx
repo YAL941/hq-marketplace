@@ -64,8 +64,8 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
           'sticky top-0 z-50 border-b transition-[background-color,border-color,color] duration-200',
           isHomePage ? '-mb-16' : '',
           homeHeroVisible
-            ? 'border-transparent bg-transparent text-white'
-            : 'border-navy-200 bg-white/95 text-navy-900 backdrop-blur-sm',
+            ? 'border-white/10 bg-[#0B3A78] text-white shadow-sm'
+            : 'border-navy-200 bg-white text-navy-900 shadow-sm',
           className
         )}
         {...props}
@@ -177,11 +177,16 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
                 <div className="relative">
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-button hover:bg-navy-100 transition-colors"
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-1.5 rounded-button transition-colors',
+                      homeHeroVisible ? 'text-white hover:bg-white/15' : 'text-navy-700 hover:bg-navy-100',
+                    )}
                   >
                     <Avatar name={user?.full_name || 'User'} size="sm" />
-                    <span className="hidden sm:block text-sm font-medium text-navy-700">{user?.full_name}</span>
-                    <ChevronDown className="w-4 h-4 text-navy-500" />
+                    <span className={cn('hidden sm:block text-sm font-medium', homeHeroVisible ? 'text-white' : 'text-navy-700')}>
+                      {user?.full_name}
+                    </span>
+                    <ChevronDown className={cn('w-4 h-4', homeHeroVisible ? 'text-white/80' : 'text-navy-500')} />
                   </button>
                   {userMenuOpen && (
                     <div className="absolute end-0 mt-2 w-48 bg-white rounded-card shadow-card border border-navy-200 py-1 z-10">
@@ -207,6 +212,15 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
                       {currentBusiness && (
                         <Link to="/dashboard" className="block px-4 py-2 text-sm text-navy-700 hover:bg-navy-50">
                           <LayoutDashboard className="w-4 h-4 inline me-2" /> {t('nav.dashboard')}
+                        </Link>
+                      )}
+                      {hasPlatformRole('platform_admin') && (
+                        <Link
+                          to="/admin/businesses"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="block px-4 py-2 text-sm text-navy-700 hover:bg-navy-50"
+                        >
+                          <Shield className="w-4 h-4 inline me-2" /> {t('nav.admin')}
                         </Link>
                       )}
                       <hr className="my-1 border-navy-100" />

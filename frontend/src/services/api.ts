@@ -1,7 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import type {
   AdminBusinessRow,
-  AdminBusinessStatus,
+  AdminBusinessCounts,
+  AdminBusinessFilter,
+  AdminBusinessNotifications,
+  AdminBusinessDecisionResponse,
   ApiResponse,
   AuthMeResponse,
   BusinessMember,
@@ -35,7 +38,6 @@ import type {
   ServiceListQuery,
   SettableOrderStatus,
   StaffBusinessProfile,
-  VerificationDecision,
   VerificationInput,
 } from '../types';
 
@@ -370,10 +372,7 @@ export const orderApi = {
     locationId?: number | null;
     customerNote?: string | null;
     deliveryAddress?: string | null;
-    deliveryFee?: number;
-    discountAmount?: number;
-    taxAmount?: number;
-    currency?: string;
+    scheduledFor?: string | null;
   }) => api.post<ApiResponse<Order>>('/orders', data),
 
   listMine: () => api.get<ApiResponse<Order[]>>('/orders/mine'),
@@ -401,8 +400,17 @@ export const orderApi = {
 };
 
 // Reviews API
+export interface ReviewEligibility {
+  eligible: boolean;
+  order_id: Id | null;
+  already_reviewed: boolean;
+}
+
 export const reviewApi = {
-  create: (data: { businessId: number; orderId?: number | null; rating: number; reviewText?: string | null }) =>
+  eligibility: (businessId: Id) =>
+    api.get<ApiResponse<ReviewEligibility>>(`/reviews/eligibility/${businessId}`),
+
+  create: (data: { businessId: number; orderId: number; rating: number; reviewText?: string | null }) =>
     api.post<ApiResponse<BusinessReview>>('/reviews', data),
 
   listPublic: (params?: ReviewListQuery & { businessId?: number }) =>
@@ -447,11 +455,23 @@ export const locationApi = {
  * `limit` at 50.
  */
 export const adminApi = {
-  listBusinesses: (params: { status?: AdminBusinessStatus; page?: number; limit?: number }) =>
-    api.get<ApiResponse<AdminBusinessRow[]>>('/admin/businesses', { params }),
+  listBusinesses: (params: { status?: AdminBusinessFilter; search?: string; page?: number; limit?: number }) =>
+    api.get<ApiResponse<AdminBusinessRow[]> & { counts: AdminBusinessCounts }>(
+      '/admin/businesses',
+      { params },
+    ),
+
+  getBusinessNotifications: () =>
+    api.get<ApiResponse<AdminBusinessNotifications>>('/admin/businesses/notifications'),
+
+  markBusinessNotificationsSeen: () =>
+    api.post<ApiResponse<{ success: boolean }>>('/admin/businesses/notifications/mark-seen'),
+
+  setBusinessStatus: (businessId: Id, data: { status: 'active' | 'rejected'; reason?: string }) =>
+    api.patch<AdminBusinessDecisionResponse>(`/admin/businesses/${businessId}/status`, data),
 
   decideVerification: (businessId: Id, data: VerificationInput) =>
-    api.patch<ApiResponse<VerificationDecision>>(`/admin/businesses/${businessId}/verification`, data),
+    api.patch<AdminBusinessDecisionResponse>(`/admin/businesses/${businessId}/verification`, data),
 };
 
 /**

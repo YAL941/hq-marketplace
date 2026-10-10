@@ -164,8 +164,11 @@ export function createApp(options = {}) {
                     'PUT|DELETE            /api/business/:businessId/products/:productId/image',
                 ],
                 platformAdmin: [
-                    'GET   /api/admin/businesses?status=pending|active|rejected&page&limit',
-                    'PATCH /api/admin/businesses/:businessId/verification',
+                    'GET   /api/admin/businesses?status=all|pending|active|rejected&search&page&limit',
+                    'GET   /api/admin/businesses/notifications',
+                    'POST  /api/admin/businesses/notifications/mark-seen',
+                    'PATCH /api/admin/businesses/:businessId/status',
+                    'PATCH /api/admin/businesses/:businessId/verification (legacy)',
                 ],
                 note: 'Business staff routes need "Authorization: Bearer <token>" and the '
                     + 'business id in the path. The id in the X-Business-Id header is '

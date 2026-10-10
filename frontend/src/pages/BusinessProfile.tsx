@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
-  MapPin, Phone, Globe, Clock, Star, MessageCircle, Tag, Building2, ArrowLeft, ExternalLink,
+  MapPin, Phone, Globe, Clock, Star, MessageCircle, Tag, Building2, ArrowLeft, ExternalLink, ShoppingBag,
 } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
@@ -13,10 +13,11 @@ import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { ErrorState } from '../components/common/ErrorState';
 import { SmartImage } from '../components/common/SmartImage';
 import { ReportBusinessLink } from '../components/business/ReportBusinessLink';
-import { businessApi } from '../services/api';
+import { businessApi, orderApi, productApi, reviewApi, serviceApi } from '../services/api';
+import { useAuth } from '../context/useAuth';
 import { safeExternalUrl } from '../lib/safeUrl';
 import { cn, formatDate, formatRelativeTime } from '../lib/utils';
-import type { Location, PublicBusinessProfile, PublicReview } from '../types';
+import type { Location, Product, PublicBusinessProfile, PublicReview, Service } from '../types';
 
 /** Postgres `day_of_week`: 0 = Sunday. Indexed from Sunday to match. */
 const WEEKDAYS = [
@@ -49,10 +50,26 @@ function telHref(phone: string): string | null {
 export function BusinessProfilePage() {
   const { t } = useTranslation();
   const { businessSlug } = useParams<{ businessSlug: string }>();
+  const { isAuthenticated } = useAuth();
 
   const [business, setBusiness] = useState<PublicBusinessProfile | null>(null);
   const [reviews, setReviews] = useState<PublicReview[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [catalogueError, setCatalogueError] = useState(false);
+  const [reviewEligibility, setReviewEligibility] = useState<{ eligible: boolean; order_id: string | null; already_reviewed: boolean } | null>(null);
+  const [reviewEligibilityError, setReviewEligibilityError] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewError, setReviewError] = useState('');
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [selectedItem, setSelectedItem] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [scheduledFor, setScheduledFor] = useState('');
+  const [orderError, setOrderError] = useState('');
+  const [orderSubmitted, setOrderSubmitted] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState(false);
@@ -85,6 +102,19 @@ export function BusinessProfilePage() {
       setBusiness(profile);
       setReviews(reviewsRes.data.data);
       setLocations(locationsRes.data.data);
+      setCatalogueError(false);
+      try {
+        const [productRes, serviceRes] = await Promise.all([
+          productApi.listPublic({ businessId: Number(profile.business_id), status: 'active', limit: 50 }),
+          serviceApi.listPublic({ businessId: Number(profile.business_id), status: 'active', limit: 50 }),
+        ]);
+        setProducts(productRes.data.data);
+        setServices(serviceRes.data.data);
+      } catch {
+        setCatalogueError(true);
+        setProducts([]);
+        setServices([]);
+      }
     } catch (caught) {
       if (axios.isAxiosError(caught) && caught.response?.status === 404) {
         setNotFound(true);
@@ -99,6 +129,27 @@ export function BusinessProfilePage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !business) {
+      setReviewEligibility(null);
+      setReviewEligibilityError(false);
+      return;
+    }
+    let cancelled = false;
+    void reviewApi.eligibility(business.business_id).then((response) => {
+      if (!cancelled) {
+        setReviewEligibility(response.data.data);
+        setReviewEligibilityError(false);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setReviewEligibility(null);
+        setReviewEligibilityError(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [business, isAuthenticated]);
 
   if (loading) {
     return (
@@ -148,6 +199,61 @@ export function BusinessProfilePage() {
   const website = safeExternalUrl(business.website);
   const hasContact = !!(call || whatsapp || website);
   const totalRated = Object.values(business.rating_distribution).reduce((a, b) => a + b, 0);
+  const orderableProducts = products.filter((product) =>
+    !product.is_stock_tracked || product.stock_quantity > 0,
+  );
+  const bookableServices = services.filter((service) => service.is_bookable);
+  const selectedProduct = selectedItem.startsWith('product:')
+    ? orderableProducts.find((product) => product.product_id === selectedItem.slice(8))
+    : undefined;
+  const selectedService = selectedItem.startsWith('service:')
+    ? bookableServices.find((service) => service.service_id === selectedItem.slice(8))
+    : undefined;
+
+  const placeOrder = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedItem) return;
+    setOrderError('');
+    setOrderLoading(true);
+    try {
+      const item = selectedItem.split(':');
+      const parsedScheduledFor = scheduledFor ? new Date(scheduledFor).toISOString() : null;
+      await orderApi.create({
+        businessId: Number(business.business_id),
+        items: [{
+          ...(item[0] === 'product' ? { productId: Number(item[1]) } : { serviceId: Number(item[1]) }),
+          quantity,
+        }],
+        ...(parsedScheduledFor ? { scheduledFor: parsedScheduledFor } : {}),
+      });
+      setOrderSubmitted(true);
+      setSelectedItem('');
+      setScheduledFor('');
+      setQuantity(1);
+    } catch {
+      setOrderError(t('business.orderError'));
+    } finally {
+      setOrderLoading(false);
+    }
+  };
+
+  const submitReview = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!reviewEligibility?.order_id || reviewRating < 1) return;
+    setReviewError('');
+    try {
+      await reviewApi.create({
+        businessId: Number(business.business_id),
+        orderId: Number(reviewEligibility.order_id),
+        rating: reviewRating,
+        reviewText: reviewText.trim(),
+      });
+      setReviewSubmitted(true);
+      setReviewEligibility({ eligible: false, order_id: null, already_reviewed: true });
+    } catch {
+      setReviewError(t('business.reviewSubmitError'));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-navy-50">
@@ -279,6 +385,142 @@ export function BusinessProfilePage() {
               </p>
             </Card>
 
+            {(products.length > 0 || services.length > 0 || catalogueError) && (
+              <Card>
+                <div className="mb-5 flex items-center gap-2">
+                  <ShoppingBag className="h-5 w-5 text-navy-600" aria-hidden="true" />
+                  <h2 className="text-lg font-semibold text-navy-900">{t('business.catalogueTitle')}</h2>
+                </div>
+                {catalogueError && (
+                  <p role="alert" className="mb-4 rounded-xl bg-error-50 p-3 text-sm text-error-600">
+                    {t('business.catalogueError')}
+                  </p>
+                )}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {products.map((product) => (
+                    <article key={product.product_id} className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                      {product.image_url && (
+                        <SmartImage
+                          value={product.image_url}
+                          width={640}
+                          height={360}
+                          className="h-40 w-full object-cover"
+                          fallback={<div className="h-40 bg-navy-50" />}
+                        />
+                      )}
+                      <div className="p-4">
+                        <h3 className="font-semibold text-navy-900">{product.product_name}</h3>
+                        {product.description && <p className="mt-1 line-clamp-2 text-sm text-navy-500">{product.description}</p>}
+                        <p className="mt-3 font-semibold text-navy-800">
+                          {product.discount_price ?? product.price} {product.currency}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+                  {services.map((service) => (
+                    <article key={service.service_id} className="overflow-hidden rounded-xl border border-navy-100 bg-white">
+                      <div className="p-4">
+                        <h3 className="font-semibold text-navy-900">{service.service_name}</h3>
+                        {service.description && <p className="mt-1 line-clamp-2 text-sm text-navy-500">{service.description}</p>}
+                        <p className="mt-3 font-semibold text-navy-800">
+                          {service.price} {service.currency}
+                          {service.duration_minutes ? ` · ${service.duration_minutes} ${t('business.minutes')}` : ''}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {(orderableProducts.length > 0 || bookableServices.length > 0) && (
+              <Card>
+                <h2 className="mb-2 text-lg font-semibold text-navy-900">{t('business.orderTitle')}</h2>
+                <p className="mb-4 text-sm text-navy-500">{t('business.orderDescription')}</p>
+                {!isAuthenticated ? (
+                  <Link
+                    to={`/login?next=${encodeURIComponent(`/business/${businessSlug}`)}`}
+                    className="inline-flex min-h-11 items-center rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+                  >
+                    {t('business.signInToOrder')}
+                  </Link>
+                ) : (
+                  <form onSubmit={(event) => void placeOrder(event)} className="space-y-4">
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.selectItem')}</span>
+                      <select
+                        value={selectedItem}
+                        onChange={(event) => setSelectedItem(event.target.value)}
+                        required
+                        className="min-h-11 w-full rounded-xl border border-navy-200 bg-white px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                      >
+                        <option value="">{t('business.selectItemPlaceholder')}</option>
+                        {orderableProducts.map((product) => (
+                          <option key={product.product_id} value={`product:${product.product_id}`}>
+                            {product.product_name} · {product.discount_price ?? product.price} {product.currency}
+                          </option>
+                        ))}
+                        {bookableServices.map((service) => (
+                          <option key={service.service_id} value={`service:${service.service_id}`}>
+                            {service.service_name} · {service.price} {service.currency}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {selectedProduct && (
+                      <p className="text-sm font-semibold text-navy-800">
+                        {t('business.orderTotal')}: {(
+                          Number(selectedProduct.discount_price ?? selectedProduct.price) * quantity
+                        ).toFixed(2)} {selectedProduct.currency}
+                      </p>
+                    )}
+                    {selectedService && (
+                      <p className="text-sm font-semibold text-navy-800">
+                        {t('business.orderTotal')}: {(
+                          Number(selectedService.price) * quantity
+                        ).toFixed(2)} {selectedService.currency}
+                      </p>
+                    )}
+                    {selectedItem.startsWith('product:') && (
+                      <label className="block">
+                        <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.quantity')}</span>
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          max={selectedProduct?.is_stock_tracked ? selectedProduct.stock_quantity : 999}
+                          value={quantity}
+                          onChange={(event) => {
+                            const next = Number(event.target.value);
+                            if (Number.isInteger(next)) setQuantity(Math.min(999, Math.max(1, next)));
+                          }}
+                          className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 sm:w-40"
+                        />
+                      </label>
+                    )}
+                    {selectedService && (
+                      <label className="block">
+                        <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.bookingTime')}</span>
+                        <input
+                          type="datetime-local"
+                          value={scheduledFor}
+                          onChange={(event) => setScheduledFor(event.target.value)}
+                          required
+                          min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
+                          className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                        />
+                      </label>
+                    )}
+                    {orderError && <p role="alert" className="text-sm text-error-600">{orderError}</p>}
+                    {orderSubmitted && <p role="status" className="text-sm font-medium text-success-600">{t('business.orderSuccess')}</p>}
+                    <Button type="submit" loading={orderLoading} disabled={!selectedItem}>
+                      {t('business.placeOrder')}
+                    </Button>
+                  </form>
+                )}
+              </Card>
+            )}
+
             <Card>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-navy-900">{t('business.reviewsTitle')}</h2>
@@ -327,6 +569,65 @@ export function BusinessProfilePage() {
                     </li>
                   ))}
                 </ul>
+              )}
+              {reviewSubmitted && (
+                <p role="status" className="mt-5 rounded-xl bg-success-50 p-3 text-sm text-success-600">
+                  {t('business.reviewSubmitted')}
+                </p>
+              )}
+              {isAuthenticated && reviewEligibilityError && (
+                <p role="alert" className="mt-5 rounded-xl bg-error-50 p-3 text-sm text-error-600">
+                  {t('business.reviewEligibilityError')}
+                </p>
+              )}
+              {isAuthenticated && reviewEligibility?.eligible && !reviewSubmitted && (
+                <form onSubmit={(event) => void submitReview(event)} className="mt-6 border-t border-navy-100 pt-5">
+                  <h3 className="mb-3 font-semibold text-navy-900">{t('business.writeReview')}</h3>
+                  <fieldset>
+                    <legend className="mb-2 text-sm font-medium text-navy-700">{t('business.yourRating')}</legend>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setReviewRating(value)}
+                          aria-label={t('common.starsLabel', { count: value })}
+                          aria-pressed={reviewRating === value}
+                          className="rounded p-1 text-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                        >
+                          <Star className={cn('h-7 w-7', reviewRating >= value && 'fill-current')} aria-hidden="true" />
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <label className="mt-3 block">
+                    <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.reviewComment')}</span>
+                    <textarea
+                      value={reviewText}
+                      onChange={(event) => setReviewText(event.target.value)}
+                      maxLength={4000}
+                      rows={4}
+                      className="w-full rounded-xl border border-navy-200 p-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    />
+                  </label>
+                  {reviewError && <p role="alert" className="mt-3 text-sm text-error-600">{reviewError}</p>}
+                  <Button type="submit" disabled={reviewRating === 0} className="mt-4">
+                    {t('business.submitReview')}
+                  </Button>
+                </form>
+              )}
+              {isAuthenticated && reviewEligibility && !reviewEligibility.eligible && !reviewEligibility.already_reviewed && (
+                <p className="mt-5 rounded-xl bg-navy-50 p-3 text-sm text-navy-600">{t('business.reviewRequiresCompletedOrder')}</p>
+              )}
+              {isAuthenticated && reviewEligibility?.already_reviewed && !reviewSubmitted && (
+                <p className="mt-5 rounded-xl bg-navy-50 p-3 text-sm text-navy-600">{t('business.alreadyReviewed')}</p>
+              )}
+              {!isAuthenticated && (
+                <p className="mt-5 text-sm text-navy-600">
+                  <Link to={`/login?next=${encodeURIComponent(`/business/${businessSlug}`)}`} className="font-semibold text-primary-700 underline">
+                    {t('business.signInToReview')}
+                  </Link>
+                </p>
               )}
             </Card>
           </div>
@@ -406,6 +707,22 @@ export function BusinessProfilePage() {
                             .filter(Boolean)
                             .join(', ')}
                         </p>
+                      )}
+                      {(location.latitude != null && location.longitude != null || location.address) && (
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                            location.latitude != null && location.longitude != null
+                              ? `${location.latitude},${location.longitude}`
+                              : [location.address, location.district, location.city].filter(Boolean).join(', '),
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                          className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-medium text-primary-700 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                        >
+                          <MapPin className="h-4 w-4" aria-hidden="true" />
+                          {t('business.viewMap')}
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                        </a>
                       )}
                       {location.phone && telHref(location.phone) && (
                         <a

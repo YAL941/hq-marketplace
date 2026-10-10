@@ -193,16 +193,56 @@ public read stays 404 for those, which is the point of the split.
 Platform admin (`platform_admin` role only; anyone else gets 403):
 
 ```
-GET   /api/admin/businesses?status=pending|active|rejected&page&limit
-PATCH /api/admin/businesses/:businessId/verification
+GET   /api/admin/businesses?status=all|pending|active|rejected&search&page&limit
+GET   /api/admin/businesses/notifications
+POST  /api/admin/businesses/notifications/mark-seen
+PATCH /api/admin/businesses/:businessId/status
 ```
 
-The verification decision body is `{ "decision": "approve" | "reject", "reason"?: string, "force"?: boolean }`.
-A rejection needs a reason of at least 5 characters. Approving sets `status`
-`active`, `verification_status` `verified`, `is_verified` true, `verified_at` to
-now and `verified_by` to the admin, and clears `rejection_reason`; rejecting sets
-`status` `rejected` and stores the reason. Deciding the same thing twice is a 409
-unless `force: true` says it was meant.
+The admin list supports a 120-character name/email search, a 50-row maximum
+page size, and matching state counts. The React review page debounces search,
+shows recent registrations and polls unread notifications every 30 seconds.
+Decisions are conditional updates from `pending`; repeated or concurrent
+decisions return `409` and never send duplicate email. Rejection reasons are
+optional and limited to 500 characters. `reviewed_by` / `reviewed_at` record
+either decision; the existing `verified_by` / `verified_at` fields continue to
+enforce the public verification invariant. The old
+`PATCH /api/admin/businesses/:businessId/verification` body remains supported
+for compatibility, but force-review is no longer allowed.
+
+Run `npm run db:migrate` to apply migration `017_admin_business_notifications`
+and its index cleanup `018_remove_redundant_admin_business_indexes`. The
+migration marks existing businesses as seen, then defaults newly created
+businesses to unseen. Existing status/name indexes are reused; email and
+unseen-notification indexes are added. This avoids showing the initial
+notification badge for historical registrations.
+
+Decision emails are bilingual Arabic/English HTML sent through Nodemailer. SMTP
+is optional for local development; without it, the business decision still
+succeeds and the API returns `email.sent: false` for the admin toast. Configure:
+
+```dotenv
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=mailer@example.com
+SMTP_PASSWORD=replace-with-provider-password
+MAIL_FROM=OmniHQ <mailer@example.com>
+```
+
+Use `SMTP_SECURE=true` for implicit TLS on port 465; port 587 normally uses
+`SMTP_SECURE=false` and STARTTLS. If messages do not arrive, check the API log
+and provider SMTP credentials, verify that outbound SMTP is allowed, and publish
+the provider's SPF and DKIM DNS records (plus DMARC where available). Do not
+disable certificate verification to work around TLS errors.
+
+Implementation locations in this repository:
+
+- `src/modules/admin/admin.routes.ts` — admin-only list, notification and atomic review APIs.
+- `src/modules/admin/mailer.ts` — escaped bilingual email templates and SMTP delivery.
+- `db/migrations/017_admin_business_notifications.sql` — reviewer fields, unseen state and indexes.
+- `frontend/src/pages/AdminBusinesses.tsx` — responsive React review UI and notification panel.
+- `frontend/src/services/api.ts`, `frontend/src/types/index.ts` — typed API integration.
 
 ## Image uploads
 

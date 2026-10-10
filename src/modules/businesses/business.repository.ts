@@ -155,7 +155,12 @@ export async function listPublicBusinesses(
         // ix_businesses_name_lower exists for the equality form; a substring
         // cannot use it, which is why `q` is capped in the query schema.
         params.push(`%${escapeLike(query.q.toLowerCase())}%`);
-        conditions.push(`lower(b.business_name) LIKE $${params.length} ESCAPE '\\'`);
+        conditions.push(`(
+            lower(b.business_name) LIKE $${params.length} ESCAPE '\\'
+            OR lower(COALESCE(c.category_name, '')) LIKE $${params.length} ESCAPE '\\'
+            OR lower(COALESCE(c.category_slug, '')) LIKE $${params.length} ESCAPE '\\'
+            OR lower(b.city) LIKE $${params.length} ESCAPE '\\'
+        )`);
     }
     if (query.featured !== undefined) {
         params.push(query.featured);

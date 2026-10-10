@@ -260,7 +260,13 @@ describe('Test 5: Customer creates an Order for one business', () => {
         const product = await request(app)
             .post(`/api/business/${fixtures.ownerA.businessA}/products`)
             .set('Authorization', `Bearer ${fixtures.ownerA.token}`)
-            .send({ productName: 'Blood Test Panel', price: 50, currency: 'USD', status: 'active' });
+            .send({
+                productName: 'Blood Test Panel',
+                price: 50,
+                currency: 'USD',
+                stockQuantity: 5,
+                status: 'active',
+            });
         assert.equal(product.status, 201);
         const productId = Number(product.body.data.product_id);
 
@@ -273,10 +279,11 @@ describe('Test 5: Customer creates an Order for one business', () => {
                 deliveryFee: 5,
             });
 
-        assert.equal(order.status, 201);
+        assert.equal(order.status, 201, JSON.stringify(order.body));
         assert.equal(Number(order.body.data.business_id), fixtures.ownerA.businessA);
         assert.equal(order.body.data.subtotal, '100.00');
-        assert.equal(order.body.data.total_amount, '105.00');
+        assert.equal(order.body.data.total_amount, '100.00', 'client supplied fees are not applied');
+        assert.equal(order.body.data.order_status, 'pending');
 
         // changing the catalogue price must not rewrite the order
         await request(app)
@@ -287,8 +294,33 @@ describe('Test 5: Customer creates an Order for one business', () => {
         const reread = await request(app)
             .get(`/api/orders/mine/${order.body.data.order_id}`)
             .set('Authorization', `Bearer ${fixtures.customer.token}`);
-        assert.equal(Number(reread.body.data.order.total_amount), 105);
+        assert.equal(Number(reread.body.data.order.total_amount), 100);
         assert.equal(reread.body.data.items[0].unit_price, '50.00');
+        const stock = await adminPool.query<{ stock_quantity: number }>(
+            'SELECT stock_quantity FROM products WHERE product_id = $1',
+            [productId],
+        );
+        assert.equal(Number(stock.rows[0]!.stock_quantity), 3);
+    });
+
+    it('rejects orders for more tracked stock than is available', async () => {
+        const product = await request(app)
+            .post(`/api/business/${fixtures.ownerA.businessA}/products`)
+            .set('Authorization', `Bearer ${fixtures.ownerA.token}`)
+            .send({
+                productName: 'Limited Stock Item',
+                price: 12,
+                stockQuantity: 1,
+                status: 'active',
+            });
+        const response = await request(app)
+            .post('/api/orders')
+            .set('Authorization', `Bearer ${fixtures.customer.token}`)
+            .send({
+                businessId: fixtures.ownerA.businessA,
+                items: [{ productId: Number(product.body.data.product_id), quantity: 2 }],
+            });
+        assert.equal(response.status, 409, JSON.stringify(response.body));
     });
 
     it('refuses to sell a product that belongs to another business', async () => {
@@ -331,20 +363,75 @@ describe('Test 5: Customer creates an Order for one business', () => {
 // Test 6 - reviews never cross business boundaries
 // ---------------------------------------------------------------------------
 describe('Test 6: Reviews stay inside their business', () => {
+    it('prevents a business owner from reviewing their own business', async () => {
+        const completedOrder = await adminPool.query<{ order_id: string }>(
+            `INSERT INTO orders (business_id, customer_id, order_status, subtotal, total_amount, completed_at)
+             VALUES ($1, $2, 'completed', 0, 0, now()) RETURNING order_id`,
+            [fixtures.ownerA.businessA, fixtures.ownerA.id],
+        );
+        const response = await request(app)
+            .post('/api/reviews')
+            .set('Authorization', `Bearer ${fixtures.ownerA.token}`)
+            .send({
+                businessId: fixtures.ownerA.businessA,
+                orderId: Number(completedOrder.rows[0]!.order_id),
+                rating: 5,
+            });
+        assert.equal(response.status, 400);
+    });
+
     it('returns only the reviews of the requested business', async () => {
         const otherCustomer = await createUser('customer2@hq.test', 'Second Customer');
         const otherToken = await login('customer2@hq.test');
 
-        const reviewA = await request(app)
+        const noPurchase = await request(app)
             .post('/api/reviews')
             .set('Authorization', `Bearer ${fixtures.customer.token}`)
             .send({ businessId: fixtures.ownerA.businessA, rating: 5, reviewText: 'Great hospital' });
+        assert.equal(noPurchase.status, 400);
+
+        const completedOrderA = await adminPool.query<{ order_id: string }>(
+            `INSERT INTO orders (business_id, customer_id, order_status, subtotal, total_amount, completed_at)
+             VALUES ($1, $2, 'completed', 0, 0, now()) RETURNING order_id`,
+            [fixtures.ownerA.businessA, fixtures.customer.id],
+        );
+        const completedOrderB = await adminPool.query<{ order_id: string }>(
+            `INSERT INTO orders (business_id, customer_id, order_status, subtotal, total_amount, completed_at)
+             VALUES ($1, $2, 'completed', 0, 0, now()) RETURNING order_id`,
+            [fixtures.ownerB.businessB, otherCustomer],
+        );
+
+        const reviewA = await request(app)
+            .post('/api/reviews')
+            .set('Authorization', `Bearer ${fixtures.customer.token}`)
+            .send({
+                businessId: fixtures.ownerA.businessA,
+                orderId: Number(completedOrderA.rows[0]!.order_id),
+                rating: 5,
+                reviewText: 'Great hospital',
+            });
         const reviewB = await request(app)
             .post('/api/reviews')
             .set('Authorization', `Bearer ${otherToken}`)
-            .send({ businessId: fixtures.ownerB.businessB, rating: 2, reviewText: 'Slow service' });
+            .send({
+                businessId: fixtures.ownerB.businessB,
+                orderId: Number(completedOrderB.rows[0]!.order_id),
+                rating: 2,
+                reviewText: 'Slow service',
+            });
         assert.equal(reviewA.status, 201);
         assert.equal(reviewB.status, 201);
+        assert.equal(reviewA.body.data.status, 'pending', 'new reviews still require moderation');
+
+        const duplicate = await request(app)
+            .post('/api/reviews')
+            .set('Authorization', `Bearer ${fixtures.customer.token}`)
+            .send({
+                businessId: fixtures.ownerA.businessA,
+                orderId: Number(completedOrderA.rows[0]!.order_id),
+                rating: 4,
+            });
+        assert.equal(duplicate.status, 409);
 
         await adminPool.query(`UPDATE reviews SET status = 'published' WHERE review_id = ANY($1::bigint[])`, [
             [reviewA.body.data.review_id, reviewB.body.data.review_id],
