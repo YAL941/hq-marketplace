@@ -27,7 +27,7 @@ process.env['PGDATABASE'] = process.env['TEST_PGDATABASE'] ?? 'hq_marketplace_te
 process.env['JWT_SECRET'] = process.env['JWT_SECRET'] ?? 'test-secret-that-is-long-enough-123';
 
 import assertModule from 'node:assert/strict';
-import { before, describe, it } from 'node:test';
+import { after, before, describe, it } from 'node:test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import request from 'supertest';
@@ -39,7 +39,7 @@ type CreateApp = typeof import('../src/app.js').createApp;
 
 let createApp: CreateApp;
 let adminPool: import('pg').Pool;
-let closePools: () => Promise<void>;
+let closePools: (() => Promise<void>) | undefined;
 let uploadRoot: () => string;
 let apiPolicy: string;
 let uploadPolicy: string;
@@ -87,6 +87,10 @@ before(async () => {
 
     const { prepareTestDatabase } = await import('./helpers/test-database.js');
     await prepareTestDatabase(adminPool);
+});
+
+after(async () => {
+    await closePools?.();
 });
 
 describe('the policy on API responses', () => {

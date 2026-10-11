@@ -28,7 +28,6 @@ const assert: typeof assertModule = assertModule;
 const run = promisify(execFile);
 
 const projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const configEntry = resolve(projectRoot, 'src/config.ts');
 
 /** Everything a production boot needs to be allowed through the existing guards. */
 const VALID_PRODUCTION_ENV: Record<string, string> = {

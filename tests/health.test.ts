@@ -20,7 +20,7 @@ process.env['PGDATABASE'] = process.env['TEST_PGDATABASE'] ?? 'hq_marketplace_te
 process.env['JWT_SECRET'] = process.env['JWT_SECRET'] ?? 'test-secret-that-is-long-enough-123';
 
 import assertModule from 'node:assert/strict';
-import { before, describe, it } from 'node:test';
+import { after, before, describe, it } from 'node:test';
 import request from 'supertest';
 
 const assert: typeof assertModule = assertModule;
@@ -31,7 +31,7 @@ type CheckReadiness = typeof import('../src/modules/health/health.routes.js').ch
 
 let createApp: CreateApp;
 let adminPool: import('pg').Pool;
-let closePools: () => Promise<void>;
+let closePools: (() => Promise<void>) | undefined;
 let checkReadiness: CheckReadiness;
 let app: App;
 
@@ -47,6 +47,10 @@ before(async () => {
     await prepareTestDatabase(adminPool);
 
     app = createApp();
+});
+
+after(async () => {
+    await closePools?.();
 });
 
 describe('liveness: GET /healthz', () => {

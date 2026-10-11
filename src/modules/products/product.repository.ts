@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import { forbidden, notFound } from '../../db/errors.js';
-import { hasBusinessPermission, type TenantContext } from '../../db/tenant.js';
+import type { TenantContext } from '../../db/tenant.js';
 
 export interface ProductRow {
     product_id: string;

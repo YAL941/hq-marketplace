@@ -29,8 +29,6 @@
  * exactly the ones that end in the process exiting.
  */
 
-import type { Server } from 'node:http';
-
 /**
  * The part of an `http.Server` this module uses.
  *

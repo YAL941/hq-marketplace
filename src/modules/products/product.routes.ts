@@ -12,7 +12,6 @@ import {
     listPublicProducts,
     requireProduct,
     updateProduct,
-    type ProductRow,
 } from './product.repository.js';
 
 const listQuerySchema = z.object({
