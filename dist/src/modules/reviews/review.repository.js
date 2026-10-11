@@ -23,6 +23,7 @@ export async function getReviewEligibility(client, userId, businessId) {
         eligible: allowed,
         order_id: allowed ? eligibility.order_id : null,
         already_reviewed: eligibility.already_reviewed,
+        is_member: eligibility.is_member,
     };
 }
 export async function createReview(client, userId, input) {
@@ -72,6 +73,7 @@ export async function getProductReviewEligibility(client, userId, productId) {
         eligible: allowed,
         order_id: allowed ? eligibility.order_id : null,
         already_reviewed: eligibility.already_reviewed,
+        is_member: eligibility.is_member,
     };
 }
 export async function createProductReview(client, userId, input) {

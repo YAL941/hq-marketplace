@@ -76,7 +76,7 @@ export function LoginPage() {
       const next = searchParams.get('next');
       const destination = next?.startsWith('/') && !next.startsWith('//')
         ? next
-        : role === 'business_owner' ? '/dashboard' : '/';
+        : role === 'courier' ? '/courier' : role === 'business_owner' ? '/dashboard' : '/';
       navigate(destination, { replace: true });
     } catch (error) {
       setIssue(toFieldIssue(error));

@@ -255,6 +255,8 @@ async function getPublicBusinessProfileWhere(
                 b.website,
                 b.latitude,
                 b.longitude,
+                b.delivery_enabled,
+                b.delivery_fee,
                 rv.review_count,
                 rv.average_rating
            FROM businesses b
@@ -459,6 +461,8 @@ export interface StaffBusinessProfile {
     /** Why it was rejected. Null until a decision says otherwise. */
     rejection_reason: string | null;
     verified_at: Date | null;
+    delivery_enabled: boolean;
+    delivery_fee: string;
     created_at: Date;
     updated_at: Date;
 }
@@ -486,6 +490,8 @@ export async function getStaffBusiness(client: PoolClient, businessId: number): 
                 b.is_verified,
                 b.rejection_reason,
                 b.verified_at,
+                b.delivery_enabled,
+                b.delivery_fee,
                 b.created_at,
                 b.updated_at
            FROM businesses b

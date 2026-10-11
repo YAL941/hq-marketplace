@@ -13,6 +13,20 @@ export async function createOrder(client, customerId, input) {
     if (input.items.length === 0) {
         throw badRequest('An order must contain at least one item');
     }
+    const deliveryRequested = input.deliveryRequested ?? false;
+    if (deliveryRequested) {
+        if (!input.locationConsent)
+            throw badRequest('Explicit consent to share the delivery location is required');
+        if (input.deliveryLatitude === undefined || input.deliveryLongitude === undefined
+            || input.deliveryLatitude === null || input.deliveryLongitude === null) {
+            throw badRequest('A delivery location is required');
+        }
+        if (!input.customerPhone?.trim())
+            throw badRequest('A customer phone number is required for delivery');
+    }
+    else if (input.locationConsent || input.deliveryLatitude != null || input.deliveryLongitude != null) {
+        throw badRequest('Pickup orders cannot include delivery location data');
+    }
     const snapshots = [];
     let containsService = false;
     for (const item of input.items) {
@@ -76,10 +90,17 @@ export async function createOrder(client, customerId, input) {
     if (currencies.size !== 1)
         throw badRequest('All items in an order must use the same currency');
     const subtotal = round(snapshots.reduce((sum, item) => sum + item.totalPrice, 0));
-    const deliveryFee = 0;
+    const { rows: businessRows } = await client.query('SELECT delivery_enabled, delivery_fee FROM businesses WHERE business_id = $1', [input.businessId]);
+    const businessDelivery = businessRows[0];
+    if (!businessDelivery)
+        throw notFound('Business not found');
+    if (deliveryRequested && !businessDelivery.delivery_enabled) {
+        throw badRequest('This business does not currently offer delivery');
+    }
+    const deliveryFee = deliveryRequested ? Number(businessDelivery.delivery_fee) : 0;
     const discount = 0;
     const tax = 0;
-    const total = subtotal;
+    const total = round(subtotal + deliveryFee);
     const currency = snapshots[0].currency.toUpperCase();
     const hasProduct = snapshots.some((i) => i.itemType === 'product');
     const hasService = snapshots.some((i) => i.itemType === 'service');
@@ -87,8 +108,11 @@ export async function createOrder(client, customerId, input) {
     const { rows: orderRows } = await client.query(`INSERT INTO orders
             (business_id, customer_id, location_id, order_type, subtotal, delivery_fee,
              discount_amount, tax_amount, total_amount, currency, customer_note,
-             delivery_address, scheduled_for)
-         VALUES ($1, $2, $3, $4::order_type, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+             delivery_address, scheduled_for, delivery_requested, location_consent,
+             location_consent_at, delivery_latitude, delivery_longitude, delivery_note,
+             customer_phone, payment_method)
+         VALUES ($1, $2, $3, $4::order_type, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                 $14, $15, CASE WHEN $15 THEN now() ELSE NULL END, $16, $17, $18, $19, $20)
          RETURNING *`, [
         input.businessId,
         customerId,
@@ -103,6 +127,13 @@ export async function createOrder(client, customerId, input) {
         input.customerNote ?? null,
         input.deliveryAddress ?? null,
         input.scheduledFor ?? null,
+        deliveryRequested,
+        input.locationConsent ?? false,
+        deliveryRequested ? input.deliveryLatitude : null,
+        deliveryRequested ? input.deliveryLongitude : null,
+        deliveryRequested ? input.deliveryNote?.trim() ?? null : null,
+        deliveryRequested ? input.customerPhone?.trim() ?? null : null,
+        input.paymentMethod ?? 'cash_on_delivery',
     ]);
     const order = orderRows[0];
     for (const item of snapshots) {
@@ -137,15 +168,30 @@ export async function listOrdersForBusiness(client, businessId, q) {
     const limitIdx = params.length;
     params.push(Math.max(q.offset ?? 0, 0));
     const offsetIdx = params.length;
-    const { rows } = await client.query(`SELECT o.* FROM orders o
+    const { rows } = await client.query(`SELECT o.*,
+                order_preview.item_name AS preview_item_name,
+                order_preview.image_url AS preview_image_url
+           FROM orders o
+           LEFT JOIN LATERAL (
+               SELECT oi.item_name, p.image_url
+                 FROM order_items oi
+                 LEFT JOIN products p ON p.product_id = oi.product_id
+                WHERE oi.order_id = o.order_id
+                ORDER BY oi.order_item_id
+                LIMIT 1
+           ) order_preview ON TRUE
           WHERE ${conditions.join(' AND ')}
           ORDER BY o.created_at DESC, o.order_id DESC
           LIMIT $${limitIdx} OFFSET $${offsetIdx}`, params);
     return rows;
 }
 export async function listOrderItems(client, orderId) {
-    const { rows } = await client.query(`SELECT order_item_id, product_id, service_id, item_type, item_name, quantity, unit_price, total_price, notes
-           FROM order_items WHERE order_id = $1 ORDER BY order_item_id`, [orderId]);
+    const { rows } = await client.query(`SELECT oi.order_item_id, oi.product_id, oi.service_id, oi.item_type, oi.item_name,
+                oi.quantity, oi.unit_price, oi.total_price, oi.notes, p.image_url, p.ingredients
+           FROM order_items oi
+           LEFT JOIN products p ON p.product_id = oi.product_id
+          WHERE oi.order_id = $1
+          ORDER BY oi.order_item_id`, [orderId]);
     return rows;
 }
 export async function updateOrderStatus(client, businessId, orderId, orderStatus) {
@@ -153,28 +199,49 @@ export async function updateOrderStatus(client, businessId, orderId, orderStatus
     const transitions = {
         pending: ['confirmed', 'cancelled', 'rejected'],
         confirmed: ['in_progress', 'cancelled'],
-        in_progress: ['ready', 'out_for_delivery', 'completed', 'cancelled'],
+        in_progress: ['ready', 'cancelled'],
         ready: ['out_for_delivery', 'completed', 'cancelled'],
         out_for_delivery: ['completed', 'cancelled'],
     };
-    const { rows: currentRows } = await client.query('SELECT order_status FROM orders WHERE order_id = $1 AND business_id = $2', [orderId, businessId]);
-    const currentStatus = currentRows[0]?.order_status;
+    const { rows: currentRows } = await client.query('SELECT order_status, delivery_requested, delivery_status FROM orders WHERE order_id = $1 AND business_id = $2', [orderId, businessId]);
+    const currentOrder = currentRows[0];
+    const currentStatus = currentOrder?.order_status;
     if (!currentStatus)
         throw notFound('Order not found in this business');
-    if (!transitions[currentStatus]?.includes(orderStatus)) {
+    const allowedTransitions = currentOrder.delivery_requested
+        ? {
+            ...transitions,
+            in_progress: ['ready', 'cancelled'],
+            ready: ['cancelled'],
+            out_for_delivery: [],
+        }
+        : {
+            ...transitions,
+            ready: ['out_for_delivery', 'completed', 'cancelled'],
+        };
+    if (!allowedTransitions[currentStatus]?.includes(orderStatus)) {
         throw badRequest(`Order cannot transition from ${currentStatus} to ${orderStatus}`);
     }
-    let timestampColumn = '';
+    const assignments = ['order_status = $3'];
     if (orderStatus === 'confirmed')
-        timestampColumn = ', confirmed_at = now()';
+        assignments.push('confirmed_at = now()');
     if (orderStatus === 'completed')
-        timestampColumn = ', completed_at = now()';
+        assignments.push('completed_at = now()');
     if (orderStatus === 'cancelled')
-        timestampColumn = ', cancelled_at = now()';
+        assignments.push('cancelled_at = now()');
+    if (orderStatus === 'ready' && currentOrder.delivery_requested) {
+        assignments.push("delivery_status = 'waiting'");
+    }
+    if (orderStatus === 'cancelled' && currentOrder.delivery_requested) {
+        assignments.push("delivery_status = 'not_applicable'");
+        assignments.push('delivery_courier_id = NULL');
+        assignments.push('delivery_confirmation_code = NULL');
+        assignments.push('delivery_earning_amount = NULL');
+    }
     const { rows } = await client.query(`UPDATE orders
-            SET order_status = $3 ${timestampColumn}
-          WHERE order_id = $1 AND business_id = $2 AND order_status = $4
-          RETURNING *`, [orderId, businessId, orderStatus, currentStatus]);
+            SET ${assignments.join(', ')}
+          WHERE order_id = $1 AND business_id = $2 AND order_status = $4 AND delivery_status = $5
+          RETURNING *`, [orderId, businessId, orderStatus, currentStatus, currentOrder.delivery_status]);
     if (!rows[0])
         throw conflict('Order status changed before this update could be applied');
     return rows[0];

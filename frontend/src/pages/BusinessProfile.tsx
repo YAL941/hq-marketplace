@@ -14,10 +14,11 @@ import { ErrorState } from '../components/common/ErrorState';
 import { SmartImage } from '../components/common/SmartImage';
 import { ReportBusinessLink } from '../components/business/ReportBusinessLink';
 import { ProductFeedback } from '../components/business/ProductFeedback';
+import { DeliveryLocationPicker } from '../components/business/DeliveryLocationPicker';
 import { businessApi, orderApi, productApi, reviewApi, serviceApi } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import { safeExternalUrl } from '../lib/safeUrl';
-import { cn, formatDate, formatRelativeTime } from '../lib/utils';
+import { cn, formatCurrency, formatDate, formatRelativeTime } from '../lib/utils';
 import type { Location, Product, PublicBusinessProfile, PublicReview, Service } from '../types';
 
 /** Postgres `day_of_week`: 0 = Sunday. Indexed from Sunday to match. */
@@ -71,6 +72,15 @@ export function BusinessProfilePage() {
   const [selectedItem, setSelectedItem] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [productQuantity, setProductQuantity] = useState(1);
+  const [deliveryRequested, setDeliveryRequested] = useState(false);
+  const [locationMethod, setLocationMethod] = useState<'current' | 'manual'>('manual');
+  const [locationConsent, setLocationConsent] = useState(false);
+  const [deliveryLatitude, setDeliveryLatitude] = useState<number | null>(null);
+  const [deliveryLongitude, setDeliveryLongitude] = useState<number | null>(null);
+  const [deliveryNote, setDeliveryNote] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [locationError, setLocationError] = useState('');
+  const [locating, setLocating] = useState(false);
   const [scheduledFor, setScheduledFor] = useState('');
   const [orderError, setOrderError] = useState('');
   const [orderSubmitted, setOrderSubmitted] = useState(false);
@@ -157,6 +167,17 @@ export function BusinessProfilePage() {
     if (!productDetails || window.location.hash !== '#product-feedback') return;
     document.getElementById('product-feedback')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [productDetails]);
+
+  useEffect(() => {
+    setDeliveryRequested(false);
+    setLocationMethod('manual');
+    setLocationConsent(false);
+    setDeliveryLatitude(null);
+    setDeliveryLongitude(null);
+    setDeliveryNote('');
+    setCustomerPhone('');
+    setLocationError('');
+  }, [productDetails?.product_id]);
 
   useEffect(() => {
     if (!isAuthenticated || !business) {
@@ -250,6 +271,11 @@ export function BusinessProfilePage() {
   const placeOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedItem) return;
+    const delivery = createDeliveryInput(!!selectedProduct && deliveryRequested);
+    if (!delivery) {
+      setOrderError(t('business.deliveryFieldsRequired'));
+      return;
+    }
     setOrderError('');
     setOrderLoading(true);
     try {
@@ -262,6 +288,7 @@ export function BusinessProfilePage() {
           quantity,
         }],
         ...(parsedScheduledFor ? { scheduledFor: parsedScheduledFor } : {}),
+        ...delivery,
       });
       setOrderSubmitted(true);
       setSelectedItem('');
@@ -276,6 +303,11 @@ export function BusinessProfilePage() {
 
   const placeProductOrder = async () => {
     if (!productDetails || !isAuthenticated) return;
+    const delivery = createDeliveryInput(deliveryRequested);
+    if (!delivery) {
+      setOrderError(t('business.deliveryFieldsRequired'));
+      return;
+    }
     setOrderError('');
     setOrderSubmitted(false);
     setOrderLoading(true);
@@ -283,6 +315,7 @@ export function BusinessProfilePage() {
       await orderApi.create({
         businessId: Number(business.business_id),
         items: [{ productId: Number(productDetails.product_id), quantity: productQuantity }],
+        ...delivery,
       });
       setOrderSubmitted(true);
       setProductQuantity(1);
@@ -291,6 +324,152 @@ export function BusinessProfilePage() {
     } finally {
       setOrderLoading(false);
     }
+  };
+
+  const createDeliveryInput = (requested: boolean) => {
+    if (!requested) return { deliveryRequested: false, locationConsent: false };
+    if (
+      !locationConsent ||
+      deliveryLatitude === null ||
+      deliveryLongitude === null ||
+      customerPhone.trim().length < 7
+    ) return null;
+    return {
+      deliveryRequested: true,
+      locationConsent: true,
+      deliveryLatitude,
+      deliveryLongitude,
+      deliveryNote: deliveryNote.trim(),
+      customerPhone: customerPhone.trim(),
+      paymentMethod: 'cash_on_delivery' as const,
+    };
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError(t('business.deliveryGeolocationUnavailable'));
+      return;
+    }
+    setLocating(true);
+    setLocationError('');
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setDeliveryLatitude(Number(coords.latitude.toFixed(6)));
+        setDeliveryLongitude(Number(coords.longitude.toFixed(6)));
+        setLocating(false);
+      },
+      () => {
+        setLocationError(t('business.deliveryGeolocationError'));
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  };
+
+  const renderDeliveryFields = (hasProduct: boolean) => {
+    if (!hasProduct || !business?.delivery_enabled) return null;
+    return (
+      <div className="space-y-3 rounded-xl border border-navy-200 p-4">
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold text-navy-800">{t('business.deliveryQuestion')}</legend>
+          <div className="flex flex-wrap gap-4 text-sm text-navy-700">
+            {(['pickup', 'delivery'] as const).map((mode) => (
+              <label key={mode} className="flex min-h-10 items-center gap-2">
+                <input
+                  type="radio"
+                  name="delivery-mode"
+                  checked={deliveryRequested === (mode === 'delivery')}
+                  onChange={() => {
+                    setDeliveryRequested(mode === 'delivery');
+                    setLocationError('');
+                    if (mode === 'pickup') {
+                      setLocationConsent(false);
+                      setDeliveryLatitude(null);
+                      setDeliveryLongitude(null);
+                    }
+                  }}
+                />
+                {t(`business.deliveryMode.${mode}`)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {deliveryRequested && (
+          <>
+            <p className="text-sm text-navy-600">
+              {t('business.deliveryFeeBeforeOrder', {
+                fee: formatCurrency(business.delivery_fee, selectedProduct?.currency ?? productDetails?.currency ?? 'USD'),
+              })}
+            </p>
+            <fieldset>
+              <legend className="mb-2 text-sm font-semibold text-navy-800">{t('business.deliveryLocationQuestion')}</legend>
+              <div className="flex flex-wrap gap-4 text-sm text-navy-700">
+                {(['current', 'manual'] as const).map((method) => (
+                  <label key={method} className="flex min-h-10 items-center gap-2">
+                    <input
+                      type="radio"
+                      name="delivery-location-method"
+                      checked={locationMethod === method}
+                      onChange={() => setLocationMethod(method)}
+                    />
+                    {t(`business.deliveryLocationMethod.${method}`)}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            {locationMethod === 'current' && (
+              <Button type="button" variant="outline" size="sm" loading={locating} onClick={useCurrentLocation}>
+                {t('business.useCurrentLocation')}
+              </Button>
+            )}
+            <p className="text-sm text-navy-500">{t('business.deliveryMapHint')}</p>
+            <DeliveryLocationPicker
+              latitude={deliveryLatitude}
+              longitude={deliveryLongitude}
+              centerLatitude={business.latitude}
+              centerLongitude={business.longitude}
+              onChange={(latitude, longitude) => {
+                setDeliveryLatitude(latitude);
+                setDeliveryLongitude(longitude);
+              }}
+            />
+            {locationError && <p role="alert" className="text-sm text-error-600">{locationError}</p>}
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryLandmark')}</span>
+              <input
+                value={deliveryNote}
+                onChange={(event) => setDeliveryNote(event.target.value)}
+                maxLength={500}
+                className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryPhone')}</span>
+              <input
+                type="tel"
+                value={customerPhone}
+                onChange={(event) => setCustomerPhone(event.target.value)}
+                required
+                minLength={7}
+                maxLength={20}
+                autoComplete="tel"
+                className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              />
+            </label>
+            <label className="flex items-start gap-2 text-sm text-navy-700">
+              <input
+                type="checkbox"
+                checked={locationConsent}
+                onChange={(event) => setLocationConsent(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded accent-primary-600"
+              />
+              <span>{t('business.deliveryConsent')}</span>
+            </label>
+            <p className="text-xs text-navy-500">{t('business.cashOnDelivery')}</p>
+          </>
+        )}
+      </div>
+    );
   };
 
   const submitReview = async (event: FormEvent<HTMLFormElement>) => {
@@ -586,6 +765,7 @@ export function BusinessProfilePage() {
                         />
                       </label>
                     )}
+                    {renderDeliveryFields(!!selectedProduct)}
                     {orderError && <p role="alert" className="text-sm text-error-600">{orderError}</p>}
                     {orderSubmitted && <p role="status" className="text-sm font-medium text-success-600">{t('business.orderSuccess')}</p>}
                     <Button type="submit" loading={orderLoading} disabled={!selectedItem}>
@@ -919,8 +1099,10 @@ export function BusinessProfilePage() {
                             <p className="font-semibold text-navy-800">
                               {t('business.orderTotal')}: {(
                                 Number(productDetails.discount_price ?? productDetails.price) * productQuantity
+                                + (deliveryRequested ? Number(business?.delivery_fee ?? 0) : 0)
                               ).toFixed(2)} {productDetails.currency}
                             </p>
+                            {renderDeliveryFields(true)}
                             {orderError && <p role="alert" className="text-sm text-error-600">{orderError}</p>}
                             {orderSubmitted && <p role="status" className="text-sm text-success-600">{t('business.orderSuccess')}</p>}
                             <Button

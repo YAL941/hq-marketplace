@@ -85,6 +85,9 @@ const HowItWorksPage = lazy(() =>
 const ContactPage = lazy(() =>
   import('./pages/Contact').then((module) => ({ default: module.ContactPage })),
 );
+const CourierPage = lazy(() =>
+  import('./pages/CourierPage').then((module) => ({ default: module.CourierPage })),
+);
 
 function RouteLoadingFallback() {
   return (
@@ -319,7 +322,7 @@ function PlatformAdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function BusinessRoute({ children }: { children: React.ReactNode }) {
-  const { businesses, isAuthenticated, isLoading } = useAuth();
+  const { businesses, courierBusinesses, isAuthenticated, isLoading } = useAuth();
   const { businessId } = useParams<{ businessId: string }>();
 
   if (isLoading) {
@@ -339,7 +342,7 @@ function BusinessRoute({ children }: { children: React.ReactNode }) {
   // something to render, and a mistyped id in a pasted link is not an error
   // page either. It goes to the first business the account does own.
   if (businesses.length === 0) {
-    return <Navigate to="/dashboard/settings" replace />;
+    return <Navigate to={courierBusinesses.length > 0 ? '/courier' : '/dashboard/settings'} replace />;
   }
 
   if (!businesses.some((business) => business.business_id === businessId)) {
@@ -349,13 +352,29 @@ function BusinessRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function BusinessOwnerRoute({ children }: { children: React.ReactNode }) {
+  const { businesses, courierBusinesses, isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return <RouteLoadingFallback />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (businesses.length === 0) return <Navigate to={courierBusinesses.length ? '/courier' : '/'} replace />;
+  return <>{children}</>;
+}
+
+function CourierRoute({ children }: { children: React.ReactNode }) {
+  const { courierBusinesses, businesses, isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return <RouteLoadingFallback />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (courierBusinesses.length === 0) return <Navigate to={businesses.length ? '/dashboard' : '/'} replace />;
+  return <>{children}</>;
+}
+
 /**
  * `/dashboard` on its own has no business to act on, so it forwards to the
  * first one the account belongs to. The switcher in the sidebar is what moves
  * between businesses, and it navigates the same way.
  */
 function DashboardIndex() {
-  const { businesses, isAuthenticated, isLoading } = useAuth();
+  const { businesses, courierBusinesses, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -366,7 +385,7 @@ function DashboardIndex() {
   }
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (businesses.length === 0) return <Navigate to="/dashboard/settings" replace />;
+  if (businesses.length === 0) return <Navigate to={courierBusinesses.length ? '/courier' : '/dashboard/settings'} replace />;
   return <Navigate to={`/dashboard/business/${businesses[0].business_id}`} replace />;
 }
 
@@ -398,6 +417,14 @@ function App() {
               <PrivateRoute>
                 <MainLayout><MyOrdersPage /></MainLayout>
               </PrivateRoute>
+            }
+          />
+          <Route
+            path="/courier"
+            element={
+              <CourierRoute>
+                <CourierPage />
+              </CourierRoute>
             }
           />
           {/*
@@ -565,11 +592,11 @@ function App() {
           <Route
             path="/dashboard/settings"
             element={
-              <PrivateRoute>
+              <BusinessOwnerRoute>
                 <MainLayout withSidebar>
                   <DashboardSettingsPage />
                 </MainLayout>
-              </PrivateRoute>
+              </BusinessOwnerRoute>
             }
           />
 

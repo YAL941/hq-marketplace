@@ -8,6 +8,8 @@ import type {
   ApiResponse,
   AuthMeResponse,
   BusinessMember,
+  BusinessCourier,
+  CourierDeliveryList,
   BusinessInboxCounts,
   BusinessProfilePatch,
   BusinessRecord,
@@ -293,6 +295,18 @@ export const businessApi = {
   getMembers: (businessId: Id) =>
     api.get<ApiResponse<BusinessMember[]>>(`/business/${businessId}/members`),
 
+  listCouriers: (businessId: Id) =>
+    api.get<ApiResponse<BusinessCourier[]>>(`/business/${businessId}/couriers`),
+
+  createCourier: (businessId: Id, data: { fullName: string; email: string; phone?: string; password: string }) =>
+    api.post<ApiResponse<BusinessCourier>>(`/business/${businessId}/couriers`, data),
+
+  setCourierActive: (businessId: Id, courierId: Id, active: boolean) =>
+    api.patch<ApiResponse<Pick<BusinessCourier, 'business_courier_id' | 'user_id' | 'active'>>>(
+      `/business/${businessId}/couriers/${courierId}`,
+      { active },
+    ),
+
   addMember: (businessId: Id, data: { userId: number; roleKey: string }) =>
     api.post<ApiResponse<BusinessMember>>(`/business/${businessId}/members`, data),
 
@@ -383,6 +397,13 @@ export const orderApi = {
     customerNote?: string | null;
     deliveryAddress?: string | null;
     scheduledFor?: string | null;
+    deliveryRequested?: boolean;
+    locationConsent?: boolean;
+    deliveryLatitude?: number;
+    deliveryLongitude?: number;
+    deliveryNote?: string;
+    customerPhone?: string;
+    paymentMethod?: 'cash_on_delivery';
   }) => api.post<ApiResponse<Order>>('/orders', data),
 
   listMine: () => api.get<ApiResponse<CustomerOrderSummary[]>>('/orders/mine'),
@@ -408,6 +429,15 @@ export const orderApi = {
   /** Only the seven settable statuses are accepted by the route's schema. */
   updateStatus: (businessId: Id, orderId: Id, orderStatus: SettableOrderStatus) =>
     api.patch<ApiResponse<Order>>(`/business/${businessId}/orders/${orderId}/status`, { orderStatus }),
+};
+
+export const courierApi = {
+  listDeliveries: (completedAfter: string) =>
+    api.get<ApiResponse<CourierDeliveryList>>('/courier/deliveries', { params: { completedAfter } }),
+  claim: (orderId: Id, proposedEarningAmount: string) =>
+    api.post(`/courier/deliveries/${orderId}/claim`, { proposedEarningAmount }),
+  updateStatus: (orderId: Id, deliveryStatus: 'picked_up' | 'on_the_way' | 'delivered', confirmationCode?: string) =>
+    api.patch(`/courier/deliveries/${orderId}/status`, { deliveryStatus, confirmationCode }),
 };
 
 // Reviews API

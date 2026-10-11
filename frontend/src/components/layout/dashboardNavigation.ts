@@ -17,6 +17,7 @@ export const dashboardNavigation = [
     items: [
       { key: 'sidebar.orders', path: '/orders', icon: ShoppingBag },
       { key: 'sidebar.customers', path: '/customers', icon: Users },
+      { key: 'sidebar.delivery', path: '/dashboard/settings#delivery-settings', icon: Truck },
     ],
   },
   { heading: 'sidebar.engagement', items: [{ key: 'sidebar.reviews', path: '/reviews', icon: Star }] },
@@ -28,3 +29,6 @@ export const dashboardNavigation = [
 ] as const;
 
 export const businessDashboardPath = (businessId: string) => `/dashboard/business/${businessId}`;
+
+export const dashboardNavigationHref = (path: string, businessId: string) =>
+  path.startsWith('/dashboard/') ? path : `${businessDashboardPath(businessId)}${path}`;

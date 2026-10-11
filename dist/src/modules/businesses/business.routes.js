@@ -38,6 +38,8 @@ function updateSchema(businessId) {
         district: z.string().max(120).nullish(),
         latitude: z.number().min(-90).max(90).nullish(),
         longitude: z.number().min(-180).max(180).nullish(),
+        deliveryEnabled: z.boolean().optional(),
+        deliveryFee: z.number().min(0).max(100000).optional(),
         logoUrl: managedImageUrlSchema(businessId),
         coverImageUrl: managedImageUrlSchema(businessId),
     })
@@ -221,6 +223,8 @@ businessRoutes.patch('/business/:businessId', authenticate, resolveBusiness, asy
             district: 'district',
             latitude: 'latitude',
             longitude: 'longitude',
+            deliveryEnabled: 'delivery_enabled',
+            deliveryFee: 'delivery_fee',
             logoUrl: 'logo_url',
             coverImageUrl: 'cover_image_url',
         };

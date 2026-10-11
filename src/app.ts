@@ -15,6 +15,7 @@ import { orderRoutes } from './modules/orders/order.routes.js';
 import { productRoutes } from './modules/products/product.routes.js';
 import { reviewRoutes } from './modules/reviews/review.routes.js';
 import { serviceRoutes } from './modules/services/service.routes.js';
+import { courierRoutes } from './modules/couriers/courier.routes.js';
 import { setUploadContentSecurityPolicy, withApiContentSecurityPolicy } from './middleware/csp.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 
@@ -226,6 +227,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
     app.use('/api', productRoutes);
     app.use('/api', serviceRoutes);
     app.use('/api', orderRoutes);
+    app.use('/api', courierRoutes);
     app.use('/api', reviewRoutes);
     app.use('/api', locationRoutes);
     app.use('/api', adminRoutes);

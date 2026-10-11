@@ -270,7 +270,16 @@ authRoutes.get('/auth/me', authenticate, async (req, res, next) => {
                    JOIN roles r ON r.role_id = bu.role_id
                   WHERE bu.user_id = $1 AND bu.status = 'active'
                   ORDER BY b.business_name`, [userId]);
-            return { user: userRows[0] ?? null, platformRoles: roles, businesses };
+            const { rows: courierBusinesses } = await client.query(`SELECT business_id
+                   FROM business_couriers
+                  WHERE user_id = $1 AND active
+                UNION
+                 SELECT business_id
+                   FROM orders
+                  WHERE delivery_courier_id = $1
+                    AND delivery_status IN ('assigned', 'picked_up', 'on_the_way')
+                  ORDER BY business_id`, [userId]);
+            return { user: userRows[0] ?? null, platformRoles: roles, businesses, courierBusinesses };
         });
         res.json({ data: payload });
     }

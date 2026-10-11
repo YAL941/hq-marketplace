@@ -11,7 +11,7 @@ import { SmartImage } from '../common/SmartImage';
 import { Avatar } from './Avatar';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useTheme } from '../../context/useTheme';
-import { businessDashboardPath, dashboardNavigation } from './dashboardNavigation';
+import { businessDashboardPath, dashboardNavigation, dashboardNavigationHref } from './dashboardNavigation';
 
 interface HeaderProps extends HTMLAttributes<HTMLElement> {}
 
@@ -118,7 +118,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
         )}
         {...props}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
               <div className="hidden sm:block">
@@ -399,12 +399,10 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
                       </p>
                     )}
                     {group.items.map((item) => {
-                      const globalPath = item.path === '/dashboard/settings';
-                      const href = globalPath
-                        ? item.path
-                        : `${businessDashboardPath(currentBusiness?.business_id ?? '')}${item.path}`;
-                      const active = globalPath
-                        ? location.pathname === href
+                      const href = dashboardNavigationHref(item.path, currentBusiness?.business_id ?? '');
+                      const [hrefPath, hrefHash] = href.split('#');
+                      const active = item.path.startsWith('/dashboard/')
+                        ? location.pathname === hrefPath && (hrefHash ? location.hash === `#${hrefHash}` : true)
                         : location.pathname === href || location.pathname.startsWith(`${href}/`);
                       return (
                         <Link

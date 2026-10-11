@@ -3,7 +3,7 @@ import type {
   User, AuthMeResponse, BusinessMembership, LoginResponse, RegisterPayload, RegisterResponse,
 } from '../types';
 import { authApi, businessApi, setAuthToken } from '../services/api';
-import { AuthContext, type AuthOutcome } from './useAuth';
+import { AuthContext } from './useAuth';
 
 /** The two places a signed-in person can land. */
 const TOKEN_KEY = 'hq_token';
@@ -14,6 +14,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [platformRoles, setPlatformRoles] = useState<string[]>([]);
   const [businesses, setBusinesses] = useState<BusinessMembership[]>([]);
+  const [courierBusinesses, setCourierBusinesses] = useState<Array<{ business_id: string }>>([]);
   const [currentBusiness, setCurrentBusiness] = useState<BusinessMembership | null>(null);
   const [currentBusinessLogo, setCurrentBusinessLogo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user);
       setPlatformRoles(data.platformRoles.map(r => r.role_key));
       setBusinesses(data.businesses);
+      setCourierBusinesses(data.courierBusinesses ?? []);
 
       if (data.businesses.length > 0 && !currentBusinessRef.current) {
         const savedBusinessId = localStorage.getItem(BUSINESS_KEY);
@@ -117,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setPlatformRoles([]);
       setBusinesses([]);
+      setCourierBusinesses([]);
       setCurrentBusiness(null);
     } finally {
       setIsLoading(false);
@@ -129,18 +132,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refreshUser();
   }, [refreshUser]);
 
-  /**
-   * Which kind of account this is.
-   *
-   * Neither login nor `/auth/me` is read for this alone: `/auth/me` returns the
-   * businesses a person belongs to, and membership is the only thing that proves
-   * a dashboard is theirs to open. A platform role is not a substitute, because a
-   * platform administrator is not necessarily a business owner.
-   */
-  const resolveRole = (): AuthOutcome => ({
-    role: businesses.length > 0 ? 'business_owner' : 'customer',
-  });
-
   const login = async (identifier: string, password: string, remember: boolean) => {
     const response = await authApi.login({ identifier, password });
     const { token } = response.data.data as LoginResponse;
@@ -150,7 +141,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     else localStorage.removeItem(REMEMBER_KEY);
 
     await refreshUser();
-    return resolveRole();
+    const meData = (await authApi.me()).data.data as AuthMeResponse;
+    const role: 'courier' | 'business_owner' | 'customer' = meData.courierBusinesses?.length
+      ? 'courier'
+      : meData.businesses.length
+        ? 'business_owner'
+        : 'customer';
+    return {
+      role,
+    };
   };
 
   const register = async (payload: RegisterPayload, remember: boolean) => {
@@ -188,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setPlatformRoles([]);
     setBusinesses([]);
+    setCourierBusinesses([]);
     setCurrentBusiness(null);
   };
 
@@ -207,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       platformRoles,
       businesses,
+      courierBusinesses,
       currentBusiness,
       currentBusinessLogo,
       refreshBusinessLogo,

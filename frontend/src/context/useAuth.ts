@@ -1,9 +1,11 @@
 import { createContext, useContext } from 'react';
 import type { User, BusinessMembership, RegisterPayload, AccountRole, Id } from '../types';
 
+export type AuthRole = AccountRole | 'courier';
+
 /** The two places a signed-in person can land. */
 export interface AuthOutcome {
-  role: AccountRole;
+  role: AuthRole;
   /** The business created alongside a `business_owner` signup, else undefined. */
   businessId?: Id;
 }
@@ -12,6 +14,7 @@ export interface AuthContextType {
   user: User | null;
   platformRoles: string[];
   businesses: BusinessMembership[];
+  courierBusinesses: Array<{ business_id: Id }>;
   currentBusiness: BusinessMembership | null;
   /**
    * The current business's logo, as the database holds it.

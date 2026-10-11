@@ -2,14 +2,11 @@ import { HTMLAttributes, forwardRef, useCallback, useEffect, useState } from 're
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
-import {
-  ShoppingBag, ChevronRight, LogOut,
-} from 'lucide-react';
+import { ShoppingBag, ChevronRight } from 'lucide-react';
 import { SmartImage } from '../common/SmartImage';
 import { useAuth } from '../../context/useAuth';
 import type { Id } from '../../types';
-import { Avatar } from './Avatar';
-import { businessDashboardPath, dashboardNavigation } from './dashboardNavigation';
+import { businessDashboardPath, dashboardNavigation, dashboardNavigationHref } from './dashboardNavigation';
 import { orderApi } from '../../services/api';
 import type { BusinessInboxCounts } from '../../types';
 
@@ -28,7 +25,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
-    const { user, businesses, currentBusiness, currentBusinessLogo, logout, setCurrentBusiness } = useAuth();
+    const { businesses, currentBusiness, currentBusinessLogo, setCurrentBusiness } = useAuth();
     const [collapsed, setCollapsed] = useState(false);
     const [inboxCounts, setInboxCounts] = useState<BusinessInboxCounts | null>(null);
 
@@ -190,13 +187,14 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                   </h2>
                 )}
                 {group.items.map((item) => {
-                  const globalPath = item.path === '/dashboard/settings';
-                  const href = globalPath
-                    ? item.path
-                    : `${businessDashboardPath(activeBusinessId ?? currentBusiness?.business_id ?? '')}${item.path}`;
+                  const href = dashboardNavigationHref(
+                    item.path,
+                    activeBusinessId ?? currentBusiness?.business_id ?? '',
+                  );
+                  const [hrefPath, hrefHash] = href.split('#');
                   const isActive =
-                    globalPath
-                      ? location.pathname === href
+                    item.path.startsWith('/dashboard/')
+                      ? location.pathname === hrefPath && (hrefHash ? location.hash === `#${hrefHash}` : true)
                       : item.path === ''
                       ? location.pathname === href
                       : location.pathname.startsWith(href);
@@ -213,9 +211,9 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
                     <NavLink
                       key={item.key}
                       to={href}
-                      className={({ isActive: active }) => cn(
+                      className={() => cn(
                         'dashboard-nav-link relative flex items-center gap-3 rounded-xl border-s-4 px-3 py-2.5 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-                        active
+                        isActive
                           ? 'border-s-primary-600 bg-primary-50 text-primary-700 shadow-sm'
                           : 'border-s-transparent text-navy-600 hover:bg-navy-50 hover:text-navy-900',
                         collapsed && 'justify-center'
@@ -243,26 +241,6 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
             ))}
           </nav>
 
-          {!collapsed && (
-            <div className="p-4 border-t border-navy-200">
-              <div className="flex items-center gap-3 px-3 py-2">
-                <Avatar name={user?.full_name || 'User'} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-navy-900 truncate">{user?.full_name}</p>
-                  <p className="text-xs text-navy-500 truncate">{user?.email ?? user?.phone ?? '—'}</p>
-                </div>
-              </div>
-              <div className="mt-3 space-y-1">
-                <button
-                  onClick={logout}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-error-600 hover:bg-error-50 rounded-button transition-colors"
-                >
-                  <LogOut className="w-5 h-5" />
-                  {t('nav.signOut')}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </aside>
     );

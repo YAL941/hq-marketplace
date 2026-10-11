@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { AlertCircle, Building2, ExternalLink, Globe, Save, Shield, Users, XCircle } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -12,6 +12,7 @@ import { Badge } from '../components/common/Badge';
 import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
 import { Avatar } from '../components/layout/Avatar';
+import { CourierManagement } from '../components/business/CourierManagement';
 import { useAuth } from '../context/useAuth';
 import { businessApi, toFieldIssue, type FieldIssue } from '../services/api';
 import { useCategories } from '../hooks/useCategories';
@@ -37,6 +38,8 @@ interface FormState {
   district: string;
   logoUrl: string;
   coverImageUrl: string;
+  deliveryEnabled: boolean;
+  deliveryFee: string;
 }
 
 const EMPTY: FormState = {
@@ -52,6 +55,8 @@ const EMPTY: FormState = {
   district: '',
   logoUrl: '',
   coverImageUrl: '',
+  deliveryEnabled: false,
+  deliveryFee: '0',
 };
 
 /**
@@ -159,6 +164,7 @@ type ImageSlot = 'logo' | 'cover';
 
 export function DashboardSettingsPage() {
   const { t } = useTranslation();
+  const location = useLocation();
   const { user, businesses, currentBusiness, refreshBusinessLogo, setCurrentBusiness } = useAuth();
   const { categories } = useCategories({ includeEmpty: true });
   const businessId = currentBusiness?.business_id ?? '';
@@ -226,6 +232,8 @@ export function DashboardSettingsPage() {
         district: profile.district ?? '',
         logoUrl: profile.logo_url ?? '',
         coverImageUrl: profile.cover_image_url ?? '',
+        deliveryEnabled: profile.delivery_enabled,
+        deliveryFee: profile.delivery_fee,
       });
       setMembers(membersRes ? membersRes.data.data : null);
     } catch {
@@ -238,6 +246,13 @@ export function DashboardSettingsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (loading || location.hash !== '#delivery-settings') return;
+    window.requestAnimationFrame(() => {
+      document.getElementById('delivery-settings')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [loading, location.hash]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -343,6 +358,9 @@ export function DashboardSettingsPage() {
         return { field: 'categoryId', message: t('listBusiness.errorCategory') };
       }
     }
+    if (!/^\d+(\.\d{1,2})?$/.test(form.deliveryFee) || Number(form.deliveryFee) > 100000) {
+      return { field: 'deliveryFee', message: t('settings.errorDeliveryFee') };
+    }
     return null;
   };
 
@@ -372,6 +390,8 @@ export function DashboardSettingsPage() {
         address: form.address.trim() || null,
         city: form.city.trim() || null,
         district: form.district.trim() || null,
+        deliveryEnabled: form.deliveryEnabled,
+        deliveryFee: Number(form.deliveryFee),
       };
       if (form.email.trim() !== '') patch.email = form.email.trim();
 
@@ -628,6 +648,32 @@ export function DashboardSettingsPage() {
                   />
                 </div>
 
+                <section id="delivery-settings" className="scroll-mt-24 rounded-xl border border-navy-200 p-4">
+                  <h3 className="font-semibold text-navy-900">{t('settings.deliveryTitle')}</h3>
+                  <p className="mt-1 text-sm text-navy-500">{t('settings.deliveryDescription')}</p>
+                  <label className="mt-3 flex min-h-11 items-center gap-3 text-sm text-navy-700">
+                    <input
+                      type="checkbox"
+                      checked={form.deliveryEnabled}
+                      onChange={(event) => set('deliveryEnabled', event.target.checked)}
+                      className="h-4 w-4 rounded accent-primary-600"
+                    />
+                    {t('settings.deliveryEnabled')}
+                  </label>
+                  {form.deliveryEnabled && (
+                    <Input
+                      label={t('settings.deliveryFee')}
+                      type="number"
+                      min="0"
+                      max="100000"
+                      step="0.01"
+                      value={form.deliveryFee}
+                      onChange={(event) => set('deliveryFee', event.target.value)}
+                      error={fieldError('deliveryFee')}
+                    />
+                  )}
+                </section>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {(['logo', 'cover'] as const).map((slot) => (
                     <div key={slot} className="min-w-0">
@@ -642,7 +688,9 @@ export function DashboardSettingsPage() {
                         // two writes must not overlap, or the last one to land
                         // silently wins.
                         disabled={saving}
-                        onBusyChange={(busy) => setMediaBusyBySlot((prev) => ({ ...prev, [slot]: busy }))}
+                        onBusyChange={(busy) => setMediaBusyBySlot((prev) => (
+                          prev[slot] === busy ? prev : { ...prev, [slot]: busy }
+                        ))}
                         // The widget reports (kind, message); the page's own
                         // toast helper takes them the other way round.
                         onNotify={(kind, message) => showToast(message, kind)}
@@ -755,6 +803,10 @@ export function DashboardSettingsPage() {
           </Card>
         </div>
       </div>
+
+      {currentBusiness?.role_key === 'business_owner' && businessId && (
+        <CourierManagement businessId={businessId} />
+      )}
 
       {toasts.map((toast) => (
         <Toast key={toast.id} toast={toast} onRemove={() => dismiss(toast.id)} />

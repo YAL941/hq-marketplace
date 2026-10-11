@@ -18,6 +18,17 @@ export interface OrderRow {
     currency: string;
     customer_note: string | null;
     delivery_address: string | null;
+    delivery_requested: boolean;
+    location_consent: boolean;
+    location_consent_at: Date | null;
+    delivery_latitude: string | null;
+    delivery_longitude: string | null;
+    delivery_note: string | null;
+    customer_phone: string | null;
+    delivery_confirmation_code?: string | null;
+    delivery_earning_amount?: string | null;
+    payment_method: string;
+    status_history: Array<{ status: string; changed_at: string; changed_by: number | null }>;
     scheduled_for: Date | null;
     created_at: Date;
     updated_at: Date;
@@ -36,6 +47,13 @@ export interface CreateOrderInput {
     customerNote?: string | null;
     deliveryAddress?: string | null;
     scheduledFor?: string | null;
+    deliveryRequested?: boolean;
+    locationConsent?: boolean;
+    deliveryLatitude?: number | null;
+    deliveryLongitude?: number | null;
+    deliveryNote?: string | null;
+    customerPhone?: string | null;
+    paymentMethod?: 'cash_on_delivery';
 }
 
 const round = (n: number): number => Math.round(n * 100) / 100;
@@ -51,6 +69,17 @@ const round = (n: number): number => Math.round(n * 100) / 100;
 export async function createOrder(client: PoolClient, customerId: number, input: CreateOrderInput): Promise<OrderRow> {
     if (input.items.length === 0) {
         throw badRequest('An order must contain at least one item');
+    }
+    const deliveryRequested = input.deliveryRequested ?? false;
+    if (deliveryRequested) {
+        if (!input.locationConsent) throw badRequest('Explicit consent to share the delivery location is required');
+        if (input.deliveryLatitude === undefined || input.deliveryLongitude === undefined
+            || input.deliveryLatitude === null || input.deliveryLongitude === null) {
+            throw badRequest('A delivery location is required');
+        }
+        if (!input.customerPhone?.trim()) throw badRequest('A customer phone number is required for delivery');
+    } else if (input.locationConsent || input.deliveryLatitude != null || input.deliveryLongitude != null) {
+        throw badRequest('Pickup orders cannot include delivery location data');
     }
 
     const snapshots: Array<{
@@ -142,10 +171,22 @@ export async function createOrder(client: PoolClient, customerId: number, input:
     if (currencies.size !== 1) throw badRequest('All items in an order must use the same currency');
 
     const subtotal = round(snapshots.reduce((sum, item) => sum + item.totalPrice, 0));
-    const deliveryFee = 0;
+    const { rows: businessRows } = await client.query<{
+        delivery_enabled: boolean;
+        delivery_fee: string;
+    }>(
+        'SELECT delivery_enabled, delivery_fee FROM businesses WHERE business_id = $1',
+        [input.businessId],
+    );
+    const businessDelivery = businessRows[0];
+    if (!businessDelivery) throw notFound('Business not found');
+    if (deliveryRequested && !businessDelivery.delivery_enabled) {
+        throw badRequest('This business does not currently offer delivery');
+    }
+    const deliveryFee = deliveryRequested ? Number(businessDelivery.delivery_fee) : 0;
     const discount = 0;
     const tax = 0;
-    const total = subtotal;
+    const total = round(subtotal + deliveryFee);
     const currency = snapshots[0]!.currency.toUpperCase();
 
     const hasProduct = snapshots.some((i) => i.itemType === 'product');
@@ -156,8 +197,11 @@ export async function createOrder(client: PoolClient, customerId: number, input:
         `INSERT INTO orders
             (business_id, customer_id, location_id, order_type, subtotal, delivery_fee,
              discount_amount, tax_amount, total_amount, currency, customer_note,
-             delivery_address, scheduled_for)
-         VALUES ($1, $2, $3, $4::order_type, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+             delivery_address, scheduled_for, delivery_requested, location_consent,
+             location_consent_at, delivery_latitude, delivery_longitude, delivery_note,
+             customer_phone, payment_method)
+         VALUES ($1, $2, $3, $4::order_type, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                 $14, $15, CASE WHEN $15 THEN now() ELSE NULL END, $16, $17, $18, $19, $20)
          RETURNING *`,
         [
             input.businessId,
@@ -173,6 +217,13 @@ export async function createOrder(client: PoolClient, customerId: number, input:
             input.customerNote ?? null,
             input.deliveryAddress ?? null,
             input.scheduledFor ?? null,
+            deliveryRequested,
+            input.locationConsent ?? false,
+            deliveryRequested ? input.deliveryLatitude : null,
+            deliveryRequested ? input.deliveryLongitude : null,
+            deliveryRequested ? input.deliveryNote?.trim() ?? null : null,
+            deliveryRequested ? input.customerPhone?.trim() ?? null : null,
+            input.paymentMethod ?? 'cash_on_delivery',
         ],
     );
     const order = orderRows[0]!;
@@ -265,31 +316,56 @@ export async function updateOrderStatus(
     const transitions: Record<string, string[]> = {
         pending: ['confirmed', 'cancelled', 'rejected'],
         confirmed: ['in_progress', 'cancelled'],
-        in_progress: ['ready', 'out_for_delivery', 'completed', 'cancelled'],
+        in_progress: ['ready', 'cancelled'],
         ready: ['out_for_delivery', 'completed', 'cancelled'],
         out_for_delivery: ['completed', 'cancelled'],
     };
-    const { rows: currentRows } = await client.query<{ order_status: string }>(
-        'SELECT order_status FROM orders WHERE order_id = $1 AND business_id = $2',
+    const { rows: currentRows } = await client.query<{
+        order_status: string;
+        delivery_requested: boolean;
+        delivery_status: string;
+    }>(
+        'SELECT order_status, delivery_requested, delivery_status FROM orders WHERE order_id = $1 AND business_id = $2',
         [orderId, businessId],
     );
-    const currentStatus = currentRows[0]?.order_status;
+    const currentOrder = currentRows[0];
+    const currentStatus = currentOrder?.order_status;
     if (!currentStatus) throw notFound('Order not found in this business');
-    if (!transitions[currentStatus]?.includes(orderStatus)) {
+    const allowedTransitions: Record<string, string[]> = currentOrder.delivery_requested
+        ? {
+            ...transitions,
+            in_progress: ['ready', 'cancelled'],
+            ready: ['cancelled'],
+            out_for_delivery: [],
+        }
+        : {
+            ...transitions,
+            ready: ['out_for_delivery', 'completed', 'cancelled'],
+        };
+    if (!allowedTransitions[currentStatus]?.includes(orderStatus)) {
         throw badRequest(`Order cannot transition from ${currentStatus} to ${orderStatus}`);
     }
 
-    let timestampColumn = '';
-    if (orderStatus === 'confirmed') timestampColumn = ', confirmed_at = now()';
-    if (orderStatus === 'completed') timestampColumn = ', completed_at = now()';
-    if (orderStatus === 'cancelled') timestampColumn = ', cancelled_at = now()';
+    const assignments = ['order_status = $3'];
+    if (orderStatus === 'confirmed') assignments.push('confirmed_at = now()');
+    if (orderStatus === 'completed') assignments.push('completed_at = now()');
+    if (orderStatus === 'cancelled') assignments.push('cancelled_at = now()');
+    if (orderStatus === 'ready' && currentOrder.delivery_requested) {
+        assignments.push("delivery_status = 'waiting'");
+    }
+    if (orderStatus === 'cancelled' && currentOrder.delivery_requested) {
+        assignments.push("delivery_status = 'not_applicable'");
+        assignments.push('delivery_courier_id = NULL');
+        assignments.push('delivery_confirmation_code = NULL');
+        assignments.push('delivery_earning_amount = NULL');
+    }
 
     const { rows } = await client.query<OrderRow>(
         `UPDATE orders
-            SET order_status = $3 ${timestampColumn}
-          WHERE order_id = $1 AND business_id = $2 AND order_status = $4
+            SET ${assignments.join(', ')}
+          WHERE order_id = $1 AND business_id = $2 AND order_status = $4 AND delivery_status = $5
           RETURNING *`,
-        [orderId, businessId, orderStatus, currentStatus],
+        [orderId, businessId, orderStatus, currentStatus, currentOrder.delivery_status],
     );
     if (!rows[0]) throw conflict('Order status changed before this update could be applied');
     return rows[0];

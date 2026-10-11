@@ -64,6 +64,61 @@ export interface AuthMeResponse {
   user: User | null;
   platformRoles: PlatformRole[];
   businesses: BusinessMembership[];
+  courierBusinesses: Array<{ business_id: Id }>;
+}
+
+export interface BusinessCourier {
+  business_courier_id: Id;
+  user_id: Id;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  active: boolean;
+  created_at?: string;
+}
+
+export type CourierDeliveryStatus = 'assigned' | 'picked_up' | 'on_the_way';
+
+export interface AvailableCourierDelivery {
+  order_id: Id;
+  order_number: string;
+  business_id: Id;
+  business_name: string;
+  city: string | null;
+  delivery_fee: string;
+  currency: string;
+  created_at: string;
+}
+
+export interface AssignedCourierDelivery extends AvailableCourierDelivery {
+  pickup_address: string | null;
+  business_phone: string | null;
+  business_whatsapp: string | null;
+  delivery_earning_amount: string | null;
+  order_status: OrderStatus;
+  delivery_status: CourierDeliveryStatus;
+  delivery_status_history: Array<{ status: string; changed_at: string; changed_by: Id | null }>;
+  delivery_latitude: string | null;
+  delivery_longitude: string | null;
+  delivery_note: string | null;
+  customer_phone: string | null;
+}
+
+export interface CompletedCourierDelivery {
+  order_id: Id;
+  order_number: string;
+  business_id: Id;
+  business_name: string;
+  delivery_earning_amount: string | null;
+  currency: string;
+  completed_at: string;
+}
+
+export interface CourierDeliveryList {
+  available: AvailableCourierDelivery[];
+  assigned: AssignedCourierDelivery[];
+  completedToday: CompletedCourierDelivery[];
+  dailyEarnings: Array<{ currency: string; amount: string }>;
 }
 
 export interface LoginResponse {
@@ -161,6 +216,8 @@ export interface PublicBusinessProfile extends PublicBusinessCard {
   website: string | null;
   latitude: number | null;
   longitude: number | null;
+  delivery_enabled: boolean;
+  delivery_fee: string;
   rating_distribution: RatingDistribution;
   opening_hours: OpeningHour[];
 }
@@ -307,7 +364,6 @@ export interface CreateOrderInput {
     serviceId?: number;
     quantity: number;
   }>;
-  deliveryFee?: number;
   discountAmount?: number;
   taxAmount?: number;
   currency?: string;
@@ -475,6 +531,16 @@ export interface Order {
   currency: string;
   customer_note: string | null;
   delivery_address: string | null;
+  delivery_requested: boolean;
+  location_consent: boolean;
+  location_consent_at: string | null;
+  delivery_latitude: string | null;
+  delivery_longitude: string | null;
+  delivery_note: string | null;
+  customer_phone: string | null;
+  delivery_confirmation_code?: string | null;
+  payment_method: string;
+  status_history: Array<{ status: string; changed_at: string; changed_by: Id | number | null }>;
   scheduled_for: string | null;
   created_at: string;
   updated_at: string;
@@ -495,6 +561,12 @@ export interface CustomerOrderSummary {
   business_slug: string;
   order_type: string;
   order_status: OrderStatus;
+  delivery_requested: boolean;
+  delivery_note: string | null;
+  delivery_latitude: string | null;
+  delivery_longitude: string | null;
+  customer_phone: string | null;
+  delivery_confirmation_code: string | null;
   total_amount: string;
   currency: string;
   created_at: string;
@@ -639,6 +711,8 @@ export interface BusinessProfilePatch {
   district?: string | null;
   logoUrl?: string | null;
   coverImageUrl?: string | null;
+  deliveryEnabled?: boolean;
+  deliveryFee?: number;
 }
 
 /**
@@ -778,6 +852,8 @@ export interface BusinessRecord {
   status: string;
   is_verified: boolean;
   verification_status: string;
+  delivery_enabled: boolean;
+  delivery_fee: string;
   created_at: string;
   updated_at: string;
 }

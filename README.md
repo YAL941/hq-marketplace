@@ -19,6 +19,10 @@ web frontend and a business-owner dashboard.
 - Migration runner with per-migration rollback scripts and a schema-change ledger.
 - **Nearby search**: public, location-aware directory listing ordered by
   distance from the caller, with radius and optional filters.
+- **Delivery**: customer pickup or delivery choice, explicit location consent,
+  Leaflet/OpenStreetMap location selection, business delivery fees, a separate
+  courier workspace, atomic task claiming, delivery status history, customer-
+  negotiated courier earnings, and a four-digit proof of delivery.
 
 Documentation: [`docs/01-schema.md`](docs/01-schema.md), [`docs/02-data-isolation.md`](docs/02-data-isolation.md),
 [`docs/03-migration-safety.md`](docs/03-migration-safety.md).
@@ -35,6 +39,14 @@ cp .env.example .env        # Windows: copy .env.example .env
 npm install
 npm run db:setup            # create databases, migrate, grant, seed
 npm run dev
+```
+
+Run the React frontend in a second terminal:
+
+```powershell
+cd frontend
+npm.cmd install
+npm.cmd run dev
 ```
 
 `npm run db:setup` runs, in order:
@@ -96,6 +108,69 @@ npm run db:migrate             # apply pending migrations
 npm run db:rollback            # roll back the last migration
 npm run db:rollback -- --allow-data-loss   # required for destructive rollbacks
 ```
+
+### Delivery — Phase 1
+
+Migration `023_delivery_phase_one` adds business delivery settings and order
+delivery details. Apply it with the normal migration command after configuring
+the existing `.env` database settings:
+
+```powershell
+npm.cmd run db:migrate
+```
+
+No new environment variables are required. Business owners enable delivery and
+set the flat fee in **Dashboard → Settings**. Customers can choose pickup or
+delivery when ordering a product; delivery requires an explicit location-sharing
+consent, a map pin (current location or manual), a phone number, and cash on
+delivery. The server reads the fee from the business record and calculates the
+order total; client-supplied fees are never trusted.
+
+The API retains the project's existing PostgreSQL order statuses for
+compatibility (`pending → confirmed → in_progress → ready → out_for_delivery →
+completed`). Order status changes are recorded in `orders.status_history`.
+Delivery coordinates are cleared when the order is completed or cancelled.
+The courier portal/API only reveals the customer's coordinates and phone to the
+courier assigned to that active delivery; the business retains access to its
+own order details. The four-digit code is returned only in the customer's own
+order list while delivery is active.
+
+The matching rollback removes the delivery settings and order delivery data,
+so the migration runner requires the explicit data-loss flag:
+
+```powershell
+npm.cmd run db:rollback -- --allow-data-loss
+```
+
+### Courier workspace
+
+Migration `024_courier_workspace` adds courier accounts linked to a business,
+delivery assignment/status history, and a four-digit delivery confirmation code.
+Migration `025_courier_earnings_negotiation` adds the courier's agreed earning
+per delivery. Run `npm.cmd run db:migrate` to apply pending migrations. No additional `.env` values are
+required. A business owner creates or disables couriers from **Dashboard →
+Settings**. The courier signs in with the credentials the owner created and is
+sent to `/courier`; the business dashboard routes require business membership
+and are not available to courier-only accounts.
+
+When the business marks a delivery order **Ready**, it appears in that
+business's active couriers' available queue. The courier negotiates directly
+with the customer and enters the agreed earning while accepting; the owner does
+not approve or set this amount. One courier claims each task with an atomic
+database update. Only then does the courier receive the customer's phone, note
+and coordinates, along with the business contact details. The courier can call
+or WhatsApp either party, marks pickup and departure in order, then enters the
+four-digit code shown on the customer's **My Orders** card to complete delivery.
+The courier workspace refreshes every 20 seconds and shows today's completed
+deliveries and earnings, grouped by currency. Completion clears the customer's
+coordinates. Active delivery status changes are recorded separately from the
+existing order status history.
+
+Rolling back migrations 024 and 025 requires
+`npm.cmd run db:rollback -- --allow-data-loss`: it removes courier assignments
+and delivery workflow fields, including recorded courier earnings. User
+accounts created for couriers are retained
+as ordinary accounts; the rollback does not delete user identities.
 
 Rules followed by every migration:
 

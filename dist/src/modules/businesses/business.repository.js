@@ -160,6 +160,8 @@ async function getPublicBusinessProfileWhere(client, locator, params) {
                 b.website,
                 b.latitude,
                 b.longitude,
+                b.delivery_enabled,
+                b.delivery_fee,
                 rv.review_count,
                 rv.average_rating
            FROM businesses b
@@ -287,6 +289,8 @@ export async function getStaffBusiness(client, businessId) {
                 b.is_verified,
                 b.rejection_reason,
                 b.verified_at,
+                b.delivery_enabled,
+                b.delivery_fee,
                 b.created_at,
                 b.updated_at
            FROM businesses b

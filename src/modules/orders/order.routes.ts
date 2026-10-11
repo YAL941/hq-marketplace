@@ -32,6 +32,13 @@ const createOrderSchema = z.object({
     customerNote: z.string().max(2000).nullish(),
     deliveryAddress: z.string().max(500).nullish(),
     scheduledFor: z.string().datetime().nullish(),
+    deliveryRequested: z.boolean().optional(),
+    locationConsent: z.boolean().optional(),
+    deliveryLatitude: z.number().min(-90).max(90).nullish(),
+    deliveryLongitude: z.number().min(-180).max(180).nullish(),
+    deliveryNote: z.string().trim().max(500).nullish(),
+    customerPhone: z.string().trim().max(20).nullish(),
+    paymentMethod: z.literal('cash_on_delivery').optional(),
 });
 
 const listQuerySchema = z.object({
@@ -78,6 +85,8 @@ orderRoutes.get('/orders/mine', authenticate, async (req, res, next) => {
             const { rows } = await client.query(
                 `SELECT o.order_id, o.order_number, o.business_id, b.business_name, b.business_slug, o.order_type,
                         o.order_status, o.total_amount, o.currency, o.created_at,
+                        o.delivery_requested, o.delivery_note, o.delivery_latitude,
+                        o.delivery_longitude, o.customer_phone, o.delivery_confirmation_code,
                         COALESCE(order_lines.items, '[]'::json) AS items
                    FROM orders o
                    JOIN businesses b ON b.business_id = o.business_id
@@ -146,7 +155,10 @@ orderRoutes.get('/business/:businessId/orders', authenticate, resolveBusiness, a
         const orders = await withTenant(contextFor(req, businessId), (client) =>
             listOrdersForBusiness(client, businessId, q),
         );
-        res.json({ data: orders, meta: { count: orders.length, businessId } });
+        res.json({
+            data: orders.map(({ delivery_confirmation_code: _code, delivery_earning_amount: _earning, ...order }) => order),
+            meta: { count: orders.length, businessId },
+        });
     } catch (error) {
         next(error);
     }
@@ -189,7 +201,12 @@ orderRoutes.get('/business/:businessId/orders/:orderId', authenticate, resolveBu
             const items = await listOrderItems(client, orderId);
             return { order, items };
         });
-        res.json({ data: payload });
+        const {
+            delivery_confirmation_code: _code,
+            delivery_earning_amount: _earning,
+            ...businessOrder
+        } = payload.order;
+        res.json({ data: { order: businessOrder, items: payload.items } });
     } catch (error) {
         next(error);
     }
@@ -216,7 +233,12 @@ orderRoutes.patch('/business/:businessId/orders/:orderId/status', authenticate, 
         const order = await withTenant(contextFor(req, businessId), (client) =>
             updateOrderStatus(client, businessId, orderId, orderStatus),
         );
-        res.json({ data: order });
+        const {
+            delivery_confirmation_code: _code,
+            delivery_earning_amount: _earning,
+            ...businessOrder
+        } = order;
+        res.json({ data: businessOrder });
     } catch (error) {
         next(error);
     }

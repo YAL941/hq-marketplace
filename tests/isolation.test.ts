@@ -481,6 +481,68 @@ describe('Order status transitions and product reviews', () => {
         assert.equal(inProgress.status, 200, JSON.stringify(inProgress.body));
     });
 
+    it('requires location consent for delivery and calculates the configured fee server-side', async () => {
+        await adminPool.query(
+            'UPDATE businesses SET delivery_enabled = TRUE, delivery_fee = 7.5 WHERE business_id = $1',
+            [fixtures.ownerA.businessA],
+        );
+        const product = await request(app)
+            .post(`/api/business/${fixtures.ownerA.businessA}/products`)
+            .set('Authorization', 'Bearer ' + fixtures.ownerA.token)
+            .send({ productName: 'Delivery Test Item', price: 20, stockQuantity: 5, status: 'active' });
+        assert.equal(product.status, 201, JSON.stringify(product.body));
+        const productId = Number(product.body.data.product_id);
+
+        const withoutConsent = await request(app)
+            .post('/api/orders')
+            .set('Authorization', 'Bearer ' + fixtures.customer.token)
+            .send({
+                businessId: fixtures.ownerA.businessA,
+                items: [{ productId }],
+                deliveryRequested: true,
+                locationConsent: false,
+                deliveryLatitude: 2.05,
+                deliveryLongitude: 45.32,
+                customerPhone: '+252612345678',
+            });
+        assert.equal(withoutConsent.status, 400);
+
+        const deliveredByRequest = await request(app)
+            .post('/api/orders')
+            .set('Authorization', 'Bearer ' + fixtures.customer.token)
+            .send({
+                businessId: fixtures.ownerA.businessA,
+                items: [{ productId }],
+                deliveryRequested: true,
+                locationConsent: true,
+                deliveryLatitude: 2.05,
+                deliveryLongitude: 45.32,
+                deliveryNote: 'Near the main road',
+                customerPhone: '+252612345678',
+                deliveryFee: 0,
+            });
+        assert.equal(deliveredByRequest.status, 201, JSON.stringify(deliveredByRequest.body));
+        assert.equal(Number(deliveredByRequest.body.data.delivery_fee), 7.5);
+        assert.equal(Number(deliveredByRequest.body.data.total_amount), 27.5);
+        assert.equal(deliveredByRequest.body.data.location_consent, true);
+        assert.equal(deliveredByRequest.body.data.delivery_latitude, '2.050000');
+        assert.deepEqual(deliveredByRequest.body.data.status_history.map(
+            (entry: { status: string }) => entry.status,
+        ), ['pending']);
+
+        const orderId = deliveredByRequest.body.data.order_id as string;
+        const cancelled = await request(app)
+            .post(`/api/orders/mine/${orderId}/cancel`)
+            .set('Authorization', 'Bearer ' + fixtures.customer.token)
+            .send({});
+        assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
+        assert.equal(cancelled.body.data.delivery_latitude, null);
+        assert.equal(cancelled.body.data.delivery_longitude, null);
+        assert.deepEqual(cancelled.body.data.status_history.map(
+            (entry: { status: string }) => entry.status,
+        ), ['pending', 'cancelled']);
+    });
+
     it('accepts product feedback only from customers with a completed purchase', async () => {
         const productResponse = await request(app)
             .post(`/api/business/${fixtures.ownerA.businessA}/products`)
