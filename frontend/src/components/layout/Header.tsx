@@ -122,10 +122,10 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
               <div className="hidden sm:block">
-                <Logo to="/" ariaLabel={t('brand.homeLabel')} variant={homeHeroVisible ? 'dark' : 'light'} size="sm" />
+                <Logo to="/" ariaLabel={t('brand.homeLabel')} variant={homeHeroVisible ? 'dark' : 'light'} size="sm" intro introOnce />
               </div>
-              <div className="sm:hidden">
-                <Logo to="/" ariaLabel={t('brand.homeLabel')} variant={homeHeroVisible ? 'dark' : 'light'} size="sm" className="[&>span:last-child]:hidden" />
+              <div className="sm:hidden omni-logo-mobile">
+                <Logo to="/" ariaLabel={t('brand.homeLabel')} variant={homeHeroVisible ? 'dark' : 'light'} size="sm" intro introOnce />
               </div>
 
               {isPublic && !isLoginPage && (

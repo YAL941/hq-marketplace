@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, Package, RefreshCw, X } from 'lucide-react';
+import { CheckCircle2, Package, Phone, RefreshCw, X } from 'lucide-react';
 import { Badge, type BadgeVariant } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
@@ -29,6 +29,8 @@ export function MyOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrderSummary | null>(null);
+  const [offerActionId, setOfferActionId] = useState<string | null>(null);
+  const [offerErrorId, setOfferErrorId] = useState<string | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) {
@@ -62,6 +64,18 @@ export function MyOrdersPage() {
   }, [selectedOrder]);
 
   const reviewProduct = selectedOrder?.items.find((item) => item.product_id);
+  const respondToOffer = async (order: CustomerOrderSummary, accept: boolean) => {
+    setOfferActionId(order.order_id);
+    setOfferErrorId(null);
+    try {
+      await orderApi.respondToDeliveryOffer(order.order_id, accept);
+      await load(true);
+    } catch {
+      setOfferErrorId(order.order_id);
+    } finally {
+      setOfferActionId(null);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
@@ -146,9 +160,50 @@ export function MyOrdersPage() {
                             <p className="mt-1 text-xs">{t('customerOrders.deliveryCodeHint')}</p>
                           </div>
                         )}
+                        {order.courier_phone && (
+                          <a
+                            href={`tel:${order.courier_phone}`}
+                            className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-button border border-navy-300 px-3 text-sm font-medium text-navy-800 hover:bg-navy-50"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <Phone className="h-4 w-4" aria-hidden="true" />
+                            {t('customerOrders.callCourier')}: <span dir="ltr">{order.courier_phone}</span>
+                          </a>
+                        )}
                         <p className="mt-1 text-sm text-navy-500">
                           {t('order.placedOn', { date: formatDateTime(order.created_at) })}
                         </p>
+                        {order.delivery_status === 'offer_pending' && order.delivery_earning_amount && (
+                          <div className="mt-3 rounded-lg border border-primary-200 bg-primary-50 p-3">
+                            <p className="text-sm font-semibold text-primary-900">
+                              {t('customerOrders.deliveryOffer', {
+                                amount: formatCurrency(order.delivery_earning_amount, order.currency),
+                              })}
+                            </p>
+                            {offerErrorId === order.order_id && (
+                              <p className="mt-2 text-sm text-error-700" role="alert">{t('customerOrders.offerResponseError')}</p>
+                            )}
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={offerActionId === order.order_id}
+                                onClick={() => void respondToOffer(order, true)}
+                              >
+                                {t('customerOrders.acceptDeliveryOffer')}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={offerActionId === order.order_id}
+                                onClick={() => void respondToOffer(order, false)}
+                              >
+                                {t('customerOrders.declineDeliveryOffer')}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

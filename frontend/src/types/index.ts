@@ -88,6 +88,11 @@ export interface AvailableCourierDelivery {
   delivery_fee: string;
   currency: string;
   created_at: string;
+  delivery_address: string | null;
+  delivery_latitude: string | null;
+  delivery_longitude: string | null;
+  delivery_note: string | null;
+  customer_phone: string | null;
 }
 
 export interface AssignedCourierDelivery extends AvailableCourierDelivery {
@@ -98,10 +103,10 @@ export interface AssignedCourierDelivery extends AvailableCourierDelivery {
   order_status: OrderStatus;
   delivery_status: CourierDeliveryStatus;
   delivery_status_history: Array<{ status: string; changed_at: string; changed_by: Id | null }>;
-  delivery_latitude: string | null;
-  delivery_longitude: string | null;
-  delivery_note: string | null;
-  customer_phone: string | null;
+}
+
+export interface PendingCourierOffer extends AvailableCourierDelivery {
+  delivery_earning_amount: string;
 }
 
 export interface CompletedCourierDelivery {
@@ -116,8 +121,9 @@ export interface CompletedCourierDelivery {
 
 export interface CourierDeliveryList {
   available: AvailableCourierDelivery[];
+  pendingOffers: PendingCourierOffer[];
   assigned: AssignedCourierDelivery[];
-  completedToday: CompletedCourierDelivery[];
+  completedDeliveries: CompletedCourierDelivery[];
   dailyEarnings: Array<{ currency: string; amount: string }>;
 }
 
@@ -562,6 +568,10 @@ export interface CustomerOrderSummary {
   order_type: string;
   order_status: OrderStatus;
   delivery_requested: boolean;
+  delivery_status: 'not_applicable' | 'waiting' | 'offer_pending' | 'assigned' | 'picked_up' | 'on_the_way' | 'delivered';
+  delivery_earning_amount: string | null;
+  delivery_fee: string;
+  courier_phone: string | null;
   delivery_note: string | null;
   delivery_latitude: string | null;
   delivery_longitude: string | null;

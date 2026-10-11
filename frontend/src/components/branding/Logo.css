@@ -1,0 +1,314 @@
+.omni-logo__link {
+  display: inline-flex;
+  direction: ltr;
+  text-decoration: none;
+}
+
+.omni-preloader {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  opacity: 1;
+  transition: opacity 350ms ease;
+}
+
+.omni-preloader--fading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.omni-logo {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  gap: 8px;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.omni-logo__mark {
+  display: block;
+  width: var(--icon);
+  height: var(--icon);
+  flex: 0 0 auto;
+  overflow: visible;
+  filter: drop-shadow(0 3px 5px rgb(31 111 214 / 22%));
+  transition: transform 250ms ease;
+  transform-origin: center;
+  transform: perspective(500px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+}
+
+.omni-logo__tilt,
+.omni-logo__entrance,
+.omni-logo__ambient,
+.omni-logo__ring-spin,
+.omni-logo__star-interaction,
+.omni-logo__star {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.omni-logo__ring {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-dasharray: 75 100;
+  stroke-dashoffset: 0;
+}
+
+.omni-logo__radar {
+  fill: none;
+  stroke: rgb(255 255 255 / 80%);
+  stroke-width: 1.5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.omni-logo__wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+  font-family: "Readex Pro", Inter, system-ui, sans-serif;
+  font-size: var(--fs);
+  font-weight: 800;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.omni-logo--icon-only .omni-logo__wordmark {
+  display: none;
+}
+
+.omni-logo__base,
+.omni-logo__accent {
+  display: inline-flex;
+}
+
+.omni-logo--light .omni-logo__base {
+  color: #0b1f3f;
+}
+
+.omni-logo--light .omni-logo__accent {
+  color: #1f6fd6;
+}
+
+.omni-logo--dark .omni-logo__base {
+  color: #fff;
+}
+
+.omni-logo--dark .omni-logo__accent {
+  color: #7db8ff;
+}
+
+.omni-logo__letter {
+  display: inline-block;
+  transform-origin: center bottom;
+}
+
+.omni-logo__accent .omni-logo__letter {
+  background-image: linear-gradient(110deg, currentColor 0%, currentColor 40%, #fff 50%, currentColor 60%, currentColor 100%);
+  background-size: 250% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: omni-logo-shimmer 6s ease-in-out infinite;
+}
+
+.omni-logo__underline {
+  position: absolute;
+  right: 0;
+  bottom: -5px;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #5ca9ff, #f5b93a);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 350ms ease;
+}
+
+.omni-logo--intro .omni-logo__entrance {
+  animation: omni-logo-pop 750ms cubic-bezier(.2, .85, .25, 1.2) both;
+}
+
+.omni-logo--intro .omni-logo__ring {
+  animation: omni-logo-draw 800ms 450ms ease-out both;
+}
+
+.omni-logo--intro .omni-logo__center-breathe {
+  animation: omni-logo-appear 350ms 850ms ease-out both;
+}
+
+.omni-logo--intro .omni-logo__star {
+  animation: omni-logo-star-in 500ms 950ms cubic-bezier(.2, .8, .2, 1.2) both;
+}
+
+.omni-logo--intro .omni-logo__letter {
+  animation: omni-logo-letter-in 420ms calc(650ms + var(--letter-index) * 70ms) ease-out both;
+}
+
+.omni-logo__radar--first {
+  animation: omni-logo-radar 4s 1s ease-out infinite;
+}
+
+.omni-logo__radar--second {
+  animation: omni-logo-radar 4s 3s ease-out infinite;
+}
+
+.omni-logo__center-breathe {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: omni-logo-breathe 4s 1s ease-in-out infinite;
+}
+
+.omni-logo__star {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: omni-logo-star-shine 3.6s 1.3s ease-in-out infinite;
+}
+
+.omni-logo__star-interaction {
+  transition: transform 300ms ease;
+}
+
+.omni-logo__ring-spin {
+  transition: transform 1s ease;
+}
+
+.omni-logo:hover .omni-logo__ring-spin,
+.omni-logo:focus-visible .omni-logo__ring-spin {
+  transform: rotate(360deg);
+}
+
+.omni-logo:hover .omni-logo__mark,
+.omni-logo:focus-visible .omni-logo__mark {
+  transform: perspective(500px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) scale(1.07);
+}
+
+.omni-logo:hover .omni-logo__star-interaction,
+.omni-logo:focus-visible .omni-logo__star-interaction {
+  transform: scale(1.5) rotate(18deg);
+}
+
+.omni-logo:hover .omni-logo__letter,
+.omni-logo:focus-visible .omni-logo__letter {
+  animation: omni-logo-wave 450ms ease-in-out both;
+  animation-delay: calc(var(--letter-index) * 45ms);
+}
+
+.omni-logo:hover .omni-logo__underline,
+.omni-logo:focus-visible .omni-logo__underline {
+  transform: scaleX(1);
+}
+
+.omni-logo--burst .omni-logo__ring-spin {
+  animation: omni-logo-click-spin 700ms ease-out;
+}
+
+.omni-logo--burst .omni-logo__star-interaction {
+  animation: omni-logo-star-burst 700ms ease-out;
+}
+
+.omni-logo--burst .omni-logo__radar--second {
+  animation: omni-logo-radar 900ms ease-out;
+}
+
+@keyframes omni-logo-pop {
+  0% { opacity: 0; transform: scale(.35) rotate(-14deg); }
+  72% { opacity: 1; transform: scale(1.08) rotate(2deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+@keyframes omni-logo-draw {
+  from { stroke-dashoffset: 25; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes omni-logo-appear {
+  from { opacity: 0; transform: scale(0); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes omni-logo-star-in {
+  from { opacity: 0; transform: scale(0) rotate(-200deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@keyframes omni-logo-letter-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes omni-logo-radar {
+  0% { opacity: .65; transform: scale(1); }
+  100% { opacity: 0; transform: scale(5); }
+}
+
+@keyframes omni-logo-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.14); }
+}
+
+@keyframes omni-logo-star-shine {
+  0%, 82%, 100% { transform: scale(1) rotate(0); }
+  90% { transform: scale(1.22) rotate(18deg); }
+}
+
+@keyframes omni-logo-shimmer {
+  0%, 70%, 100% { background-position: 100% 0; }
+  84% { background-position: 0 0; }
+}
+
+@keyframes omni-logo-wave {
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes omni-logo-click-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes omni-logo-star-burst {
+  0% { transform: scale(1) rotate(0); }
+  35% { transform: scale(1.9) rotate(200deg); }
+  100% { transform: scale(1) rotate(360deg); }
+}
+
+@media (max-width: 479px) {
+  .omni-logo-mobile .omni-logo__wordmark {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omni-preloader {
+    transition: none;
+  }
+
+  .omni-logo,
+  .omni-logo__mark,
+  .omni-logo__ring-spin,
+  .omni-logo__underline {
+    transition: none !important;
+  }
+
+  .omni-logo *,
+  .omni-logo *::before,
+  .omni-logo *::after {
+    animation: none !important;
+  }
+
+  .omni-logo__entrance,
+  .omni-logo__tilt,
+  .omni-logo__mark {
+    transform: none !important;
+  }
+}

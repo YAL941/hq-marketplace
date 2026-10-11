@@ -9,7 +9,7 @@ import { courierApi, toFieldIssue } from '../services/api';
 import type { AssignedCourierDelivery, CourierDeliveryList, Id } from '../types';
 import { formatCurrency, formatDateTime } from '../lib/utils';
 
-const EMPTY_DELIVERIES: CourierDeliveryList = { available: [], assigned: [], completedToday: [], dailyEarnings: [] };
+const EMPTY_DELIVERIES: CourierDeliveryList = { available: [], pendingOffers: [], assigned: [], completedDeliveries: [], dailyEarnings: [] };
 const AUTO_REFRESH_SECONDS = 20;
 
 export function CourierPage() {
@@ -51,7 +51,7 @@ export function CourierPage() {
     };
   }, [load]);
 
-  const claimDelivery = async (orderId: Id) => {
+  const sendPriceOffer = async (orderId: Id) => {
     const earningValue = earningDrafts[orderId]?.trim() ?? '';
     if (!/^\d+(\.\d{1,2})?$/.test(earningValue) || Number(earningValue) <= 0) {
       setError(t('courier.earningRequired'));
@@ -60,7 +60,7 @@ export function CourierPage() {
     setBusyOrderId(orderId);
     setError('');
     try {
-      await courierApi.claim(orderId, earningValue);
+      await courierApi.offerPrice(orderId, earningValue);
       setEarningDrafts((previous) => ({ ...previous, [orderId]: '' }));
       await load(true);
     } catch (requestError) {
@@ -184,17 +184,63 @@ export function CourierPage() {
           </p>
         )}
 
-        <section aria-labelledby="completed-deliveries-title">
-          <h2 id="completed-deliveries-title" className="mb-3 text-lg font-semibold text-navy-900">
-            {t('courier.completedToday')} <span className="text-sm font-normal text-navy-500">({deliveries.completedToday.length})</span>
+        <section aria-labelledby="pending-offers-title">
+          <h2 id="pending-offers-title" className="mb-3 text-lg font-semibold text-navy-900">
+            {t('courier.pendingOffers')} <span className="text-sm font-normal text-navy-500">({deliveries.pendingOffers.length})</span>
           </h2>
           {loading ? (
             <Card className="p-5 text-sm text-navy-500">{t('common.loading')}</Card>
-          ) : deliveries.completedToday.length === 0 ? (
-            <Card className="p-5 text-sm text-navy-500">{t('courier.completedEmpty')}</Card>
+          ) : deliveries.pendingOffers.length === 0 ? (
+            <Card className="p-5 text-sm text-navy-500">{t('courier.pendingOffersEmpty')}</Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {deliveries.pendingOffers.map((offer) => {
+                const latitude = Number(offer.delivery_latitude);
+                const longitude = Number(offer.delivery_longitude);
+                const mapUrl = Number.isFinite(latitude) && Number.isFinite(longitude)
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
+                  : null;
+                return (
+                  <Card key={offer.order_id} className="space-y-3 p-5">
+                    <div>
+                      <p className="font-semibold text-primary-700">{t('courier.waitingForCustomer')}</p>
+                      <h3 className="mt-1 font-semibold text-navy-900">
+                        {offer.business_name} · {t('courier.orderNumber', { number: offer.order_number })}
+                      </h3>
+                    </div>
+                    <p className="text-sm text-navy-700">{offer.delivery_address || offer.city || '—'}</p>
+                    {offer.delivery_note && <p className="text-sm text-navy-600">{offer.delivery_note}</p>}
+                    {mapUrl && (
+                      <a className="inline-flex min-h-10 items-center gap-2 font-medium text-primary-700" href={mapUrl} target="_blank" rel="noreferrer">
+                        <Navigation className="h-4 w-4" aria-hidden="true" /> {t('courier.openDirections')}
+                      </a>
+                    )}
+                    {offer.customer_phone && (
+                      <a className="inline-flex min-h-10 items-center gap-2 font-medium text-navy-700" href={`tel:${offer.customer_phone}`}>
+                        <Phone className="h-4 w-4" aria-hidden="true" /> {offer.customer_phone}
+                      </a>
+                    )}
+                    <p className="font-semibold text-success-700">
+                      {t('courier.proposedEarning')}: {formatCurrency(offer.delivery_earning_amount, offer.currency)}
+                    </p>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section aria-labelledby="completed-deliveries-title">
+          <h2 id="completed-deliveries-title" className="mb-3 text-lg font-semibold text-navy-900">
+            {t('courier.completedHistory')} <span className="text-sm font-normal text-navy-500">({deliveries.completedDeliveries.length})</span>
+          </h2>
+          {loading ? (
+            <Card className="p-5 text-sm text-navy-500">{t('common.loading')}</Card>
+          ) : deliveries.completedDeliveries.length === 0 ? (
+            <Card className="p-5 text-sm text-navy-500">{t('courier.completedHistoryEmpty')}</Card>
           ) : (
             <Card className="divide-y divide-navy-100 p-5">
-              {deliveries.completedToday.map((delivery) => (
+              {deliveries.completedDeliveries.map((delivery) => (
                 <div key={delivery.order_id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                   <div>
                     <p className="font-medium text-navy-900">{delivery.business_name} · {t('courier.orderNumber', { number: delivery.order_number })}</p>
@@ -314,8 +360,26 @@ export function CourierPage() {
                       <h3 className="font-semibold text-navy-900">{delivery.business_name}</h3>
                       <p className="mt-1 text-sm text-navy-500">{t('courier.orderNumber', { number: delivery.order_number })}</p>
                       <p className="mt-1 text-sm text-navy-500">{delivery.city || '—'} · {formatDateTime(delivery.created_at)}</p>
+                      <p className="mt-2 text-sm text-navy-700">{delivery.delivery_address || '—'}</p>
+                      {delivery.delivery_note && <p className="mt-1 text-sm text-navy-600">{delivery.delivery_note}</p>}
                     </div>
-                    <p className="whitespace-nowrap font-semibold text-navy-900">{formatCurrency(delivery.delivery_fee, delivery.currency)}</p>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                    {delivery.delivery_latitude && delivery.delivery_longitude && (
+                      <a
+                        className="inline-flex min-h-10 items-center gap-2 font-medium text-primary-700"
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${delivery.delivery_latitude},${delivery.delivery_longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Navigation className="h-4 w-4" aria-hidden="true" /> {t('courier.openDirections')}
+                      </a>
+                    )}
+                    {delivery.customer_phone && (
+                      <a className="inline-flex min-h-10 items-center gap-2 font-medium text-navy-700" href={`tel:${delivery.customer_phone}`}>
+                        <Phone className="h-4 w-4" aria-hidden="true" /> {delivery.customer_phone}
+                      </a>
+                    )}
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
                     <Input
@@ -332,8 +396,8 @@ export function CourierPage() {
                     />
                     <p className="pb-2 text-xs text-navy-500">{t('courier.negotiateDirectly')}</p>
                   </div>
-                  <Button className="mt-4 w-full" disabled={busyOrderId === delivery.order_id} onClick={() => void claimDelivery(delivery.order_id)}>
-                    {t('courier.acceptDelivery')}
+                  <Button className="mt-4 w-full" disabled={busyOrderId === delivery.order_id} onClick={() => void sendPriceOffer(delivery.order_id)}>
+                    {t('courier.sendPriceOffer')}
                   </Button>
                 </Card>
               ))}

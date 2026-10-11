@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { randomInt } from 'node:crypto';
 import { z } from 'zod';
 import { badRequest, conflict, notFound, unauthorized } from '../../db/errors.js';
 import { withTenant } from '../../db/tenant.js';
@@ -98,9 +97,9 @@ courierRoutes.patch('/business/:businessId/couriers/:courierId', manageCouriers,
     }
 });
 /**
- * The unassigned projection deliberately excludes customer coordinates,
- * address notes, phone, and identity. Those are only returned for an active
- * delivery assigned to this account.
+ * Customers explicitly consent to sharing their delivery location and phone
+ * when placing a delivery order. Active business couriers need those details
+ * to assess the route before they can submit a price offer.
  */
 courierRoutes.get('/courier/deliveries', authenticate, async (req, res, next) => {
     try {
@@ -110,7 +109,9 @@ courierRoutes.get('/courier/deliveries', authenticate, async (req, res, next) =>
         const courierUserId = req.user.id;
         const payload = await withTenant(contextFor(req), async (client) => {
             const { rows: available } = await client.query(`SELECT o.order_id, o.order_number, o.business_id, b.business_name, b.city,
-                        o.delivery_fee, o.currency, o.created_at
+                        o.delivery_fee, o.currency, o.created_at,
+                        o.delivery_address, o.delivery_latitude, o.delivery_longitude,
+                        o.delivery_note, o.customer_phone
                    FROM orders o
                    JOIN business_couriers bc ON bc.business_id = o.business_id
                    JOIN businesses b ON b.business_id = o.business_id
@@ -120,10 +121,20 @@ courierRoutes.get('/courier/deliveries', authenticate, async (req, res, next) =>
                     AND o.delivery_status = 'waiting'
                     AND o.delivery_courier_id IS NULL
                   ORDER BY o.created_at`, [courierUserId]);
+            const { rows: pendingOffers } = await client.query(`SELECT o.order_id, o.order_number, o.business_id, b.business_name, b.city,
+                        o.delivery_fee, o.currency, o.created_at,
+                        o.delivery_address, o.delivery_latitude, o.delivery_longitude,
+                        o.delivery_note, o.customer_phone, o.delivery_earning_amount
+                   FROM orders o
+                   JOIN businesses b ON b.business_id = o.business_id
+                  WHERE o.delivery_offer_courier_id = $1
+                    AND o.delivery_status = 'offer_pending'
+                  ORDER BY o.created_at`, [courierUserId]);
             const { rows: assigned } = await client.query(`SELECT o.order_id, o.order_number, o.business_id, b.business_name, b.city,
                         b.address AS pickup_address, b.phone AS business_phone,
                         b.whatsapp_number AS business_whatsapp, o.delivery_fee, o.currency,
                         o.delivery_earning_amount,
+                        o.delivery_address,
                         o.order_status, o.delivery_status, o.delivery_status_history,
                         o.delivery_latitude, o.delivery_longitude, o.delivery_note,
                         o.customer_phone, o.created_at
@@ -132,14 +143,13 @@ courierRoutes.get('/courier/deliveries', authenticate, async (req, res, next) =>
                   WHERE o.delivery_courier_id = $1
                     AND o.delivery_status IN ('assigned', 'picked_up', 'on_the_way')
                   ORDER BY o.created_at`, [courierUserId]);
-            const { rows: completedToday } = await client.query(`SELECT o.order_id, o.order_number, o.business_id, b.business_name,
+            const { rows: completedDeliveries } = await client.query(`SELECT o.order_id, o.order_number, o.business_id, b.business_name,
                         o.delivery_earning_amount, o.currency, o.completed_at
                    FROM orders o
                    JOIN businesses b ON b.business_id = o.business_id
                   WHERE o.delivery_courier_id = $1
                     AND o.delivery_status = 'delivered'
-                    AND o.completed_at >= $2::timestamptz
-                  ORDER BY o.completed_at DESC`, [courierUserId, completedAfter]);
+                  ORDER BY o.completed_at DESC, o.order_id DESC`, [courierUserId]);
             const { rows: dailyEarnings } = await client.query(`SELECT currency, COALESCE(SUM(delivery_earning_amount), 0)::numeric(14, 2)::text AS amount
                    FROM orders
                   WHERE delivery_courier_id = $1
@@ -147,7 +157,7 @@ courierRoutes.get('/courier/deliveries', authenticate, async (req, res, next) =>
                     AND completed_at >= $2::timestamptz
                   GROUP BY currency
                   ORDER BY currency`, [courierUserId, completedAfter]);
-            return { available, assigned, completedToday, dailyEarnings };
+            return { available, pendingOffers, assigned, completedDeliveries, dailyEarnings };
         });
         res.json({ data: payload });
     }
@@ -155,7 +165,7 @@ courierRoutes.get('/courier/deliveries', authenticate, async (req, res, next) =>
         next(error);
     }
 });
-courierRoutes.post('/courier/deliveries/:orderId/claim', courierAccess, authenticate, async (req, res, next) => {
+courierRoutes.post('/courier/deliveries/:orderId/offer', courierAccess, authenticate, async (req, res, next) => {
     try {
         if (!req.user)
             throw unauthorized();
@@ -165,29 +175,29 @@ courierRoutes.post('/courier/deliveries/:orderId/claim', courierAccess, authenti
             proposedEarningAmount: z.string().regex(/^\d{1,6}(\.\d{1,2})?$/)
                 .refine((amount) => Number(amount) > 0 && Number(amount) <= 100000, 'Enter an amount above zero'),
         }).parse(req.body);
-        const confirmationCode = String(randomInt(1000, 10_000));
         const order = await withTenant(contextFor(req), async (client) => {
             const { rows } = await client.query(`UPDATE orders o
-                    SET delivery_courier_id = $2,
-                        delivery_status = 'assigned',
-                        delivery_confirmation_code = $3,
-                        delivery_earning_amount = $4
+                    SET delivery_offer_courier_id = $2,
+                        delivery_status = 'offer_pending',
+                        delivery_earning_amount = $3
                   WHERE o.order_id = $1
                     AND o.order_status = 'ready'
                     AND o.delivery_requested
                     AND o.location_consent
                     AND o.delivery_latitude IS NOT NULL
+                    AND o.delivery_longitude IS NOT NULL
                     AND o.delivery_status = 'waiting'
                     AND o.delivery_courier_id IS NULL
+                    AND o.delivery_offer_courier_id IS NULL
                     AND EXISTS (
                         SELECT 1 FROM business_couriers bc
                          WHERE bc.business_id = o.business_id
                            AND bc.user_id = $2
                            AND bc.active
                     )
-                  RETURNING o.order_id, o.delivery_status`, [orderId, courierUserId, confirmationCode, proposedEarningAmount]);
+                  RETURNING o.order_id, o.delivery_status`, [orderId, courierUserId, proposedEarningAmount]);
             if (!rows[0])
-                throw conflict('This delivery is no longer available to your account');
+                throw conflict('This delivery is no longer available for an offer');
             return rows[0];
         });
         res.json({ data: order });

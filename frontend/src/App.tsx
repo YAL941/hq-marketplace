@@ -1,4 +1,4 @@
-import { lazy, Suspense, Component, ReactNode, useEffect } from 'react';
+import { lazy, Suspense, Component, ReactNode, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ShieldX, RefreshCw } from 'lucide-react';
@@ -7,6 +7,8 @@ import { useAuth } from './context/useAuth';
 import { MainLayout } from './components/layout/MainLayout';
 import { Button } from './components/common/Button';
 import { Card } from './components/common/Card';
+import { Logo } from './components/branding/Logo';
+import { cn } from './lib/utils';
 import { HomePage } from './pages/Home';
 import { ExplorePage } from './pages/Explore';
 import { CategoryPage } from './pages/CategoryPage';
@@ -92,11 +94,43 @@ const CourierPage = lazy(() =>
 function RouteLoadingFallback() {
   return (
     <div className="min-h-[50vh] px-4 py-8 sm:px-6" role="status" aria-label="Loading page">
+      <Logo variant="light" size="md" intro className="mx-auto mb-8 flex w-fit" />
       <div className="mx-auto max-w-7xl animate-pulse space-y-5">
         <div className="h-8 w-1/3 rounded bg-navy-200" />
         <div className="h-4 w-2/3 rounded bg-navy-100" />
         <div className="h-40 rounded-card bg-navy-100" />
       </div>
+    </div>
+  );
+}
+
+function BrandPreloader() {
+  const [visible, setVisible] = useState(true);
+  const [fading, setFading] = useState(false);
+
+  useEffect(() => {
+    let fadeTimer: number | undefined;
+    const hide = () => {
+      setFading(true);
+      fadeTimer = window.setTimeout(() => setVisible(false), 350);
+    };
+
+    if (document.readyState === 'complete') {
+      fadeTimer = window.setTimeout(hide, 1200);
+    } else {
+      window.addEventListener('load', hide, { once: true });
+    }
+
+    return () => {
+      window.removeEventListener('load', hide);
+      if (fadeTimer !== undefined) window.clearTimeout(fadeTimer);
+    };
+  }, []);
+
+  if (!visible) return null;
+  return (
+    <div className={cn('omni-preloader', fading && 'omni-preloader--fading')} role="status">
+      <Logo variant="light" size="md" intro />
     </div>
   );
 }
@@ -393,12 +427,14 @@ function App() {
   useVitePreloadReload();
 
   return (
-    <AuthProvider>
-      <ThemeProvider>
-        <BrowserRouter>
-          <FavoritesProvider>
-            <Suspense fallback={<RouteLoadingFallback />}>
-              <RoutesWithErrorBoundary>
+    <>
+      <BrandPreloader />
+      <AuthProvider>
+        <ThemeProvider>
+          <BrowserRouter>
+            <FavoritesProvider>
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <RoutesWithErrorBoundary>
               <Routes>
           {/* Public Routes */}
           <Route path="/" element={<MainLayout><HomePage /></MainLayout>} />
@@ -602,13 +638,14 @@ function App() {
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-              </RoutesWithErrorBoundary>
-            </Suspense>
-          </FavoritesProvider>
-        </BrowserRouter>
-      </ThemeProvider>
-    </AuthProvider>
+                </Routes>
+                </RoutesWithErrorBoundary>
+              </Suspense>
+            </FavoritesProvider>
+          </BrowserRouter>
+        </ThemeProvider>
+      </AuthProvider>
+    </>
   );
 }
 

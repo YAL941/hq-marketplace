@@ -92,7 +92,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-navy-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <Logo to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="md" className="inline-flex mb-8" />
+          <Logo to="/" ariaLabel={t('brand.homeLabel')} variant="light" size="md" intro className="inline-flex mb-8" />
           <h1 className="text-3xl font-bold text-navy-900">{t('auth.signInTitle')}</h1>
           <p className="mt-2 text-navy-500">{t('auth.signInSubtitle')}</p>
         </div>

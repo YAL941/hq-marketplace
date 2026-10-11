@@ -356,6 +356,7 @@ export async function updateOrderStatus(
     if (orderStatus === 'cancelled' && currentOrder.delivery_requested) {
         assignments.push("delivery_status = 'not_applicable'");
         assignments.push('delivery_courier_id = NULL');
+        assignments.push('delivery_offer_courier_id = NULL');
         assignments.push('delivery_confirmation_code = NULL');
         assignments.push('delivery_earning_amount = NULL');
     }

@@ -1,6 +1,7 @@
 ﻿import { Router } from 'express';
 import { z } from 'zod';
-import { notFound, unauthorized } from '../../db/errors.js';
+import { conflict, notFound, unauthorized } from '../../db/errors.js';
+import { randomInt } from 'node:crypto';
 import { withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
@@ -84,12 +85,21 @@ orderRoutes.get('/orders/mine', authenticate, async (req, res, next) => {
         const orders = await withTenant(contextFor(req), async (client) => {
             const { rows } = await client.query(
                 `SELECT o.order_id, o.order_number, o.business_id, b.business_name, b.business_slug, o.order_type,
-                        o.order_status, o.total_amount, o.currency, o.created_at,
+                        o.order_status,
+                        CASE WHEN o.delivery_status = 'offer_pending'
+                             THEN (o.subtotal - o.discount_amount + o.tax_amount + o.delivery_earning_amount)::numeric(14, 2)::text
+                             ELSE o.total_amount::text END AS total_amount,
+                        o.currency, o.created_at,
                         o.delivery_requested, o.delivery_note, o.delivery_latitude,
                         o.delivery_longitude, o.customer_phone, o.delivery_confirmation_code,
+                        o.delivery_status, o.delivery_earning_amount, o.delivery_fee,
+                        CASE WHEN o.delivery_status IN ('assigned', 'picked_up', 'on_the_way', 'delivered')
+                             THEN courier.phone
+                             ELSE NULL END AS courier_phone,
                         COALESCE(order_lines.items, '[]'::json) AS items
                    FROM orders o
                    JOIN businesses b ON b.business_id = o.business_id
+                   LEFT JOIN users courier ON courier.user_id = o.delivery_courier_id
                    LEFT JOIN LATERAL (
                        SELECT json_agg(json_build_object(
                            'order_item_id', oi.order_item_id,
@@ -116,6 +126,49 @@ orderRoutes.get('/orders/mine', authenticate, async (req, res, next) => {
             return rows;
         });
         res.json({ data: orders, meta: { count: orders.length } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+orderRoutes.post('/orders/mine/:orderId/delivery-offer-response', writeLimiter, authenticate, async (req, res, next) => {
+    try {
+        const orderId = Number(req.params['orderId']);
+        if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+            throw notFound('Order not found');
+        }
+        const { accept } = z.object({ accept: z.boolean() }).parse(req.body);
+        const confirmationCode = accept ? String(randomInt(1000, 10_000)) : null;
+        const result = await withTenant(contextFor(req), async (client) => {
+            const { rows } = await client.query(
+                accept
+                    ? `UPDATE orders
+                          SET delivery_courier_id = delivery_offer_courier_id,
+                              delivery_offer_courier_id = NULL,
+                              delivery_status = 'assigned',
+                              delivery_confirmation_code = $3,
+                              delivery_fee = delivery_earning_amount,
+                              total_amount = subtotal - discount_amount + tax_amount + delivery_earning_amount
+                        WHERE order_id = $1
+                          AND customer_id = $2
+                          AND order_status = 'ready'
+                          AND delivery_status = 'offer_pending'
+                        RETURNING order_id, order_status, delivery_status, delivery_fee, total_amount`
+                    : `UPDATE orders
+                          SET delivery_offer_courier_id = NULL,
+                              delivery_status = 'waiting',
+                              delivery_earning_amount = NULL
+                        WHERE order_id = $1
+                          AND customer_id = $2
+                          AND order_status = 'ready'
+                          AND delivery_status = 'offer_pending'
+                        RETURNING order_id, order_status, delivery_status`,
+                [orderId, req.user!.id, ...(accept ? [confirmationCode] : [])],
+            );
+            if (!rows[0]) throw conflict('The delivery offer is no longer available');
+            return rows[0];
+        });
+        res.json({ data: result });
     } catch (error) {
         next(error);
     }

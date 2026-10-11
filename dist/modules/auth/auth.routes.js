@@ -278,6 +278,11 @@ authRoutes.get('/auth/me', authenticate, async (req, res, next) => {
                    FROM orders
                   WHERE delivery_courier_id = $1
                     AND delivery_status IN ('assigned', 'picked_up', 'on_the_way')
+                UNION
+                 SELECT business_id
+                   FROM orders
+                  WHERE delivery_offer_courier_id = $1
+                    AND delivery_status = 'offer_pending'
                   ORDER BY business_id`, [userId]);
             return { user: userRows[0] ?? null, platformRoles: roles, businesses, courierBusinesses };
         });

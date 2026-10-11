@@ -1,87 +1,160 @@
+import { CSSProperties, PointerEvent, useEffect, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
+import './Logo.css';
 
-/**
- * The OmniHQ wordmark.
- *
- * Two parts, and the split matters. The mark is an image, so it cannot be
- * translated, restyled or read by a screen reader; the name beside it is live
- * text, so it stays selectable, scales with the page, and reads correctly in
- * every language. Baking "OmniHQ" into the SVG would make the logo an
- * untranslatable, unreadable raster in a layout that has to work in three
- * scripts.
- *
- * The two supplied marks are chosen by background, not by preference:
- * `omnihq-mark.svg` carries its own rounded-square gradient and reads on a
- * light surface, while `omnihq-mark-transparent.svg` is a white ring and would
- * disappear against white.
- */
 type LogoVariant = 'light' | 'dark';
-
-const SIZES = {
-  sm: { mark: 'h-8 w-8', text: 'text-xl' },
-  md: { mark: 'h-10 w-10', text: 'text-2xl' },
-} as const;
-
-const MARKS: Record<LogoVariant, string> = {
-  light: '/brand/omnihq-mark.svg',
-  dark: '/brand/omnihq-mark-transparent.svg',
-};
-
-const WORDMARK: Record<LogoVariant, { base: string; accent: string }> = {
-  // Navy and blue on a light surface.
-  light: { base: 'text-navy-900', accent: 'text-primary-500' },
-  // White and gold on a dark surface.
-  dark: { base: 'text-white', accent: 'text-gold-400' },
-};
+type LogoSize = 'sm' | 'md';
+let headerIntroPlayed = false;
 
 interface LogoProps {
   variant: LogoVariant;
-  size?: keyof typeof SIZES;
-  /** Wraps the mark and the name in a link. Omit to render the mark alone. */
+  size?: LogoSize;
   to?: string;
-  /** Accessible name for the link. */
   ariaLabel?: string;
   className?: string;
+  intro?: boolean;
+  introOnce?: boolean;
+  iconOnly?: boolean;
 }
 
-export function Logo({ variant, size = 'sm', to, ariaLabel, className }: LogoProps) {
-  const { t } = useTranslation();
-  const dims = SIZES[size];
-  const colors = WORDMARK[variant];
+const SIZE_VALUES: Record<LogoSize, { icon: number; font: number }> = {
+  sm: { icon: 40, font: 24 },
+  md: { icon: 72, font: 44 },
+};
 
-  const content = (
-    <>
-      <img
-        src={MARKS[variant]}
-        alt=""
-        aria-hidden="true"
-        width={128}
-        height={128}
-        className={cn(dims.mark, 'flex-shrink-0')}
-      />
-      <span
-        className={cn(
-          'font-brand font-bold tracking-[-0.04em] leading-none',
-          dims.text,
-          colors.base,
-        )}
-      >
-        {/* The space between the two parts is what makes "Omni HQ" read as one
-            word; a newline in JSX would collapse to that same single space. */}
-        <span>{t('brand.wordmarkBase')}</span>
-        <span className={colors.accent}>{t('brand.wordmarkAccent')}</span>
+// الحركة التمهيدية اختيارية، وتُستخدم introOnce لمنع تكرارها داخل الترويسة.
+export function Logo({
+  variant,
+  size = 'md',
+  to,
+  ariaLabel,
+  className,
+  intro = false,
+  iconOnly = false,
+  introOnce = false,
+}: LogoProps) {
+  const { t } = useTranslation();
+  const id = useId().replace(/[^a-zA-Z0-9_-]/g, '');
+  const shouldPlayIntro = intro && (!introOnce || !headerIntroPlayed);
+  const [hasIntro, setHasIntro] = useState(shouldPlayIntro);
+  const [burst, setBurst] = useState(false);
+  const dimensions = SIZE_VALUES[size];
+  const style = {
+    '--icon': `${dimensions.icon}px`,
+    '--fs': `${dimensions.font}px`,
+    '--tilt-x': '0deg',
+    '--tilt-y': '0deg',
+  } as CSSProperties;
+
+  useEffect(() => {
+    if (!shouldPlayIntro) return;
+    if (introOnce) headerIntroPlayed = true;
+    const timer = window.setTimeout(() => setHasIntro(false), 2100);
+    return () => window.clearTimeout(timer);
+  }, [introOnce, shouldPlayIntro]);
+
+  useEffect(() => {
+    if (!burst) return;
+    const timer = window.setTimeout(() => setBurst(false), 700);
+    return () => window.clearTimeout(timer);
+  }, [burst]);
+
+  const handlePointerMove = (event: PointerEvent<HTMLSpanElement>) => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width;
+    const y = (event.clientY - rect.top) / rect.height;
+    event.currentTarget.style.setProperty('--tilt-x', `${(0.5 - y) * 16}deg`);
+    event.currentTarget.style.setProperty('--tilt-y', `${(x - 0.5) * 16}deg`);
+  };
+
+  const handlePointerLeave = (event: PointerEvent<HTMLSpanElement>) => {
+    event.currentTarget.style.setProperty('--tilt-x', '0deg');
+    event.currentTarget.style.setProperty('--tilt-y', '0deg');
+  };
+
+  const handleClick = () => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    setBurst(false);
+    window.requestAnimationFrame(() => setBurst(true));
+  };
+
+  const wordmark = (
+    <span className="omni-logo__wordmark" aria-hidden="true">
+      <span className="omni-logo__base">
+        {Array.from(t('brand.wordmarkBase')).map((letter, index) => (
+          <span className="omni-logo__letter" style={{ '--letter-index': index } as CSSProperties} key={`base-${index}`}>
+            {letter}
+          </span>
+        ))}
       </span>
-    </>
+      <span className="omni-logo__accent">
+        {Array.from(t('brand.wordmarkAccent')).map((letter, index) => (
+          <span className="omni-logo__letter" style={{ '--letter-index': index + t('brand.wordmarkBase').length } as CSSProperties} key={`accent-${index}`}>
+            {letter}
+          </span>
+        ))}
+      </span>
+    </span>
   );
 
-  if (!to) {
-    return <span className={cn('inline-flex items-center gap-2', className)}>{content}</span>;
-  }
+  const content = (
+    <span
+      className={cn(
+        'omni-logo',
+        `omni-logo--${variant}`,
+        hasIntro && 'omni-logo--intro',
+        burst && 'omni-logo--burst',
+        iconOnly && 'omni-logo--icon-only',
+        className,
+      )}
+      style={style}
+      dir="ltr"
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
+      onClick={handleClick}
+    >
+      <svg className="omni-logo__mark" viewBox="0 0 128 128" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id={`omniGrad-${id}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#5CA9FF" />
+            <stop offset="100%" stopColor="#1B62CC" />
+          </linearGradient>
+          <linearGradient id={`omniShine-${id}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FFFFFF" stopOpacity=".48" />
+            <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <g className="omni-logo__tilt">
+          <g className="omni-logo__entrance">
+            <rect x="4" y="4" width="120" height="120" rx="30" fill={`url(#omniGrad-${id})`} />
+            <path d="M12 34C22 17 41 9 64 9s42 8 52 25v12H12z" fill={`url(#omniShine-${id})`} />
+            <g className="omni-logo__ambient">
+              <circle className="omni-logo__radar omni-logo__radar--first" cx="64" cy="64" r="14" />
+              <circle className="omni-logo__radar omni-logo__radar--second" cx="64" cy="64" r="14" />
+              <circle className="omni-logo__center-breathe" cx="64" cy="64" r="6.5" fill="white" />
+              <g className="omni-logo__ring-spin">
+                <circle className="omni-logo__ring" cx="64" cy="64" r="25" pathLength="100" />
+              </g>
+              <g className="omni-logo__star-interaction">
+                <g className="omni-logo__star">
+                  <path d="m87 34 3.3 7.1 7.7.9-5.7 5.2 1.5 7.6-6.8-3.9-6.8 3.9 1.5-7.6-5.7-5.2 7.7-.9z" fill="#F5B93A" />
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </svg>
+      {wordmark}
+      <span className="omni-logo__underline" aria-hidden="true" />
+    </span>
+  );
 
+  if (!to) return content;
   return (
-    <Link to={to} aria-label={ariaLabel} className={cn('inline-flex items-center gap-2', className)}>
+    <Link to={to} aria-label={ariaLabel ?? 'OmniHQ'} className="omni-logo__link">
       {content}
     </Link>
   );

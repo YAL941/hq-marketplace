@@ -408,6 +408,9 @@ export const orderApi = {
 
   listMine: () => api.get<ApiResponse<CustomerOrderSummary[]>>('/orders/mine'),
 
+  respondToDeliveryOffer: (orderId: Id, accept: boolean) =>
+    api.post(`/orders/mine/${orderId}/delivery-offer-response`, { accept }),
+
   cancelMine: (orderId: Id, reason?: string) =>
     api.post<ApiResponse<Order>>(`/orders/mine/${orderId}/cancel`, { reason }),
 
@@ -434,8 +437,8 @@ export const orderApi = {
 export const courierApi = {
   listDeliveries: (completedAfter: string) =>
     api.get<ApiResponse<CourierDeliveryList>>('/courier/deliveries', { params: { completedAfter } }),
-  claim: (orderId: Id, proposedEarningAmount: string) =>
-    api.post(`/courier/deliveries/${orderId}/claim`, { proposedEarningAmount }),
+  offerPrice: (orderId: Id, proposedEarningAmount: string) =>
+    api.post(`/courier/deliveries/${orderId}/offer`, { proposedEarningAmount }),
   updateStatus: (orderId: Id, deliveryStatus: 'picked_up' | 'on_the_way' | 'delivered', confirmationCode?: string) =>
     api.patch(`/courier/deliveries/${orderId}/status`, { deliveryStatus, confirmationCode }),
 };

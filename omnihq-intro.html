@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1280, initial-scale=1">
+  <title>OmniHQ</title>
+  <style>
+    :root {
+      --navy: #0b1f3f;
+      --blue: #1f6fd6;
+      --sky: #7db8ff;
+      --gold: #f5b93a;
+      --green: #16a34a;
+      --amber: #d99415;
+      --red: #e24b4a;
+      --duration: 5s;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 1280px; height: 720px; margin: 0; overflow: hidden; }
+    body {
+      color: var(--navy);
+      background:
+        radial-gradient(520px 400px at 3% 2%, rgb(125 184 255 / 15%), transparent 72%),
+        radial-gradient(600px 440px at 100% 96%, rgb(31 111 214 / 10%), transparent 72%),
+        #f4f8fc;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      user-select: none;
+    }
+    #stage { position: relative; width: 1280px; height: 720px; overflow: hidden; }
+    .scene {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+    }
+    .scene-one { animation: scene-one var(--duration) linear both; }
+    .scene-two { animation: scene-two var(--duration) linear both; }
+    .scene-three { animation: scene-three var(--duration) linear both; }
+    .scene-four { animation: scene-four var(--duration) linear both; }
+    .scene-five { animation: scene-five var(--duration) linear both; }
+    @keyframes scene-one {
+      0%, 17.33% { opacity: 1; transform: translateY(0); }
+      20%, 100% { opacity: 0; transform: translateY(-8px); }
+    }
+    @keyframes scene-two {
+      0%, 16% { opacity: 0; transform: translateY(12px); }
+      18.67%, 37.33% { opacity: 1; transform: translateY(0); }
+      40%, 100% { opacity: 0; transform: translateY(-8px); }
+    }
+    @keyframes scene-three {
+      0%, 37.33% { opacity: 0; transform: translateY(12px); }
+      40%, 60% { opacity: 1; transform: translateY(0); }
+      62.67%, 100% { opacity: 0; transform: translateY(-8px); }
+    }
+    @keyframes scene-four {
+      0%, 59.07% { opacity: 0; transform: translateY(12px); }
+      61.73%, 83.33% { opacity: 1; transform: translateY(0); }
+      86%, 100% { opacity: 0; transform: translateY(-8px); }
+    }
+    @keyframes scene-five {
+      0%, 83.07% { opacity: 0; transform: translateY(12px); }
+      85.73%, 100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .brand-lockup { display: flex; align-items: center; gap: 22px; direction: ltr; }
+    .brand-mark {
+      width: 108px;
+      height: 108px;
+      overflow: visible;
+      filter: drop-shadow(0 12px 18px rgb(31 111 214 / 19%));
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: logo-pop 650ms cubic-bezier(.2, .85, .25, 1.2) both;
+    }
+    .logo-ring {
+      fill: none;
+      stroke: #fff;
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 75 100;
+      stroke-dashoffset: 25;
+      animation: ring-draw 540ms .27s ease-out both;
+    }
+    .logo-dot {
+      opacity: 0;
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: dot-in 280ms .65s ease-out both;
+    }
+    .logo-star {
+      opacity: 0;
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: star-in 440ms .73s cubic-bezier(.2, .8, .2, 1.2) both;
+    }
+    .wordmark {
+      display: flex;
+      align-items: baseline;
+      font-size: 78px;
+      font-weight: 800;
+      letter-spacing: -5px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .wordmark .omni { color: var(--navy); }
+    .wordmark .hq { color: var(--blue); }
+    .wordmark span { display: inline-block; opacity: 0; animation: letter-in 380ms ease-out both; }
+    .wordmark span:nth-child(1) { animation-delay: .39s; }
+    .wordmark span:nth-child(2) { animation-delay: .46s; }
+    .wordmark span:nth-child(3) { animation-delay: .53s; }
+    .wordmark span:nth-child(4) { animation-delay: .60s; }
+    .wordmark span:nth-child(5) { animation-delay: .67s; }
+    .wordmark span:nth-child(6) { animation-delay: .74s; }
+    @keyframes logo-pop {
+      0% { opacity: 0; transform: scale(.35) rotate(-14deg); }
+      75% { opacity: 1; transform: scale(1.08) rotate(2deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0); }
+    }
+    @keyframes ring-draw { to { stroke-dashoffset: 0; } }
+    @keyframes dot-in { to { opacity: 1; transform: scale(1); } }
+    @keyframes star-in { to { opacity: 1; transform: scale(1) rotate(0); } }
+    @keyframes letter-in { to { opacity: 1; transform: translateY(0); } }
+    .tagline {
+      position: absolute;
+      top: calc(50% + 96px);
+      width: 100%;
+      text-align: center;
+      font-size: 27px;
+      font-weight: 800;
+      letter-spacing: .02em;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fade-up 300ms .82s ease-out both;
+    }
+
+    .card {
+      position: relative;
+      border: 1px solid #e3ebf5;
+      border-radius: 28px;
+      background: #fff;
+      box-shadow: 0 22px 70px rgb(31 111 214 / 13%), 0 4px 14px rgb(11 31 63 / 5%);
+    }
+    .business-card {
+      width: 660px;
+      padding: 31px 38px 34px;
+      opacity: 0;
+      transform: translateY(20px) scale(.97);
+      animation: card-rise 430ms .8s cubic-bezier(.2, .8, .2, 1) both;
+    }
+    .card-title { display: flex; align-items: center; gap: 14px; font-size: 26px; font-weight: 800; }
+    .building-icon { width: 34px; height: 34px; color: var(--blue); }
+    .fields { display: grid; gap: 14px; margin-top: 24px; }
+    .field {
+      position: relative;
+      height: 46px;
+      display: flex;
+      align-items: center;
+      padding: 0 15px;
+      overflow: hidden;
+      border: 1px solid #e3ebf5;
+      border-radius: 13px;
+      color: #526681;
+      background: #fbfdff;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .field-bar {
+      position: relative;
+      width: 42%;
+      height: 7px;
+      margin-left: auto;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #d9e6f4;
+    }
+    .field-bar::after {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: var(--blue);
+      content: "";
+      transform: scaleX(0);
+      transform-origin: left center;
+      animation: field-fill 340ms ease-out both;
+    }
+    .field:nth-child(1) .field-bar::after { animation-delay: 1.05s; }
+    .field:nth-child(2) .field-bar::after { animation-delay: 1.24s; }
+    .field:nth-child(3) .field-bar::after { animation-delay: 1.43s; }
+    .field span { position: relative; }
+    @keyframes field-fill { to { transform: scaleX(1); } }
+    .form-bottom { display: flex; align-items: center; gap: 15px; margin-top: 20px; }
+    .submit {
+      position: relative;
+      min-width: 116px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      color: #fff;
+      background: var(--blue);
+      box-shadow: 0 7px 16px rgb(31 111 214 / 22%);
+      font-size: 16px;
+      font-weight: 800;
+      opacity: 0;
+      animation: submit-press 500ms 1.62s ease-out both;
+    }
+    .submit::after {
+      position: absolute;
+      inset: -1px;
+      border: 2px solid rgb(31 111 214 / 40%);
+      border-radius: inherit;
+      content: "";
+      opacity: 0;
+      animation: submit-ring 450ms 1.62s ease-out both;
+    }
+    @keyframes submit-press {
+      0% { opacity: 0; transform: scale(1); }
+      25% { opacity: 1; transform: scale(1); }
+      48% { transform: scale(.9); }
+      70%, 100% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes submit-ring {
+      0% { opacity: 0; transform: scale(1); }
+      18% { opacity: 1; }
+      100% { opacity: 0; transform: scale(1.35); }
+    }
+    .pending-review {
+      padding: 10px 14px;
+      border: 1px solid #f2d99f;
+      border-radius: 999px;
+      color: #875700;
+      background: #fff4d8;
+      font-size: 14px;
+      font-weight: 800;
+      opacity: 0;
+      transform: translateY(7px) scale(.94);
+      animation: fade-up 300ms 1.83s ease-out both;
+      white-space: nowrap;
+    }
+
+    .admin-panel {
+      position: relative;
+      width: 900px;
+      height: 410px;
+      padding: 27px 33px;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(20px) scale(.98);
+      animation: card-rise 380ms 1.87s ease-out both;
+    }
+    .admin-header { display: flex; align-items: center; justify-content: space-between; }
+    .admin-title { font-size: 26px; font-weight: 800; }
+    .admin-tools { display: flex; align-items: center; gap: 20px; }
+    .bell {
+      width: 34px;
+      height: 34px;
+      color: #526681;
+      transform-origin: 50% 14%;
+      animation: bell-ring 520ms 2.04s ease-in-out both;
+    }
+    @keyframes bell-ring {
+      0%, 100% { transform: rotate(0); }
+      18%, 54% { transform: rotate(13deg); }
+      36%, 72% { transform: rotate(-13deg); }
+    }
+    .avatar {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--navy);
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .count {
+      position: absolute;
+      top: 20px;
+      right: 97px;
+      width: 23px;
+      height: 23px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--red);
+      font-size: 13px;
+      font-weight: 800;
+      opacity: 0;
+      transform: scale(0);
+      animation: count-in 240ms 2.06s cubic-bezier(.2, .8, .2, 1.4) both, count-out 180ms 2.86s ease-in both;
+    }
+    @keyframes count-in { to { opacity: 1; transform: scale(1); } }
+    @keyframes count-out { to { opacity: 0; transform: scale(0); } }
+    .company-row {
+      height: 98px;
+      margin-top: 25px;
+      padding: 17px 19px;
+      border: 1px solid #e3ebf5;
+      border-radius: 17px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      opacity: 0;
+      transform: translateX(34px);
+      animation: arrive 350ms 2.22s ease-out both;
+    }
+    @keyframes arrive { to { opacity: 1; transform: translateX(0); } }
+    .company-name { font-size: 19px; font-weight: 800; }
+    .company-email { margin-top: 5px; color: #74849a; font-size: 14px; font-weight: 600; }
+    .status {
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .status-pending { color: #946000; background: #fff4d8; }
+    .status-pending { animation: pending-hide 160ms 2.78s ease-in both; }
+    @keyframes pending-hide { to { opacity: 0; transform: scale(.85); } }
+    .admin-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 18px;
+      opacity: 0;
+      animation: fade-up 220ms 2.38s ease-out both, actions-out 180ms 2.82s ease-in both;
+    }
+    @keyframes actions-out { to { opacity: 0; transform: translateY(-6px); } }
+    .action {
+      position: relative;
+      min-width: 112px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .reject { border: 1px solid #efcaca; color: #c33131; background: #fff; }
+    .approve { color: #fff; background: var(--green); }
+    .approve::after {
+      position: absolute;
+      inset: -1px;
+      border: 2px solid rgb(22 163 74 / 42%);
+      border-radius: inherit;
+      content: "";
+      opacity: 0;
+      animation: approve-press 440ms 2.64s ease-out both;
+    }
+    @keyframes approve-press {
+      0% { opacity: 0; transform: scale(1); }
+      25% { opacity: 1; transform: scale(.94); }
+      100% { opacity: 0; transform: scale(1.2); }
+    }
+    .status-active {
+      position: absolute;
+      top: 126px;
+      right: 53px;
+      color: #087638;
+      background: #e5f8ed;
+      opacity: 0;
+      transform: scale(.88);
+      animation: reveal 280ms 2.8s ease-out both;
+    }
+    @keyframes reveal { to { opacity: 1; transform: scale(1); } }
+    .approval-toast {
+      position: absolute;
+      right: 29px;
+      bottom: 20px;
+      padding: 12px 16px;
+      border: 1px solid #b9e7ca;
+      border-radius: 14px;
+      color: #087638;
+      background: #edfbf2;
+      font-size: 14px;
+      font-weight: 800;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fade-up 280ms 2.9s ease-out both;
+    }
+
+    .map-card {
+      position: relative;
+      width: 1000px;
+      height: 480px;
+      overflow: hidden;
+      border: 1px solid #d9e4f0;
+      border-radius: 28px;
+      background: #e8f0f8;
+      box-shadow: 0 22px 70px rgb(31 111 214 / 14%), 0 4px 14px rgb(11 31 63 / 5%);
+      opacity: 0;
+      transform: translateY(18px);
+      animation: card-rise 360ms 2.95s ease-out both;
+    }
+    .map-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .location-card {
+      position: absolute;
+      z-index: 3;
+      top: 22px;
+      left: 22px;
+      height: 62px;
+      padding: 0 9px 0 17px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 8px 25px rgb(11 31 63 / 12%);
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .location-card::before {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      border: 1px solid #b9e7ca;
+      border-radius: inherit;
+      background: #e5f8ed;
+      content: "";
+      opacity: 0;
+      animation: reveal 280ms 3.45s ease-out both;
+    }
+    .location-card > * { position: relative; z-index: 1; }
+    .location-question { animation: fade-away 180ms 3.42s ease-in both; }
+    .location-shared {
+      position: absolute;
+      left: 17px;
+      color: #087638;
+      opacity: 0;
+      animation: fade-in 220ms 3.45s ease-out both;
+    }
+    @keyframes fade-away { to { opacity: 0; } }
+    @keyframes fade-in { to { opacity: 1; } }
+    .allow {
+      width: 84px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      color: #fff;
+      background: var(--blue);
+      font-size: 14px;
+      font-weight: 800;
+      animation: allow-press 350ms 3.28s ease-out both, allow-hide 160ms 3.42s ease-in both;
+    }
+    @keyframes allow-press {
+      0%, 55%, 100% { transform: scale(1); }
+      28% { transform: scale(.9); }
+    }
+    @keyframes allow-hide { to { opacity: 0; transform: scale(.85); } }
+    .route {
+      fill: none;
+      stroke: var(--blue);
+      stroke-width: 9;
+      stroke-linecap: round;
+      stroke-dasharray: 1100;
+      stroke-dashoffset: 1100;
+      animation: route-draw 620ms 3.45s cubic-bezier(.35, 0, .2, 1) both;
+    }
+    @keyframes route-draw { to { stroke-dashoffset: 0; } }
+    .store {
+      position: absolute;
+      left: 110px;
+      bottom: 83px;
+      z-index: 2;
+      width: 58px;
+      height: 58px;
+      border: 3px solid #fff;
+      border-radius: 17px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: var(--blue);
+      box-shadow: 0 6px 18px rgb(31 111 214 / 25%);
+      transform: scale(.65);
+      opacity: 0;
+      animation: pin-drop 300ms 3.2s cubic-bezier(.2, .8, .2, 1.2) both;
+    }
+    .store svg { width: 32px; height: 32px; }
+    .pin {
+      position: absolute;
+      z-index: 2;
+      top: 83px;
+      right: 125px;
+      width: 47px;
+      height: 58px;
+      color: var(--red);
+      filter: drop-shadow(0 5px 6px rgb(226 75 74 / 25%));
+      opacity: 0;
+      transform: translateY(-24px) scale(.7);
+      animation: pin-drop 380ms 3.48s cubic-bezier(.18, .86, .3, 1.25) both;
+    }
+    @keyframes pin-drop {
+      0% { opacity: 0; transform: translateY(-24px) scale(.7); }
+      72% { opacity: 1; transform: translateY(3px) scale(1.06); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .courier {
+      position: absolute;
+      z-index: 4;
+      top: 0;
+      left: 0;
+      width: 43px;
+      height: 43px;
+      border: 5px solid var(--blue);
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 5px 14px rgb(31 111 214 / 24%);
+      offset-path: path("M 150 358 C 280 348, 285 270, 440 286 S 650 210, 850 142");
+      offset-distance: 0%;
+      opacity: 0;
+      animation: courier-move 680ms 3.55s cubic-bezier(.35, 0, .2, 1) both;
+    }
+    @keyframes courier-move {
+      0% { opacity: 0; offset-distance: 0%; }
+      8% { opacity: 1; }
+      100% { opacity: 1; offset-distance: 100%; }
+    }
+    .delivered {
+      position: absolute;
+      z-index: 5;
+      top: 25px;
+      right: 22px;
+      padding: 11px 16px;
+      border: 1px solid #b9e7ca;
+      border-radius: 999px;
+      color: #087638;
+      background: #edfbf2;
+      box-shadow: 0 5px 18px rgb(11 31 63 / 9%);
+      font-size: 15px;
+      font-weight: 800;
+      opacity: 0;
+      transform: translateY(-7px) scale(.9);
+      animation: fade-up 280ms 4s ease-out both;
+    }
+
+    .caption {
+      position: absolute;
+      z-index: 30;
+      left: 50%;
+      bottom: 28px;
+      min-width: 400px;
+      padding: 12px 24px;
+      border-radius: 18px;
+      color: #fff;
+      background: var(--navy);
+      box-shadow: 0 10px 30px rgb(11 31 63 / 16%);
+      text-align: center;
+      direction: ltr;
+      opacity: 0;
+      transform: translate(-50%, 12px);
+    }
+    .caption-one { animation: caption-one var(--duration) linear both; }
+    .caption-two { animation: caption-two var(--duration) linear both; }
+    .caption-three { animation: caption-three var(--duration) linear both; }
+    @keyframes caption-one {
+      0%, 14% { opacity: 0; transform: translate(-50%, 12px); }
+      16%, 35.33% { opacity: 1; transform: translate(-50%, 0); }
+      38%, 100% { opacity: 0; transform: translate(-50%, -7px); }
+    }
+    @keyframes caption-two {
+      0%, 37.33% { opacity: 0; transform: translate(-50%, 12px); }
+      40%, 59.07%, 60% { opacity: 1; transform: translate(-50%, 0); }
+      61.73%, 100% { opacity: 0; transform: translate(-50%, -7px); }
+    }
+    @keyframes caption-three {
+      0%, 61.73% { opacity: 0; transform: translate(-50%, 12px); }
+      64.4%, 83.33% { opacity: 1; transform: translate(-50%, 0); }
+      86%, 100% { opacity: 0; transform: translate(-50%, -7px); }
+    }
+    .caption .en { font-size: 16px; line-height: 1.25; font-weight: 800; white-space: nowrap; }
+    .final-lockup { display: flex; flex-direction: column; align-items: center; }
+    .final-mark {
+      width: 130px;
+      height: 130px;
+      filter: drop-shadow(0 12px 20px rgb(31 111 214 / 20%));
+      opacity: 0;
+      transform: scale(.72) rotate(-7deg);
+      animation: final-mark-in 350ms 4.15s cubic-bezier(.2, .8, .25, 1.2) both;
+    }
+    @keyframes final-mark-in { to { opacity: 1; transform: scale(1) rotate(0); } }
+    .final-wordmark {
+      margin-top: 13px;
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: -3px;
+      direction: ltr;
+      opacity: 0;
+      animation: fade-up 300ms 4.27s ease-out both;
+    }
+    .final-wordmark .omni { color: var(--navy); }
+    .final-wordmark .hq { color: var(--blue); }
+    .final-copy {
+      margin-top: 11px;
+      text-align: center;
+      opacity: 0;
+      animation: fade-up 300ms 4.4s ease-out both;
+    }
+    .final-copy .en { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+    @keyframes card-rise {
+      from { opacity: 0; transform: translateY(20px) scale(.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes fade-up { to { opacity: 1; transform: translateY(0) scale(1); } }
+
+    .progress {
+      position: absolute;
+      z-index: 50;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      height: 7px;
+      background: linear-gradient(90deg, #1f6fd6, #7db8ff);
+      transform: scaleX(0);
+      transform-origin: left center;
+      animation: progress-fill var(--duration) linear both;
+    }
+    @keyframes progress-fill { to { transform: scaleX(1); } }
+  </style>
+</head>
+<body>
+  <main id="stage" aria-label="OmniHQ">
+    <section class="scene scene-one" aria-hidden="true">
+      <div class="brand-lockup">
+        <svg class="brand-mark" viewBox="0 0 128 128">
+          <defs>
+            <linearGradient id="omniGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#5CA9FF"/>
+              <stop offset="1" stop-color="#1B62CC"/>
+            </linearGradient>
+            <linearGradient id="markShine" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#fff" stop-opacity=".5"/>
+              <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <g class="logo-entrance">
+            <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#omniGrad)"/>
+            <path d="M12 34C22 17 41 9 64 9s42 8 52 25v12H12z" fill="url(#markShine)"/>
+            <g class="logo-motion">
+              <circle class="logo-ring" cx="64" cy="64" r="25" pathLength="100"/>
+              <circle class="logo-dot" cx="64" cy="64" r="6.5" fill="#fff"/>
+              <g class="logo-star">
+                <path d="m87 34 3.3 7.1 7.7.9-5.7 5.2 1.5 7.6-6.8-3.9-6.8 3.9 1.5-7.6-5.7-5.2 7.7-.9z" fill="#F5B93A"/>
+              </g>
+            </g>
+          </g>
+        </svg>
+        <div class="wordmark" aria-label="OmniHQ">
+          <span class="omni">O</span><span class="omni">m</span><span class="omni">n</span><span class="omni">i</span><span class="hq">H</span><span class="hq">Q</span>
+        </div>
+      </div>
+      <div class="tagline">Find · Verify · Deliver</div>
+    </section>
+
+    <section class="scene scene-two" aria-hidden="true">
+      <div class="card business-card">
+        <div class="card-title">
+          <svg class="building-icon" viewBox="0 0 40 40" fill="none">
+            <path d="M8 34V8h17v26M25 16h8v18M5 34h30M13 14h3m4 0h1M13 20h3m4 0h1M13 26h3m4 0h1m8-5h2m-2 6h2" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Business profile</span>
+        </div>
+        <div class="fields">
+          <div class="field"><span>Business name</span><i class="field-bar"></i></div>
+          <div class="field"><span>Category</span><i class="field-bar"></i></div>
+          <div class="field"><span>Email</span><i class="field-bar"></i></div>
+        </div>
+        <div class="form-bottom">
+          <div class="submit">Submit</div>
+          <div class="pending-review">✓ Submitted · Pending review</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene scene-three" aria-hidden="true">
+      <div class="card admin-panel">
+        <div class="admin-header">
+          <div class="admin-title">Business Verification</div>
+          <div class="admin-tools">
+            <svg class="bell" viewBox="0 0 40 40" fill="none">
+              <path d="M20 5a3 3 0 0 1 3 3v1.1c5.2 1.3 8 5.1 8 11.3v5.2l3 4.4H6l3-4.4v-5.2c0-6.2 2.8-10 8-11.3V8a3 3 0 0 1 3-3ZM16 33a4.2 4.2 0 0 0 8 0" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="avatar">HP</div>
+          </div>
+          <div class="count">1</div>
+        </div>
+        <div class="company-row">
+          <div>
+            <div class="company-name">Your Business</div>
+            <div class="company-email">owner@yourbusiness.com</div>
+          </div>
+          <div class="status status-pending">Pending</div>
+        </div>
+        <div class="admin-actions">
+          <div class="action reject">Reject</div>
+          <div class="action approve">Approve</div>
+        </div>
+        <div class="status status-active">Active</div>
+        <div class="approval-toast">✉ Approval email sent</div>
+      </div>
+    </section>
+
+    <section class="scene scene-four" aria-hidden="true">
+      <div class="map-card">
+        <svg class="map-art" viewBox="0 0 1000 480" preserveAspectRatio="none">
+          <rect width="1000" height="480" fill="#E8F0F8"/>
+          <path d="M0 123H1000M0 305H1000M222 0V480M505 0V480M804 0V480M72 0l180 480M672 0 392 480" fill="none" stroke="#fff" stroke-width="30"/>
+          <path d="M0 123H1000M0 305H1000M222 0V480M505 0V480M804 0V480M72 0l180 480M672 0 392 480" fill="none" stroke="#d9e5ee" stroke-width="2"/>
+          <path d="M24 24h118v72H24zM263 26h210v70H263zM548 25h221v72H548zM835 29h137v67H835zM30 145h164v137H30zM247 147h230v136H247zM530 148h245v134H530zM832 148h144v136H832zM275 328h200v130H275zM530 328h244v131H530zM832 329h140v128H832z" fill="#dcebdc"/>
+          <path d="M35 337h161v119H35zM270 25h190v52H270zM548 332h214v102H548zM844 153h116v110H844z" fill="#e1e5e9"/>
+          <path d="M340 0v480M0 215h1000" fill="none" stroke="#fff" stroke-width="7" stroke-dasharray="14 13"/>
+          <path class="route" d="M150 358C280 348 285 270 440 286S650 210 850 142"/>
+        </svg>
+        <div class="location-card">
+          <span class="location-question">Share your location for this order?</span>
+          <span class="location-shared">✓ Location shared</span>
+          <div class="allow">Allow</div>
+        </div>
+        <div class="store">
+          <svg viewBox="0 0 32 32" fill="none">
+            <path d="M5 13 7.5 6h17L27 13M6.5 13v13h19V13M5 13a4 4 0 0 0 7 2.7 4 4 0 0 0 7 0 4 4 0 0 0 7-2.7M12 26v-7h8v7" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <svg class="pin" viewBox="0 0 48 60">
+          <path d="M24 2C12.4 2 3 11.4 3 23c0 15 21 35 21 35s21-20 21-35C45 11.4 35.6 2 24 2Z" fill="#E24B4A"/>
+          <circle cx="24" cy="23" r="7.5" fill="#fff"/>
+        </svg>
+        <div class="courier"></div>
+        <div class="delivered">✓ Delivered</div>
+      </div>
+    </section>
+
+    <section class="scene scene-five" aria-hidden="true">
+      <div class="final-lockup">
+        <svg class="final-mark" viewBox="0 0 128 128">
+          <defs>
+            <linearGradient id="omniGradFinal" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#5CA9FF"/>
+              <stop offset="1" stop-color="#1B62CC"/>
+            </linearGradient>
+            <linearGradient id="shineFinal" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#fff" stop-opacity=".5"/>
+              <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#omniGradFinal)"/>
+          <path d="M12 34C22 17 41 9 64 9s42 8 52 25v12H12z" fill="url(#shineFinal)"/>
+          <circle cx="64" cy="64" r="25" pathLength="100" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-dasharray="75 100"/>
+          <circle cx="64" cy="64" r="6.5" fill="#fff"/>
+          <path d="m87 34 3.3 7.1 7.7.9-5.7 5.2 1.5 7.6-6.8-3.9-6.8 3.9 1.5-7.6-5.7-5.2 7.7-.9z" fill="#F5B93A"/>
+        </svg>
+        <div class="final-wordmark"><span class="omni">Omni</span><span class="hq">HQ</span></div>
+        <div class="final-copy">
+          <div class="en">Trusted businesses. Verified. Delivered.</div>
+        </div>
+      </div>
+    </section>
+    <div class="caption caption-one">
+      <div class="en">1 · Business registers</div>
+    </div>
+    <div class="caption caption-two">
+      <div class="en">2 · Admin reviews &amp; approves</div>
+    </div>
+    <div class="caption caption-three">
+      <div class="en">3 · Customer shares location · Courier delivers</div>
+    </div>
+    <div class="progress" aria-hidden="true"></div>
+  </main>
+  <script>
+    const DURATION = 5;
+
+    function seek(t) {
+      const time = Math.max(0, Math.min(DURATION, t));
+      for (const animation of document.getAnimations()) {
+        animation.pause();
+        animation.currentTime = time * 1000;
+      }
+      return time;
+    }
+
+    window.seek = seek;
+    seek(0);
+  </script>
+</body>
+</html>

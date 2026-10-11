@@ -58,7 +58,7 @@ export const Footer = forwardRef<HTMLElement, FooterProps>(
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
             <div className="lg:col-span-2">
-              <Logo to="/" ariaLabel={t('brand.homeLabel')} variant="dark" size="md" className="mb-4" />
+              <Logo to="/" ariaLabel={t('brand.homeLabel')} variant="dark" size="sm" className="mb-4" />
               <p className="text-navy-300 max-w-sm mb-6">{t('footer.about')}</p>
               {socials.length > 0 && (
                 <div className="flex gap-4">
