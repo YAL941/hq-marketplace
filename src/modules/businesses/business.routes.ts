@@ -15,6 +15,7 @@ import { httpUrlSchema } from '../../validation/http-url.js';
 import { normalisePhone, PhoneValidationError } from '../auth/phone.js';
 import {
     getOpeningHours,
+    getRatingDistribution,
     getPublicBusinessProfile,
     getPublicBusinessProfileBySlug,
     getStaffBusiness,
@@ -381,6 +382,7 @@ businessRoutes.get('/business/:businessId/statistics', authenticate, resolveBusi
     try {
         if (!req.user) throw unauthorized();
         const businessId = req.businessId!;
+        const period = z.enum(['7d', '30d', 'this_year']).default('7d').parse(req.query['period']);
         const stats = await withTenant(contextFor(req, businessId), async (client) => {
             await client.query('SELECT refresh_business_statistics($1)', [businessId]);
             const { rows } = await client.query(
@@ -392,7 +394,150 @@ businessRoutes.get('/business/:businessId/statistics', authenticate, resolveBusi
                 'SELECT total_views::text FROM business_profile_views WHERE business_id = $1',
                 [businessId],
             );
-            return { ...rows[0], profile_views: viewRows[0]?.total_views ?? '0' };
+            const { rows: listingRows } = await client.query<{
+                active_products: number;
+                active_services: number;
+            }>(
+                `SELECT
+                    (SELECT count(*)::int FROM products
+                      WHERE business_id = $1 AND status = 'active' AND deleted_at IS NULL) AS active_products,
+                    (SELECT count(*)::int FROM services
+                      WHERE business_id = $1 AND status = 'active' AND deleted_at IS NULL) AS active_services`,
+                [businessId],
+            );
+            const { rows: weeklyViewRows } = await client.query<{ date: string; views: number }>(
+                `SELECT to_char(days.view_date, 'YYYY-MM-DD') AS date,
+                        COALESCE(daily.total_views, 0)::int AS views
+                   FROM generate_series(
+                            CURRENT_DATE - 6,
+                            CURRENT_DATE,
+                            INTERVAL '1 day'
+                        ) AS days(view_date)
+                   LEFT JOIN business_profile_daily_views daily
+                     ON daily.business_id = $1
+                    AND daily.view_date = days.view_date::date
+                  ORDER BY days.view_date`,
+                [businessId],
+            );
+            const ratingDistribution = await getRatingDistribution(client, businessId);
+            const { rows: periodRows } = await client.query<{
+                from_date: string;
+                to_date: string;
+                profile_views: string;
+                total_orders: number;
+                completed_orders: number;
+                cancelled_orders: number;
+                pending_orders: number;
+                total_customers: number;
+                total_reviews: number;
+                average_rating: string;
+                rating_distribution: Record<'1' | '2' | '3' | '4' | '5', number>;
+                daily_views: Array<{ date: string; views: number }>;
+            }>(
+                `WITH bounds AS (
+                    SELECT CASE $2::text
+                               WHEN '7d' THEN CURRENT_DATE - 6
+                               WHEN '30d' THEN CURRENT_DATE - 29
+                               ELSE date_trunc('year', CURRENT_DATE)::date
+                           END AS from_date,
+                           CURRENT_DATE AS to_date
+                ),
+                daily_views AS (
+                    SELECT days.view_date::date AS view_date,
+                           COALESCE(daily.total_views, 0)::int AS views
+                      FROM bounds
+                      CROSS JOIN LATERAL generate_series(
+                          bounds.from_date,
+                          bounds.to_date,
+                          INTERVAL '1 day'
+                      ) AS days(view_date)
+                      LEFT JOIN business_profile_daily_views daily
+                        ON daily.business_id = $1
+                       AND daily.view_date = days.view_date::date
+                ),
+                order_totals AS (
+                    SELECT count(*)::int AS total_orders,
+                           count(*) FILTER (WHERE o.order_status = 'completed')::int AS completed_orders,
+                           count(*) FILTER (WHERE o.order_status IN ('cancelled', 'rejected'))::int AS cancelled_orders,
+                           count(*) FILTER (WHERE o.order_status = 'pending')::int AS pending_orders,
+                           count(DISTINCT o.customer_id)::int AS total_customers
+                      FROM orders o
+                      CROSS JOIN bounds
+                     WHERE o.business_id = $1
+                       AND o.created_at >= bounds.from_date
+                       AND o.created_at < bounds.to_date + INTERVAL '1 day'
+                ),
+                review_totals AS (
+                    SELECT count(*)::int AS total_reviews,
+                           COALESCE(round(avg(rv.rating), 2), 0)::text AS average_rating
+                      FROM reviews rv
+                      CROSS JOIN bounds
+                     WHERE rv.business_id = $1
+                       AND rv.status = 'published'
+                       AND rv.created_at >= bounds.from_date
+                       AND rv.created_at < bounds.to_date + INTERVAL '1 day'
+                ),
+                rating_counts AS (
+                    SELECT stars.rating,
+                           count(rv.review_id)::int AS review_count
+                      FROM generate_series(1, 5) AS stars(rating)
+                      LEFT JOIN bounds ON TRUE
+                      LEFT JOIN reviews rv
+                        ON rv.business_id = $1
+                       AND rv.status = 'published'
+                       AND rv.rating = stars.rating
+                       AND rv.created_at >= bounds.from_date
+                       AND rv.created_at < bounds.to_date + INTERVAL '1 day'
+                     GROUP BY stars.rating
+                )
+                SELECT bounds.from_date::text AS from_date,
+                       bounds.to_date::text AS to_date,
+                       COALESCE((SELECT sum(views) FROM daily_views), 0)::text AS profile_views,
+                       order_totals.total_orders,
+                       order_totals.completed_orders,
+                       order_totals.cancelled_orders,
+                       order_totals.pending_orders,
+                       order_totals.total_customers,
+                       review_totals.total_reviews,
+                       review_totals.average_rating,
+                       (SELECT jsonb_object_agg(rating::text, review_count ORDER BY rating)
+                          FROM rating_counts) AS rating_distribution,
+                       (SELECT jsonb_agg(
+                           jsonb_build_object(
+                               'date', to_char(view_date, 'YYYY-MM-DD'),
+                               'views', views
+                           ) ORDER BY view_date
+                        ) FROM daily_views) AS daily_views
+                  FROM bounds
+                  CROSS JOIN order_totals
+                  CROSS JOIN review_totals`,
+                [businessId, period],
+            );
+            const activeListings = listingRows[0]!;
+            const periodStats = periodRows[0]!;
+            return {
+                ...rows[0],
+                profile_views: viewRows[0]?.total_views ?? '0',
+                ...activeListings,
+                active_listings: activeListings.active_products + activeListings.active_services,
+                weekly_views: weeklyViewRows,
+                rating_distribution: ratingDistribution,
+                period_stats: {
+                    period,
+                    from_date: periodStats.from_date,
+                    to_date: periodStats.to_date,
+                    profile_views: periodStats.profile_views,
+                    total_orders: periodStats.total_orders,
+                    completed_orders: periodStats.completed_orders,
+                    cancelled_orders: periodStats.cancelled_orders,
+                    pending_orders: periodStats.pending_orders,
+                    total_customers: periodStats.total_customers,
+                    total_reviews: periodStats.total_reviews,
+                    average_rating: periodStats.average_rating,
+                    rating_distribution: periodStats.rating_distribution,
+                    daily_views: periodStats.daily_views,
+                },
+            };
         });
         res.json({ data: stats, meta: { businessId } });
     } catch (error) {

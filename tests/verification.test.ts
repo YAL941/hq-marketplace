@@ -467,7 +467,7 @@ describe('PATCH /api/admin/businesses/:id/verification: reject', () => {
 
         assert.equal(res.status, 200, JSON.stringify(res.body));
         assert.equal(res.body.data.rejection_reason, null);
-        assert.equal(res.body.email.sent, false, 'SMTP is intentionally optional in tests');
+        assert.equal(res.body.email.sent, Boolean(process.env['SMTP_HOST']));
         const row = await businessRow(businessId);
         assert.equal(String(row['reviewed_by']), String(admin.id));
         assert.ok(row['reviewed_at']);

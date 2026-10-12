@@ -157,6 +157,37 @@ describe('Statistics: regression for the SECURITY DEFINER defect', () => {
             .set('Authorization', `Bearer ${ownerA.token}`);
         assert.equal(statsRes.status, 200);
         assert.equal(statsRes.body.data.profile_views, '2');
+        assert.equal(statsRes.body.data.active_products, 1);
+        assert.equal(statsRes.body.data.active_services, 0);
+        assert.equal(statsRes.body.data.active_listings, 1);
+        assert.equal(statsRes.body.data.weekly_views.length, 7);
+        assert.equal(statsRes.body.data.weekly_views.reduce(
+            (total: number, day: { views: number }) => total + day.views,
+            0,
+        ), 2);
+        assert.equal(statsRes.body.data.rating_distribution['5'], 1);
+        assert.equal(statsRes.body.data.period_stats.profile_views, '2');
+        assert.equal(statsRes.body.data.period_stats.rating_distribution['5'], 1);
+    });
+
+    it('filters cards and chart series to the selected statistics period', async () => {
+        const res = await request(app)
+            .get(`/api/business/${ownerA.businessA}/statistics?period=30d`)
+            .set('Authorization', `Bearer ${ownerA.token}`);
+        assert.equal(res.status, 200, JSON.stringify(res.body));
+        assert.equal(res.body.data.period_stats.period, '30d');
+        assert.equal(res.body.data.period_stats.daily_views.length, 30);
+        assert.equal(res.body.data.period_stats.profile_views, '2');
+        assert.equal(res.body.data.period_stats.total_orders, 1);
+        assert.equal(res.body.data.period_stats.total_reviews, 1);
+        assert.equal(res.body.data.period_stats.rating_distribution['5'], 1);
+    });
+
+    it('rejects an unsupported statistics period', async () => {
+        const res = await request(app)
+            .get(`/api/business/${ownerA.businessA}/statistics?period=all_time`)
+            .set('Authorization', `Bearer ${ownerA.token}`);
+        assert.equal(res.status, 400);
     });
 
     it('lets an owner save weekly hours and publishes them on the profile', async () => {

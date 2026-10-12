@@ -686,11 +686,31 @@ export interface BusinessStatistics {
   total_customers: number;
   total_products: number;
   total_services: number;
+  active_products: number;
+  active_services: number;
+  active_listings: number;
   total_reviews: number;
   profile_views: string;
+  weekly_views: Array<{ date: string; views: number }>;
   average_rating: string;
+  rating_distribution: Record<'1' | '2' | '3' | '4' | '5', number>;
   total_revenue: string;
   computed_at: string;
+  period_stats: {
+    period: '7d' | '30d' | 'this_year';
+    from_date: string;
+    to_date: string;
+    profile_views: string;
+    total_orders: number;
+    completed_orders: number;
+    cancelled_orders: number;
+    pending_orders: number;
+    total_customers: number;
+    total_reviews: number;
+    average_rating: string;
+    rating_distribution: Record<'1' | '2' | '3' | '4' | '5', number>;
+    daily_views: Array<{ date: string; views: number }>;
+  };
 }
 
 export interface BusinessMember {

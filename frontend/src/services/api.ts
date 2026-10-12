@@ -290,8 +290,10 @@ export const businessApi = {
    * holds. It refreshes the cache on read, so `computed_at` is when the numbers
    * were calculated, which is shown next to them rather than hidden.
    */
-  getStatistics: (businessId: Id) =>
-    api.get<ApiResponse<BusinessStatistics>>(`/business/${businessId}/statistics`),
+  getStatistics: (businessId: Id, period?: '7d' | '30d' | 'this_year') =>
+    api.get<ApiResponse<BusinessStatistics>>(`/business/${businessId}/statistics`, {
+      params: period ? { period } : undefined,
+    }),
 
   getOpeningHours: (businessId: Id) =>
     api.get<ApiResponse<OpeningHour[]>>(`/business/${businessId}/opening-hours`),

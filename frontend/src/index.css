@@ -50,6 +50,20 @@
     background-color: #12314f;
   }
 
+  html[data-theme='dark'] .product-details-dialog-header {
+    border-color: #254768;
+    background-color: #0d2742;
+  }
+
+  html[data-theme='dark'] .product-details-order {
+    border-color: #254768;
+    background-color: #102c49;
+  }
+
+  html[data-theme='dark'] .product-details-order a.text-primary-700 {
+    color: #9acbff;
+  }
+
   html[data-theme='dark'] .text-navy-900,
   html[data-theme='dark'] .text-navy-800,
   html[data-theme='dark'] .text-navy-950 {
@@ -79,6 +93,23 @@
     background-color: #0b223a;
     color: #f6f9fc;
     border-color: #355778;
+  }
+
+  html[data-theme='dark'] .hero-search-glass input,
+  html[data-theme='dark'] .hero-search-glass select {
+    background-color: transparent;
+  }
+
+  html[data-theme='dark'] .hero-search-glass input:focus-visible {
+    --tw-ring-offset-color: transparent;
+    --tw-ring-shadow: 0 0 #0000;
+    box-shadow: none;
+    outline: none;
+  }
+
+  html[data-theme='dark'] .hero-search-glass:focus-within {
+    border-color: rgb(255 200 61 / 90%);
+    box-shadow: 0 0 0 2px rgb(255 200 61 / 22%), 0 20px 50px rgb(5 25 60 / 35%);
   }
 
   html[data-theme='dark'] input::placeholder,

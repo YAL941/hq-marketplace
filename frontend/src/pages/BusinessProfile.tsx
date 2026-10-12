@@ -1013,9 +1013,9 @@ export function BusinessProfilePage() {
               role="dialog"
               aria-modal="true"
               aria-labelledby="product-details-title"
-              className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+              className="product-details-dialog max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
             >
-              <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-navy-100 bg-white/95 p-4 backdrop-blur">
+              <div className="product-details-dialog-header sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-navy-100 bg-white/95 p-4 backdrop-blur">
                 <h2 id="product-details-title" className="text-xl font-bold text-navy-900">
                   {productDetails.product_name}
                 </h2>
@@ -1071,7 +1071,7 @@ export function BusinessProfilePage() {
                     </section>
                   </div>
 
-                  <section id="product-order" className="h-fit scroll-mt-20 rounded-2xl border border-primary-100 bg-primary-50/50 p-4 sm:p-5">
+                  <section id="product-order" className="product-details-order h-fit scroll-mt-20 rounded-2xl border border-primary-100 bg-primary-50/50 p-4 sm:p-5">
                     <h3 className="mb-2 text-lg font-semibold text-navy-900">{t('business.orderTitle')}</h3>
                     <p className="mb-4 text-sm text-navy-600">{t('business.orderDescription')}</p>
                     {isAuthenticated ? (

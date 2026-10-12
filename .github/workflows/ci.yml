@@ -2,12 +2,46 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: hq_marketplace_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hq_marketplace_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
+    env:
+      NODE_ENV: test
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: hq_marketplace_test
+      TEST_PGDATABASE: hq_marketplace_test
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      APP_DB_USER: hq_app
+      APP_DB_PASSWORD: hq_app
+      JWT_SECRET: test-secret-that-is-long-enough-123
+      SMTP_HOST: localhost
+      SMTP_PORT: 1025
+      SMTP_SECURE: false
+      MAIL_FROM: OmniHQ CI <ci@omnihq.test>
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -21,8 +55,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Wait for SMTP service
+        run: |
+          for attempt in {1..30}; do
+            if (echo > /dev/tcp/127.0.0.1/1025) >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Mailpit SMTP did not become ready" >&2
+          exit 1
+
       - name: Type check
         run: npm run typecheck
 
       - name: Build
         run: npm run build
+
+      - name: Test
+        run: npm test
