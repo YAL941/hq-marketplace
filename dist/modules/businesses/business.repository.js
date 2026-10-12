@@ -204,13 +204,38 @@ export async function getRatingDistribution(client, businessId) {
  * never has to handle a missing day.
  */
 export async function getOpeningHours(client, businessId) {
-    const { rows } = await client.query(`SELECT oh.day_of_week, oh.opens_at::text, oh.closes_at::text, oh.is_closed
+    const { rows } = await client.query(`SELECT oh.day_of_week, to_char(oh.opens_at, 'HH24:MI:SS') AS opens_at,
+                to_char(oh.closes_at, 'HH24:MI:SS') AS closes_at, oh.is_closed
            FROM business_opening_hours oh
            JOIN businesses b ON b.business_id = oh.business_id
           WHERE oh.business_id = $1
             AND ${PUBLIC_BUSINESS_PREDICATE}`, [businessId]);
     const byDay = new Map(rows.map((row) => [row.day_of_week, row]));
     return Array.from({ length: 7 }, (_unused, day) => byDay.get(day) ?? { day_of_week: day, opens_at: null, closes_at: null, is_closed: true });
+}
+/** Opening hours for an authenticated business member, including unpublished businesses. */
+export async function getStaffOpeningHours(client, businessId) {
+    const { rows } = await client.query(`SELECT day_of_week, to_char(opens_at, 'HH24:MI') AS opens_at,
+                to_char(closes_at, 'HH24:MI') AS closes_at, is_closed
+           FROM business_opening_hours
+          WHERE business_id = $1`, [businessId]);
+    const byDay = new Map(rows.map((row) => [row.day_of_week, row]));
+    return Array.from({ length: 7 }, (_unused, day) => byDay.get(day) ?? { day_of_week: day, opens_at: null, closes_at: null, is_closed: true });
+}
+/** Replaces the weekly schedule atomically; callers validate all seven days first. */
+export async function replaceOpeningHours(client, businessId, hours) {
+    await client.query('SELECT business_id FROM businesses WHERE business_id = $1 FOR UPDATE', [businessId]);
+    await client.query('DELETE FROM business_opening_hours WHERE business_id = $1', [businessId]);
+    for (const day of hours) {
+        await client.query(`INSERT INTO business_opening_hours
+                (business_id, day_of_week, opens_at, closes_at, is_closed)
+             VALUES ($1, $2, $3, $4, $5)`, [businessId, day.day_of_week, day.opens_at, day.closes_at, day.is_closed]);
+    }
+    return getStaffOpeningHours(client, businessId);
+}
+/** Counts a public page load without retaining any information about its visitor. */
+export async function incrementProfileView(client, businessId) {
+    await client.query('SELECT increment_business_profile_views($1)', [businessId]);
 }
 /**
  * Published reviews for one public business, newest first.

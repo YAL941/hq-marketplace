@@ -22,8 +22,19 @@ import type {
   BusinessMember,
   BusinessProfilePatch,
   BusinessRecord,
+  OpeningHour,
   StaffBusinessProfile,
 } from '../types';
+
+const WEEKDAYS = [
+  'common.daySunday',
+  'common.dayMonday',
+  'common.dayTuesday',
+  'common.dayWednesday',
+  'common.dayThursday',
+  'common.dayFriday',
+  'common.daySaturday',
+] as const;
 
 interface FormState {
   businessName: string;
@@ -73,8 +84,8 @@ const EMPTY: FormState = {
  *     never published, so those two boxes are no longer guesses.
  *   * The editable set is what `PATCH /api/business/:businessId` accepts:
  *     name, description, category, phone, WhatsApp, email, website, address,
- *     city, district, logo and cover. Nothing else is offered, because a field
- *     that cannot be saved is worse than an absent one. `latitude`/`longitude`
+ *     city, district, logo and cover. Opening hours have their own editor and
+ *     endpoint below. `latitude`/`longitude`
  *     are accepted by the route but there is no map here to source them from, and
  *     `status`/`verification_status` belong to an admin decision.
  *   * Phone and WhatsApp are normalised to E.164 by the server and by the copy of
@@ -177,6 +188,10 @@ export function DashboardSettingsPage() {
   const [saved, setSaved] = useState<BusinessRecord | null>(null);
   const [members, setMembers] = useState<BusinessMember[] | null>(null);
   const [profile, setProfile] = useState<StaffBusinessProfile | null>(null);
+  const [openingHours, setOpeningHours] = useState<OpeningHour[]>([]);
+  const [savingHours, setSavingHours] = useState(false);
+  const [hoursSaved, setHoursSaved] = useState(false);
+  const [hoursError, setHoursError] = useState(false);
   /**
    * Whether the person typed in a link for that slot during this visit.
    *
@@ -211,11 +226,12 @@ export function DashboardSettingsPage() {
     // freshly loaded column with a value the person has not seen since.
     setLinkEdited({ logo: false, cover: false });
     try {
-      const [profileRes, membersRes] = await Promise.all([
+      const [profileRes, membersRes, hoursRes] = await Promise.all([
         // The staff read, not the public profile: it is the only one that
         // answers for a business which is not publicly visible.
         businessApi.getForBusiness(businessId),
         businessApi.getMembers(businessId).catch(() => null),
+        businessApi.getOpeningHours(businessId),
       ]);
       const profile = profileRes.data.data;
       setProfile(profile);
@@ -236,6 +252,7 @@ export function DashboardSettingsPage() {
         deliveryFee: profile.delivery_fee,
       });
       setMembers(membersRes ? membersRes.data.data : null);
+      setOpeningHours(hoursRes.data.data);
     } catch {
       setLoadFailed(true);
     } finally {
@@ -393,6 +410,7 @@ export function DashboardSettingsPage() {
         deliveryEnabled: form.deliveryEnabled,
         deliveryFee: Number(form.deliveryFee),
       };
+
       if (form.email.trim() !== '') patch.email = form.email.trim();
 
       // The two image columns are the exception to "send everything". They are
@@ -451,6 +469,31 @@ export function DashboardSettingsPage() {
       showToast(message, 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const updateOpeningHour = (dayOfWeek: number, patch: Partial<OpeningHour>) => {
+    setOpeningHours((current) => current.map((day) => (
+      day.day_of_week === dayOfWeek ? { ...day, ...patch } : day
+    )));
+    setHoursSaved(false);
+    setHoursError(false);
+  };
+
+  const saveOpeningHours = async () => {
+    setSavingHours(true);
+    setHoursSaved(false);
+    setHoursError(false);
+    try {
+      const response = await businessApi.updateOpeningHours(businessId, openingHours);
+      setOpeningHours(response.data.data);
+      setHoursSaved(true);
+      showToast(t('settings.hoursSaved'), 'success');
+    } catch {
+      setHoursError(true);
+      showToast(t('settings.hoursSaveFailed'), 'error');
+    } finally {
+      setSavingHours(false);
     }
   };
 
@@ -647,6 +690,70 @@ export function DashboardSettingsPage() {
                     error={fieldError('district')}
                   />
                 </div>
+
+                <section className="rounded-xl border border-navy-200 p-4">
+                  <div className="mb-3">
+                    <h3 className="font-semibold text-navy-900">{t('settings.hoursTitle')}</h3>
+                    <p className="mt-1 text-sm text-navy-500">{t('settings.hoursDescription')}</p>
+                  </div>
+                  <ul className="divide-y divide-navy-100">
+                    {openingHours.map((day) => (
+                      <li key={day.day_of_week} className="grid gap-3 py-3 sm:grid-cols-[minmax(7rem,1fr)_auto_minmax(7rem,0.8fr)_minmax(7rem,0.8fr)] sm:items-center">
+                        <span className="font-medium text-navy-800">{t(WEEKDAYS[day.day_of_week] ?? WEEKDAYS[0])}</span>
+                        <label className="flex items-center gap-2 text-sm text-navy-600">
+                          <input
+                            type="checkbox"
+                            checked={day.is_closed}
+                            onChange={(event) => updateOpeningHour(day.day_of_week, {
+                              is_closed: event.target.checked,
+                              opens_at: event.target.checked ? null : (day.opens_at ?? '09:00'),
+                              closes_at: event.target.checked ? null : (day.closes_at ?? '17:00'),
+                            })}
+                            disabled={savingHours}
+                            className="h-4 w-4 rounded accent-primary-600"
+                          />
+                          {t('settings.closed')}
+                        </label>
+                        <label className="text-sm text-navy-600">
+                          <span className="sr-only">{t('settings.opensAt', { day: t(WEEKDAYS[day.day_of_week] ?? WEEKDAYS[0]) })}</span>
+                          <input
+                            type="time"
+                            value={day.opens_at ?? ''}
+                            onChange={(event) => updateOpeningHour(day.day_of_week, { opens_at: event.target.value || null })}
+                            disabled={day.is_closed || savingHours}
+                            required={!day.is_closed}
+                            className="min-h-10 w-full rounded-lg border border-navy-200 px-2 text-navy-900 disabled:bg-navy-50 disabled:text-navy-400"
+                          />
+                        </label>
+                        <label className="text-sm text-navy-600">
+                          <span className="sr-only">{t('settings.closesAt', { day: t(WEEKDAYS[day.day_of_week] ?? WEEKDAYS[0]) })}</span>
+                          <input
+                            type="time"
+                            value={day.closes_at ?? ''}
+                            onChange={(event) => updateOpeningHour(day.day_of_week, { closes_at: event.target.value || null })}
+                            disabled={day.is_closed || savingHours}
+                            required={!day.is_closed}
+                            className="min-h-10 w-full rounded-lg border border-navy-200 px-2 text-navy-900 disabled:bg-navy-50 disabled:text-navy-400"
+                          />
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                  {hoursError && <p role="alert" className="mt-3 text-sm text-error-600">{t('settings.hoursSaveFailed')}</p>}
+                  {hoursSaved && <p role="status" className="mt-3 text-sm text-success-600">{t('settings.hoursSaved')}</p>}
+                  <Button
+                    type="button"
+                    onClick={() => void saveOpeningHours()}
+                    loading={savingHours}
+                    disabled={saving || openingHours.length !== 7 || openingHours.some((day) => (
+                      !day.is_closed && (!day.opens_at || !day.closes_at || day.closes_at <= day.opens_at)
+                    ))}
+                    className="mt-4"
+                  >
+                    <Save className="me-2 h-4 w-4" aria-hidden="true" />
+                    {t('settings.saveHours')}
+                  </Button>
+                </section>
 
                 <section id="delivery-settings" className="scroll-mt-24 rounded-xl border border-navy-200 p-4">
                   <h3 className="font-semibold text-navy-900">{t('settings.deliveryTitle')}</h3>

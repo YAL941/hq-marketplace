@@ -687,6 +687,7 @@ export interface BusinessStatistics {
   total_products: number;
   total_services: number;
   total_reviews: number;
+  profile_views: string;
   average_rating: string;
   total_revenue: string;
   computed_at: string;

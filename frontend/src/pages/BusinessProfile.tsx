@@ -516,21 +516,21 @@ export function BusinessProfilePage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-12 pb-6">
-            <div className="w-24 h-24 rounded-2xl bg-white border-4 border-white shadow-card flex items-center justify-center overflow-hidden flex-shrink-0">
+          <div className="flex flex-col gap-4 -mt-12 pb-6 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-card">
               {/* Beside the `<h1>` with the same name, so decorative. */}
               <SmartImage
                 value={business.logo_url}
                 width={96}
                 height={96}
                 eager
-                className="w-full h-full object-cover"
+                className="h-full w-full object-contain"
                 fallback={<Tag className="w-10 h-10 text-primary-300" />}
               />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl font-bold text-navy-900">{business.business_name}</h1>
+                <h1 className="break-words text-2xl font-bold text-navy-900">{business.business_name}</h1>
                 {business.is_featured && (
                   <Badge variant="info" size="sm">{t('business.featured')}</Badge>
                 )}
@@ -559,7 +559,7 @@ export function BusinessProfilePage() {
               number the business never published.
             */}
             {hasContact && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 sm:ms-auto">
                 {call && (
                   <a href={call} className="inline-flex">
                     <Button variant="outline">
@@ -646,15 +646,17 @@ export function BusinessProfilePage() {
                         className="w-full text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
                       >
                         {product.image_url ? (
-                          <SmartImage
-                            value={product.image_url}
-                            width={640}
-                            height={360}
-                            className="h-40 w-full object-cover"
-                            fallback={<div className="h-40 bg-navy-50" />}
-                          />
+                          <div className="aspect-[4/3] w-full overflow-hidden bg-navy-50">
+                            <SmartImage
+                              value={product.image_url}
+                              width={1200}
+                              height={900}
+                              className="h-full w-full object-cover"
+                              fallback={<div className="h-full w-full bg-navy-50" />}
+                            />
+                          </div>
                         ) : (
-                          <div className="flex h-40 items-center justify-center bg-navy-50">
+                          <div className="flex aspect-[4/3] w-full items-center justify-center bg-navy-50">
                             <ShoppingBag className="h-10 w-10 text-navy-300" aria-hidden="true" />
                           </div>
                         )}
@@ -1030,13 +1032,15 @@ export function BusinessProfilePage() {
                 <div className="grid gap-6 lg:grid-cols-2">
                   <div className="space-y-5">
                     {productDetails.image_url && (
-                      <SmartImage
-                        value={productDetails.image_url}
-                        width={960}
-                        height={540}
-                        className="max-h-96 w-full rounded-xl object-cover"
-                        fallback={<div className="h-48 rounded-xl bg-navy-50" />}
-                      />
+                      <div className="aspect-[4/3] w-full overflow-hidden rounded-xl bg-navy-50">
+                        <SmartImage
+                          value={productDetails.image_url}
+                          width={1200}
+                          height={900}
+                          className="h-full w-full object-cover"
+                          fallback={<div className="h-full w-full bg-navy-50" />}
+                        />
+                      </div>
                     )}
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="text-xl font-bold text-navy-900">

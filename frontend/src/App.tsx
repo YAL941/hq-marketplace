@@ -93,13 +93,8 @@ const CourierPage = lazy(() =>
 
 function RouteLoadingFallback() {
   return (
-    <div className="min-h-[50vh] px-4 py-8 sm:px-6" role="status" aria-label="Loading page">
-      <Logo variant="light" size="md" intro className="mx-auto mb-8 flex w-fit" />
-      <div className="mx-auto max-w-7xl animate-pulse space-y-5">
-        <div className="h-8 w-1/3 rounded bg-navy-200" />
-        <div className="h-4 w-2/3 rounded bg-navy-100" />
-        <div className="h-40 rounded-card bg-navy-100" />
-      </div>
+    <div className="min-h-screen flex items-center justify-center" role="status" aria-label="Loading page">
+      <Logo variant="light" size="md" intro className="omni-logo--loading" />
     </div>
   );
 }
@@ -130,7 +125,7 @@ function BrandPreloader() {
   if (!visible) return null;
   return (
     <div className={cn('omni-preloader', fading && 'omni-preloader--fading')} role="status">
-      <Logo variant="light" size="md" intro />
+      <Logo variant="light" size="md" intro className="omni-logo--loading" />
     </div>
   );
 }

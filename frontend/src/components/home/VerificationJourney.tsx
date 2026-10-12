@@ -48,6 +48,7 @@ export function VerificationJourney({
           ref={videoRef}
           className="verification-video mt-10"
           src="/omnihq.mp4"
+          poster="/omnihq-poster.jpg"
           aria-label={t('verification.title')}
           autoPlay={!reducedMotion}
           muted

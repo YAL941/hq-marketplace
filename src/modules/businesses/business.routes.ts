@@ -18,10 +18,13 @@ import {
     getPublicBusinessProfile,
     getPublicBusinessProfileBySlug,
     getStaffBusiness,
+    getStaffOpeningHours,
+    incrementProfileView,
     listCategories,
     listCities,
     listPublicBusinesses,
     listPublicReviews,
+    replaceOpeningHours,
 } from './business.repository.js';
 import {
     businessIdParamSchema,
@@ -82,6 +85,30 @@ function updateSchema(businessId: number) {
         })
         .refine((v) => Object.keys(v).length > 0, { message: 'Empty patch' });
 }
+
+const openingHoursSchema = z
+    .array(
+        z.object({
+            day_of_week: z.number().int().min(0).max(6),
+            opens_at: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).nullable(),
+            closes_at: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).nullable(),
+            is_closed: z.boolean(),
+        }).superRefine((day, ctx) => {
+            if (day.is_closed) {
+                if (day.opens_at !== null || day.closes_at !== null) {
+                    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Closed days cannot have opening times' });
+                }
+            } else if (!day.opens_at || !day.closes_at || day.closes_at <= day.opens_at) {
+                ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Opening and closing times must be valid and ordered' });
+            }
+        }),
+    )
+    .length(7)
+    .superRefine((days, ctx) => {
+        if (new Set(days.map((day) => day.day_of_week)).size !== 7) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Each weekday must appear exactly once' });
+        }
+    });
 
 /**
  * Reduces a submitted number to E.164, or to null when the field is cleared.
@@ -148,6 +175,7 @@ businessRoutes.get('/businesses/:businessId', publicReadLimiter, async (req, res
         const { profile, openingHours } = await withTenant(contextFor(req), async (client) => {
             const profile = await getPublicBusinessProfile(client, businessId);
             if (!profile) throw notFound('Business not found');
+            await incrementProfileView(client, businessId);
             const openingHours = await getOpeningHours(client, businessId);
             return { profile, openingHours };
         });
@@ -179,7 +207,9 @@ businessRoutes.get('/businesses/slug/:businessSlug', publicReadLimiter, async (r
             // that exists but is not public. Distinguishing the two would turn
             // this into a way to discover which businesses are suspended.
             if (!profile) throw notFound('Business not found');
-            const openingHours = await getOpeningHours(client, Number(profile.business_id));
+            const businessId = Number(profile.business_id);
+            await incrementProfileView(client, businessId);
+            const openingHours = await getOpeningHours(client, businessId);
             return { profile, openingHours };
         });
 
@@ -357,9 +387,47 @@ businessRoutes.get('/business/:businessId/statistics', authenticate, resolveBusi
                 'SELECT * FROM business_statistics WHERE business_id = $1',
                 [businessId],
             );
-            return rows[0] ?? null;
+            if (!rows[0]) return null;
+            const { rows: viewRows } = await client.query<{ total_views: string }>(
+                'SELECT total_views::text FROM business_profile_views WHERE business_id = $1',
+                [businessId],
+            );
+            return { ...rows[0], profile_views: viewRows[0]?.total_views ?? '0' };
         });
         res.json({ data: stats, meta: { businessId } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/** The owner-facing editor for the business's public weekly schedule. */
+businessRoutes.get('/business/:businessId/opening-hours', authenticate, resolveBusiness, async (req, res, next) => {
+    try {
+        if (!req.user) throw unauthorized();
+        const businessId = req.businessId!;
+        const hours = await withTenant(contextFor(req, businessId), (client) =>
+            getStaffOpeningHours(client, businessId),
+        );
+        res.json({ data: hours, meta: { count: hours.length } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+businessRoutes.put('/business/:businessId/opening-hours', authenticate, resolveBusiness, async (req, res, next) => {
+    try {
+        if (!req.user) throw unauthorized();
+        const businessId = req.businessId!;
+        const hours = openingHoursSchema.parse(req.body);
+        const saved = await withTenant(contextFor(req, businessId), async (client) => {
+            const { rows } = await client.query<{ allowed: boolean }>(
+                `SELECT (app_has_business_permission($1, 'business.edit') OR app_is_platform_admin()) AS allowed`,
+                [businessId],
+            );
+            if (rows[0]?.allowed !== true) throw forbidden('Missing permission: business.edit');
+            return replaceOpeningHours(client, businessId, hours);
+        });
+        res.json({ data: saved, meta: { count: saved.length, businessId } });
     } catch (error) {
         next(error);
     }

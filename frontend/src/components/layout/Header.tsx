@@ -104,6 +104,20 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
     const isDashboard = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/business/') || location.pathname.startsWith('/admin');
     const isPublic = !isDashboard;
     const isLoginPage = location.pathname === '/login';
+    const isExploreActive = location.pathname === '/explore' || location.pathname.startsWith('/business/');
+    const isCategoriesActive = location.pathname === '/categories' || location.pathname.startsWith('/categories/');
+    const isHowItWorksActive = location.pathname === '/how-it-works';
+    const isFavoritesActive = location.pathname === '/favorites';
+    const publicNavLinkClass = (active: boolean) => cn(
+      'relative rounded-button px-3 py-2 text-sm transition-colors',
+      active
+        ? homeHeroVisible
+          ? 'font-semibold text-white after:absolute after:inset-x-3 after:-bottom-[13px] after:h-0.5 after:rounded-full after:bg-gold-300'
+          : 'bg-primary-50 font-semibold text-primary-700'
+        : homeHeroVisible
+          ? 'font-medium text-white/90 hover:bg-white/10 hover:text-white'
+          : 'font-medium text-navy-600 hover:bg-navy-50 hover:text-navy-900',
+    );
 
     return (
       <header
@@ -130,16 +144,16 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
 
               {isPublic && !isLoginPage && (
                 <nav className="hidden md:flex items-center gap-6" aria-label={t('nav.mainNavigation')}>
-                  <Link to="/explore" className={cn('text-sm font-medium transition-colors', homeHeroVisible ? 'text-white hover:text-gold-300' : 'text-navy-600 hover:text-navy-900')}>
+                  <Link to="/explore" aria-current={isExploreActive ? 'page' : undefined} className={publicNavLinkClass(isExploreActive)}>
                     {t('nav.explore')}
                   </Link>
-                  <Link to="/categories" className={cn('text-sm font-medium transition-colors', homeHeroVisible ? 'text-white hover:text-gold-300' : 'text-navy-600 hover:text-navy-900')}>
+                  <Link to="/categories" aria-current={isCategoriesActive ? 'page' : undefined} className={publicNavLinkClass(isCategoriesActive)}>
                     {t('nav.categories')}
                   </Link>
-                  <Link to="/how-it-works" className={cn('text-sm font-medium transition-colors', homeHeroVisible ? 'text-white hover:text-gold-300' : 'text-navy-600 hover:text-navy-900')}>
+                  <Link to="/how-it-works" aria-current={isHowItWorksActive ? 'page' : undefined} className={publicNavLinkClass(isHowItWorksActive)}>
                     {t('nav.howItWorks')}
                   </Link>
-                  <Link to="/favorites" className={cn('text-sm font-medium transition-colors', homeHeroVisible ? 'text-white hover:text-gold-300' : 'text-navy-600 hover:text-navy-900')}>
+                  <Link to="/favorites" aria-current={isFavoritesActive ? 'page' : undefined} className={publicNavLinkClass(isFavoritesActive)}>
                     {t('nav.favorites')}
                   </Link>
                 </nav>

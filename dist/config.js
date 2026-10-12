@@ -55,20 +55,27 @@ const envSchema = z.object({
     /**
      * Where uploaded images are stored.
      *
-     * `local` writes to a folder on this machine and is the only driver that
-     * exists today; it is also the default, so a fresh clone serves uploads
-     * without anyone having to edit `.env` first. Adding S3 or Cloudflare R2
-     * later means adding a value here and an implementation of
-     * `StorageProvider`, not touching a route.
+     * `local` writes to a folder on this machine and is the default for a fresh
+     * local clone. `s3` selects a Cloudflare R2 / S3-compatible bucket and is
+     * the correct choice for a deployed API behind a CDN or object store.
      */
-    STORAGE_DRIVER: z.enum(['local']).default('local'),
+    STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+    /**
+     * Public base URL for the object store, for example
+     * `https://cdn.example.com` or `https://<account>.r2.dev`.
+     * When `STORAGE_DRIVER=s3`, the app writes remote URLs from this value.
+     */
+    S3_PUBLIC_URL: z.string().url().optional(),
+    S3_ENDPOINT: z.string().url().optional(),
+    S3_BUCKET: z.string().min(1).optional(),
+    S3_REGION: z.string().min(1).optional(),
+    S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+    S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).optional().transform((value) => value === 'true'),
     /**
      * Root folder for stored images. A relative value is resolved against the
      * process working directory, which is the project root for `npm run dev`
-     * and for `npm start`. The public URL of a stored file is always
-     * `/uploads/<businessId>/<slot>/<name>`, independently of this path: the
-     * folder is an implementation detail and must never leak into a database
-     * row, or moving the folder would break every stored URL.
+     * and for `npm start`.
      */
     UPLOAD_DIR: z.string().min(1).default('uploads'),
     /** Upload ceilings, in bytes. The API is the only place these are enforced. */
@@ -262,6 +269,25 @@ function assertExplicitTrustProxyHops(value) {
         + '  Count the proxies between the internet and this process. For a single\n'
         + '  Caddy/nginx in front of the API: TRUST_PROXY_HOPS=1');
 }
+function assertS3Config(value) {
+    if (value.STORAGE_DRIVER !== 's3')
+        return;
+    const missing = [];
+    if (!value.S3_PUBLIC_URL)
+        missing.push('S3_PUBLIC_URL');
+    if (!value.S3_BUCKET)
+        missing.push('S3_BUCKET');
+    if (!value.S3_ACCESS_KEY_ID)
+        missing.push('S3_ACCESS_KEY_ID');
+    if (!value.S3_SECRET_ACCESS_KEY)
+        missing.push('S3_SECRET_ACCESS_KEY');
+    if (!value.S3_REGION && !value.S3_ENDPOINT)
+        missing.push('S3_REGION or S3_ENDPOINT');
+    if (missing.length > 0) {
+        throw new Error(`Refusing to start: STORAGE_DRIVER=s3 requires ${missing.join(', ')}.\n`
+            + '  Use a Cloudflare R2 or S3-compatible bucket and set the public URL used by browsers.');
+    }
+}
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
@@ -275,7 +301,7 @@ if (parsed.data.NODE_ENV === 'production') {
     assertAbsoluteUploadDir(parsed.data.UPLOAD_DIR);
     assertExplicitTrustProxyHops(parsed.data.TRUST_PROXY_HOPS);
 }
-export const config = {
+const configBase = {
     ...parsed.data,
     // Internal orders are enabled unless a deployment explicitly pauses them.
     ORDERS_ENABLED: parsed.data.ORDERS_ENABLED === undefined
@@ -293,4 +319,6 @@ export const config = {
      */
     trustProxyHops: parsed.data.TRUST_PROXY_HOPS ?? (parsed.data.NODE_ENV === 'production' ? 1 : 0),
 };
+assertS3Config(configBase);
+export const config = configBase;
 //# sourceMappingURL=config.js.map

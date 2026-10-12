@@ -48,6 +48,7 @@ export const TEST_TABLES = [
     'business_locations',
     'business_users',
     'business_statistics',
+    'business_profile_views',
     'businesses',
     'user_platform_roles',
     'users',

@@ -146,6 +146,81 @@ after(async () => {
 });
 
 describe('Statistics: regression for the SECURITY DEFINER defect', () => {
+    it('counts public profile loads without exposing visitor identity', async () => {
+        const first = await request(app).get(`/api/businesses/slug/stats-clinic`);
+        const second = await request(app).get(`/api/businesses/${ownerA.businessA}`);
+        assert.equal(first.status, 200);
+        assert.equal(second.status, 200);
+
+        const statsRes = await request(app)
+            .get(`/api/business/${ownerA.businessA}/statistics`)
+            .set('Authorization', `Bearer ${ownerA.token}`);
+        assert.equal(statsRes.status, 200);
+        assert.equal(statsRes.body.data.profile_views, '2');
+    });
+
+    it('lets an owner save weekly hours and publishes them on the profile', async () => {
+        const current = await request(app)
+            .get(`/api/business/${ownerA.businessA}/opening-hours`)
+            .set('Authorization', `Bearer ${ownerA.token}`);
+        assert.equal(current.status, 200);
+        assert.equal(current.body.data.length, 7);
+
+        const hours = Array.from({ length: 7 }, (_, day_of_week) => ({
+            day_of_week,
+            opens_at: day_of_week === 0 ? null : '09:00',
+            closes_at: day_of_week === 0 ? null : '17:00',
+            is_closed: day_of_week === 0,
+        }));
+
+        const saved = await request(app)
+            .put(`/api/business/${ownerA.businessA}/opening-hours`)
+            .set('Authorization', `Bearer ${ownerA.token}`)
+            .send(hours);
+        assert.equal(saved.status, 200, JSON.stringify(saved.body));
+        assert.equal(saved.body.data.length, 7);
+
+        const profile = await request(app).get(`/api/businesses/${ownerA.businessA}`);
+        assert.equal(profile.status, 200);
+        assert.equal(profile.body.data.opening_hours[0].is_closed, true);
+        assert.equal(profile.body.data.opening_hours[1].opens_at, '09:00:00');
+        assert.equal(profile.body.data.opening_hours[1].closes_at, '17:00:00');
+    });
+
+    it('rejects malformed opening hours without writing a partial schedule', async () => {
+        const invalid = Array.from({ length: 7 }, (_, day_of_week) => ({
+            day_of_week,
+            opens_at: '18:00',
+            closes_at: '09:00',
+            is_closed: false,
+        }));
+        const res = await request(app)
+            .put(`/api/business/${ownerA.businessA}/opening-hours`)
+            .set('Authorization', `Bearer ${ownerA.token}`)
+            .send(invalid);
+        assert.equal(res.status, 400);
+
+        const persisted = await request(app)
+            .get(`/api/business/${ownerA.businessA}/opening-hours`)
+            .set('Authorization', `Bearer ${ownerA.token}`);
+        assert.equal(persisted.status, 200);
+        assert.equal(persisted.body.data[1].opens_at, '09:00');
+    });
+
+    it('does not let an owner change another business hours', async () => {
+        const hours = Array.from({ length: 7 }, (_, day_of_week) => ({
+            day_of_week,
+            opens_at: null,
+            closes_at: null,
+            is_closed: true,
+        }));
+        const res = await request(app)
+            .put(`/api/business/${ownerA.businessA}/opening-hours`)
+            .set('Authorization', `Bearer ${ownerB.token}`)
+            .send(hours);
+        assert.equal(res.status, 403);
+    });
+
     it('a business owner can read the statistics of their own business', async () => {
         // This is the exact call that returned
         // "new row violates row-level security policy" before migration 006.

@@ -4,7 +4,6 @@ import { cn } from '../../lib/utils';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import { ShoppingBag, ChevronRight } from 'lucide-react';
 import { SmartImage } from '../common/SmartImage';
-import { Logo } from '../branding/Logo';
 import { useAuth } from '../../context/useAuth';
 import type { Id } from '../../types';
 import { businessDashboardPath, dashboardNavigation, dashboardNavigationHref } from './dashboardNavigation';
@@ -87,15 +86,6 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
         {...props}
       >
         <div className="flex flex-col h-full">
-          <div className={cn('flex h-12 items-center border-b border-navy-100 px-3', collapsed ? 'justify-center' : 'justify-between')}>
-            <Logo
-              to="/"
-              ariaLabel={t('brand.homeLabel')}
-              variant="light"
-              size="sm"
-              iconOnly={collapsed}
-            />
-          </div>
           <div className={cn('flex h-10 items-center justify-end px-4', collapsed && 'justify-center')}>
             <button
               onClick={() => setCollapsed(!collapsed)}

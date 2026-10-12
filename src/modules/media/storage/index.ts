@@ -10,6 +10,7 @@
 
 import { config } from '../../../config.js';
 import { LocalDiskStorage, resetUploadRootCache } from './local-disk.js';
+import { S3Storage } from './s3.js';
 import type { StorageProvider } from './types.js';
 
 let provider: StorageProvider | null = null;
@@ -20,10 +21,10 @@ export function getStorage(): StorageProvider {
         case 'local':
             provider = new LocalDiskStorage();
             return provider;
+        case 's3':
+            provider = new S3Storage();
+            return provider;
         default: {
-            // Unreachable while the enum only has one member, and kept so a
-            // driver added later without a case fails loudly instead of
-            // silently falling back to local disk.
             const exhaustive: never = config.STORAGE_DRIVER;
             throw new Error(`No storage provider for driver: ${String(exhaustive)}`);
         }
@@ -37,4 +38,5 @@ export function resetStorageForTests(): void {
 }
 
 export { LocalDiskStorage, buildImageKey } from './local-disk.js';
+export { S3Storage } from './s3.js';
 export { UPLOADS_URL_PREFIX, type StorageProvider, type StoredObject, type ImageSlot } from './types.js';

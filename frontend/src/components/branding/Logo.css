@@ -214,6 +214,10 @@
   animation: omni-logo-click-spin 700ms ease-out;
 }
 
+.omni-logo--loading .omni-logo__ring-spin {
+  animation: omni-logo-loading-spin 1s linear infinite;
+}
+
 .omni-logo--burst .omni-logo__star-interaction {
   animation: omni-logo-star-burst 700ms ease-out;
 }
@@ -273,6 +277,10 @@
 }
 
 @keyframes omni-logo-click-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes omni-logo-loading-spin {
   to { transform: rotate(360deg); }
 }
 

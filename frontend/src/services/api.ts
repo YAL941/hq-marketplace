@@ -25,6 +25,7 @@ import type {
   Order,
   OrderDetail,
   OrderListQuery,
+  OpeningHour,
   Product,
   ProductInput,
   ProductListQuery,
@@ -291,6 +292,12 @@ export const businessApi = {
    */
   getStatistics: (businessId: Id) =>
     api.get<ApiResponse<BusinessStatistics>>(`/business/${businessId}/statistics`),
+
+  getOpeningHours: (businessId: Id) =>
+    api.get<ApiResponse<OpeningHour[]>>(`/business/${businessId}/opening-hours`),
+
+  updateOpeningHours: (businessId: Id, hours: OpeningHour[]) =>
+    api.put<ApiResponse<OpeningHour[]>>(`/business/${businessId}/opening-hours`, hours),
 
   getMembers: (businessId: Id) =>
     api.get<ApiResponse<BusinessMember[]>>(`/business/${businessId}/members`),

@@ -60,7 +60,14 @@ export function DashboardAnalyticsPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="p-5">
+          <p className="text-sm text-navy-500">{t('dashboard.profileViews')}</p>
+          <p className="text-2xl font-bold text-navy-900 mt-1">
+            {formatNumber(stats.profile_views)}
+          </p>
+          <p className="text-xs text-navy-400 mt-2">{t('analytics.profileViewsNote')}</p>
+        </Card>
         <Card className="p-5">
           <p className="text-sm text-navy-500">{t('dashboard.totalRevenue')}</p>
           <p className="text-2xl font-bold text-navy-900 mt-1">
