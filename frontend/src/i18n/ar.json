@@ -827,6 +827,7 @@
     "status": "الحالة",
     "allStatuses": "كل الحالات",
     "customer": "عميل",
+    "replyAction": "رد",
     "ratingOf": "{{count}} من 5",
     "noText": "لم يترك العميل مراجعة مكتوبة، بل تقييماً فقط.",
     "yourReply": "ردّك",

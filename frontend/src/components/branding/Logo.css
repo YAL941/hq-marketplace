@@ -100,6 +100,22 @@
   color: #1f6fd6;
 }
 
+html[data-theme='dark'] .omni-logo--light .omni-logo__base {
+  color: #f6f9fc;
+}
+
+html[data-theme='dark'] .omni-logo--light .omni-logo__accent {
+  color: #9acbff;
+}
+
+html[data-theme='dark'] .omni-preloader .omni-logo--light .omni-logo__base {
+  color: #0b1f3f;
+}
+
+html[data-theme='dark'] .omni-preloader .omni-logo--light .omni-logo__accent {
+  color: #1f6fd6;
+}
+
 .omni-logo--dark .omni-logo__base {
   color: #fff;
 }

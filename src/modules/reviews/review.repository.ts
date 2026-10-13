@@ -106,7 +106,7 @@ export async function createReview(
 
     const { rows } = await client.query<ReviewRow>(
         `INSERT INTO reviews (business_id, user_id, order_id, rating, review_text, status)
-         VALUES ($1, $2, $3, $4, $5, 'pending')
+         VALUES ($1, $2, $3, $4, $5, 'published')
          ON CONFLICT (business_id, user_id) DO NOTHING
          RETURNING *`,
         [input.businessId, userId, input.orderId, input.rating, input.reviewText ?? null],
@@ -184,7 +184,7 @@ export async function createProductReview(
 
     const { rows } = await client.query<ProductReviewRow>(
         `INSERT INTO product_reviews (product_id, business_id, user_id, order_id, rating, review_text, status)
-         SELECT p.product_id, p.business_id, $2, $3, $4, $5, 'pending'
+         SELECT p.product_id, p.business_id, $2, $3, $4, $5, 'published'
            FROM products p
           WHERE p.product_id = $1
          ON CONFLICT (product_id, user_id) DO NOTHING

@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Star } from 'lucide-react';
 import { Button } from '../common/Button';
-import { RatingStars } from '../common/RatingStars';
-import { formatRelativeTime } from '../../lib/utils';
+import { CustomerReviewItem } from './CustomerReviewItem';
 import { reviewApi } from '../../services/api';
 import type { Product, PublicProductReview } from '../../types';
 
@@ -124,28 +123,22 @@ export function ProductFeedback({
         {!loading && !error && reviews.length === 0 && (
           <p className="text-sm text-navy-500">{t('business.productFeedback.none')}</p>
         )}
-        {reviews.map((review) => (
-          <article key={review.product_review_id} className="border-t border-navy-100 pt-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-medium text-navy-900">
-                {review.author_name || t('business.productFeedback.customer')}
-              </span>
-              <time className="text-xs text-navy-400">{formatRelativeTime(review.created_at)}</time>
-            </div>
-            <RatingStars
-              rating={review.rating}
-              size="sm"
-              className="mt-2 text-gold-500"
-            />
-            {review.review_text && <p className="mt-2 whitespace-pre-line text-sm text-navy-700">{review.review_text}</p>}
-            {review.business_response && (
-              <p className="mt-3 border-s-2 border-primary-200 ps-3 text-sm text-navy-600">
-                <span className="font-medium">{t('business.productFeedback.businessReply')}: </span>
-                {review.business_response}
-              </p>
-            )}
-          </article>
-        ))}
+        {reviews.length > 0 && (
+          <div className="divide-y divide-navy-100">
+            {reviews.map((review) => (
+              <div key={review.product_review_id} className="py-4 first:pt-0 last:pb-0">
+                <CustomerReviewItem
+                  authorName={review.author_name || t('business.productFeedback.customer')}
+                  createdAt={review.created_at}
+                  rating={review.rating}
+                  reviewText={review.review_text}
+                  businessResponse={review.business_response}
+                  responseLabel={t('business.productFeedback.businessReply')}
+                />
+              </div>
+            ))}
+          </div>
+        )}
         {hasMore && (
           <Button type="button" variant="outline" size="sm" loading={loadingMore} onClick={() => void loadMore()}>
             {t('business.productFeedback.loadMore')}

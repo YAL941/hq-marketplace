@@ -1,0 +1,17 @@
+# Never bake secrets, host-built binaries or user data into an image.
+.env
+.env.*
+!.env.example
+node_modules
+frontend/node_modules
+frontend/dist
+dist
+uploads
+backups
+coverage
+.git
+.github
+*.log
+test-output.txt
+*.mp4
+omnihq-intro.html

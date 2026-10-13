@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
-import { MessageSquare, EyeOff, Eye, Send, Star } from 'lucide-react';
+import { MessageSquare, Send, Star } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
@@ -42,6 +42,8 @@ export function DashboardReviewsPage() {
   const [error, setError] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [productDrafts, setProductDrafts] = useState<Record<string, string>>({});
+  const [replyOpenId, setReplyOpenId] = useState<Id | null>(null);
+  const [productReplyOpenId, setProductReplyOpenId] = useState<Id | null>(null);
   const [busyId, setBusyId] = useState<Id | null>(null);
   const [busyProductId, setBusyProductId] = useState<Id | null>(null);
   const [issue, setIssue] = useState<FieldIssue | null>(null);
@@ -90,40 +92,11 @@ export function DashboardReviewsPage() {
         delete next[review.review_id];
         return next;
       });
+      setReplyOpenId(null);
     } catch (error) {
       setIssue(toFieldIssue(error));
     } finally {
       setBusyId(null);
-    }
-  };
-
-  const moderate = async (review: BusinessReview, next: 'published' | 'hidden') => {
-    setBusyId(review.review_id);
-    setIssue(null);
-    try {
-      const res = await reviewApi.moderate(businessId, review.review_id, next);
-      setReviews((prev) =>
-        prev.map((item) => (item.review_id === review.review_id ? res.data.data : item)),
-      );
-    } catch (error) {
-      setIssue(toFieldIssue(error));
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const moderateProduct = async (review: ProductReview, next: 'published' | 'hidden') => {
-    setBusyProductId(review.product_review_id);
-    setIssue(null);
-    try {
-      const res = await reviewApi.moderateProduct(businessId, review.product_review_id, next);
-      setProductReviews((prev) =>
-        prev.map((item) => (item.product_review_id === review.product_review_id ? res.data.data : item)),
-      );
-    } catch (error) {
-      setIssue(toFieldIssue(error));
-    } finally {
-      setBusyProductId(null);
     }
   };
 
@@ -142,6 +115,7 @@ export function DashboardReviewsPage() {
         delete next[review.product_review_id];
         return next;
       });
+      setProductReplyOpenId(null);
     } catch (error) {
       setIssue(toFieldIssue(error));
     } finally {
@@ -189,45 +163,56 @@ export function DashboardReviewsPage() {
           />
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           {reviews.map((review) => (
-            <Card key={review.review_id} className="p-5">
-              <div className="flex flex-wrap items-center gap-3 mb-3">
-                <span className="font-medium text-navy-900">{t('review.customer')}</span>
+            <Card key={review.review_id} className="p-4">
+              <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="font-semibold text-navy-900">{t('review.customer')}</span>
                 <Badge variant={STATUS_VARIANT[review.status]} size="sm">
                   {t(`reviewStatus.${review.status}`)}
                 </Badge>
-                <span className="text-xs text-navy-400 ms-auto">
+                <span className="ms-auto text-xs text-navy-400">
                   {formatDateTime(review.created_at)}
                 </span>
-              </div>
-
-              <div className="flex items-center gap-1 mb-2" aria-label={t('review.ratingOf', { count: review.rating })}>
-                {Array.from({ length: 5 }, (_unused, index) => (
-                  <Star
-                    key={index}
-                    className={`w-4 h-4 ${index < review.rating ? 'text-gold-400' : 'text-navy-200'}`}
-                    fill="currentColor"
-                    aria-hidden="true"
-                  />
-                ))}
+                <div className="flex items-center gap-1" aria-label={t('review.ratingOf', { count: review.rating })}>
+                  {Array.from({ length: 5 }, (_unused, index) => (
+                    <Star
+                      key={index}
+                      className={`h-3.5 w-3.5 ${index < review.rating ? 'text-gold-400' : 'text-navy-200'}`}
+                      fill="currentColor"
+                      aria-hidden="true"
+                    />
+                  ))}
+                </div>
               </div>
 
               {review.review_text ? (
-                <p className="text-navy-700 mb-4">{review.review_text}</p>
+                <p className="mb-2 whitespace-pre-line break-words text-sm leading-5 text-navy-700">{review.review_text}</p>
               ) : (
-                <p className="text-sm text-navy-400 italic mb-4">{t('review.noText')}</p>
+                <p className="mb-2 text-xs italic text-navy-400">{t('review.noText')}</p>
               )}
 
               {review.business_response && (
-                <div className="rounded-button bg-sky p-4 mb-4">
-                  <p className="text-xs font-medium text-primary-700 mb-1">{t('review.yourReply')}</p>
-                  <p className="text-navy-700">{review.business_response}</p>
+                <div className="mb-2 rounded-lg border-s-2 border-primary-300 bg-primary-50 px-3 py-2">
+                  <p className="mb-0.5 text-xs font-semibold text-primary-700">{t('review.yourReply')}</p>
+                  <p className="whitespace-pre-line break-words text-sm text-navy-700">{review.business_response}</p>
                 </div>
               )}
 
               {!review.business_response && (
-                <div className="mb-4">
+                <div className="mb-2">
+                  {replyOpenId !== review.review_id ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="px-2"
+                      onClick={() => setReplyOpenId(review.review_id)}
+                    >
+                      <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                      {t('review.replyAction')}
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
                   <label htmlFor={`reply-${review.review_id}`} className="sr-only">
                     {t('review.replyLabel')}
                   </label>
@@ -240,9 +225,9 @@ export function DashboardReviewsPage() {
                     rows={2}
                     maxLength={4000}
                     placeholder={t('review.replyPlaceholder')}
-                    className="w-full rounded-button border border-navy-300 px-4 py-2.5 bg-white text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="w-full resize-y rounded-lg border border-navy-300 bg-white px-3 py-2 text-sm text-navy-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
-                  <div className="mt-2">
+                  <div className="flex justify-end">
                     <Button
                       size="sm"
                       loading={busyId === review.review_id}
@@ -253,34 +238,11 @@ export function DashboardReviewsPage() {
                       {t('review.sendReply')}
                     </Button>
                   </div>
+                    </div>
+                  )}
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-2 pt-3 border-t border-navy-100">
-                {review.status === 'published' ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    loading={busyId === review.review_id}
-                    disabled={busyId === review.review_id}
-                    onClick={() => void moderate(review, 'hidden')}
-                  >
-                    <EyeOff className="w-4 h-4" aria-hidden="true" />
-                    {t('review.hide')}
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    loading={busyId === review.review_id}
-                    disabled={busyId === review.review_id}
-                    onClick={() => void moderate(review, 'published')}
-                  >
-                    <Eye className="w-4 h-4" aria-hidden="true" />
-                    {t('review.publish')}
-                  </Button>
-                )}
-              </div>
             </Card>
           ))}
         </div>
@@ -293,39 +255,51 @@ export function DashboardReviewsPage() {
         {productReviews.length === 0 ? (
           <Card className="p-5 text-sm text-navy-500">{t('business.productFeedback.dashboardEmpty')}</Card>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {productReviews.map((review) => (
-              <Card key={review.product_review_id} className="p-5">
-                <div className="mb-3 flex flex-wrap items-center gap-3">
-                  <span className="font-medium text-navy-900">{t('review.customer')}</span>
-                  <span className="text-sm text-navy-500">
+              <Card key={review.product_review_id} className="p-4">
+                <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="font-semibold text-navy-900">{t('review.customer')}</span>
+                  <span className="min-w-0 truncate text-xs text-navy-500">
                     {review.product_name ?? t('business.productFeedback.productReference', { id: review.product_id })}
                   </span>
                   <Badge variant={STATUS_VARIANT[review.status]} size="sm">
                     {t(`reviewStatus.${review.status}`)}
                   </Badge>
                   <span className="ms-auto text-xs text-navy-400">{formatDateTime(review.created_at)}</span>
-                </div>
-                <div className="mb-2 flex items-center gap-1" aria-label={t('review.ratingOf', { count: review.rating })}>
-                  {Array.from({ length: 5 }, (_unused, index) => (
-                    <Star
-                      key={index}
-                      className={`h-4 w-4 ${index < review.rating ? 'text-gold-400' : 'text-navy-200'}`}
-                      fill="currentColor"
-                      aria-hidden="true"
-                    />
-                  ))}
+                  <div className="flex items-center gap-1" aria-label={t('review.ratingOf', { count: review.rating })}>
+                    {Array.from({ length: 5 }, (_unused, index) => (
+                      <Star
+                        key={index}
+                        className={`h-3.5 w-3.5 ${index < review.rating ? 'text-gold-400' : 'text-navy-200'}`}
+                        fill="currentColor"
+                        aria-hidden="true"
+                      />
+                    ))}
+                  </div>
                 </div>
                 {review.review_text
-                  ? <p className="mb-4 text-navy-700">{review.review_text}</p>
-                  : <p className="mb-4 text-sm italic text-navy-400">{t('review.noText')}</p>}
+                  ? <p className="mb-2 whitespace-pre-line break-words text-sm leading-5 text-navy-700">{review.review_text}</p>
+                  : <p className="mb-2 text-xs italic text-navy-400">{t('review.noText')}</p>}
                 {review.business_response ? (
-                  <div className="mb-4 rounded-button bg-sky p-4">
-                    <p className="mb-1 text-xs font-medium text-primary-700">{t('review.yourReply')}</p>
-                    <p className="text-navy-700">{review.business_response}</p>
+                  <div className="mb-2 rounded-lg border-s-2 border-primary-300 bg-primary-50 px-3 py-2">
+                    <p className="mb-0.5 text-xs font-semibold text-primary-700">{t('review.yourReply')}</p>
+                    <p className="whitespace-pre-line break-words text-sm text-navy-700">{review.business_response}</p>
                   </div>
                 ) : (
-                  <div className="mb-4">
+                  <div className="mb-2">
+                    {productReplyOpenId !== review.product_review_id ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="px-2"
+                        onClick={() => setProductReplyOpenId(review.product_review_id)}
+                      >
+                        <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                        {t('review.replyAction')}
+                      </Button>
+                    ) : (
+                      <div className="space-y-2">
                     <label htmlFor={`product-reply-${review.product_review_id}`} className="sr-only">
                       {t('review.replyLabel')}
                     </label>
@@ -338,9 +312,9 @@ export function DashboardReviewsPage() {
                       rows={2}
                       maxLength={4000}
                       placeholder={t('review.replyPlaceholder')}
-                      className="w-full rounded-button border border-navy-300 bg-white px-4 py-2.5 text-navy-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      className="w-full resize-y rounded-lg border border-navy-300 bg-white px-3 py-2 text-sm text-navy-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
-                    <div className="mt-2">
+                    <div className="flex justify-end">
                       <Button
                         size="sm"
                         loading={busyProductId === review.product_review_id}
@@ -351,33 +325,10 @@ export function DashboardReviewsPage() {
                         {t('review.sendReply')}
                       </Button>
                     </div>
+                      </div>
+                    )}
                   </div>
                 )}
-                <div className="flex flex-wrap gap-2 border-t border-navy-100 pt-3">
-                  {review.status === 'published' ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      loading={busyProductId === review.product_review_id}
-                      disabled={busyProductId === review.product_review_id}
-                      onClick={() => void moderateProduct(review, 'hidden')}
-                    >
-                      <EyeOff className="h-4 w-4" aria-hidden="true" />
-                      {t('review.hide')}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      loading={busyProductId === review.product_review_id}
-                      disabled={busyProductId === review.product_review_id}
-                      onClick={() => void moderateProduct(review, 'published')}
-                    >
-                      <Eye className="h-4 w-4" aria-hidden="true" />
-                      {t('review.publish')}
-                    </Button>
-                  )}
-                </div>
               </Card>
             ))}
           </div>

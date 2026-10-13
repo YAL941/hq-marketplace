@@ -13,12 +13,13 @@ import { BusinessCardSkeleton } from '../components/common/Skeleton';
 import { ErrorState } from '../components/common/ErrorState';
 import { SmartImage } from '../components/common/SmartImage';
 import { ReportBusinessLink } from '../components/business/ReportBusinessLink';
+import { CustomerReviewItem } from '../components/business/CustomerReviewItem';
 import { ProductFeedback } from '../components/business/ProductFeedback';
 import { DeliveryLocationPicker } from '../components/business/DeliveryLocationPicker';
 import { businessApi, orderApi, productApi, reviewApi, serviceApi } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import { safeExternalUrl } from '../lib/safeUrl';
-import { cn, formatCurrency, formatDate, formatRelativeTime } from '../lib/utils';
+import { cn, formatCurrency, formatDate } from '../lib/utils';
 import type { Location, Product, PublicBusinessProfile, PublicReview, Service } from '../types';
 
 /** Postgres `day_of_week`: 0 = Sunday. Indexed from Sunday to match. */
@@ -778,7 +779,7 @@ export function BusinessProfilePage() {
               </Card>
             )}
 
-            <Card>
+            <Card className="p-4 sm:p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-navy-900">{t('business.reviewsTitle')}</h2>
                 <span className="text-sm text-navy-500">
@@ -789,40 +790,21 @@ export function BusinessProfilePage() {
               {reviews.length === 0 ? (
                 <p className="text-navy-500">{t('business.noReviews')}</p>
               ) : (
-                <ul className="space-y-6">
+                <ul className="divide-y divide-navy-100">
                   {reviews.map((review) => (
-                    <li key={review.review_id} className="border-b border-navy-100 pb-6 last:border-0 last:pb-0">
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
-                            <Star className="w-4 h-4" />
-                          </div>
-                          <div>
-                            {/* The reviewer's account is never published, only a display name. */}
-                            <p className="font-medium text-navy-900">{review.author_name}</p>
-                            <p className="text-xs text-navy-500">
-                              {formatRelativeTime(review.created_at)}
-                            </p>
-                          </div>
-                        </div>
-                        <RatingStars rating={review.rating} size="sm" />
-                      </div>
-                      {review.review_text && (
-                        <p className="text-navy-700 text-start">{review.review_text}</p>
-                      )}
-                      {review.business_response && (
-                        <div className="mt-3 ps-4 border-s-2 border-primary-200">
-                          <p className="text-xs font-medium text-primary-700 mb-1">
-                            {t('business.businessResponse')}
-                            {review.responded_at && (
-                              <span className="text-navy-400 font-normal ms-2">
-                                {formatDate(review.responded_at)}
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-navy-600 text-sm">{review.business_response}</p>
-                        </div>
-                      )}
+                    <li key={review.review_id} className="py-4 first:pt-0 last:pb-0">
+                      <CustomerReviewItem
+                        authorName={review.author_name}
+                        createdAt={review.created_at}
+                        rating={review.rating}
+                        reviewText={review.review_text}
+                        businessResponse={review.business_response}
+                        responseLabel={
+                          review.responded_at
+                            ? `${t('business.businessResponse')} · ${formatDate(review.responded_at)}`
+                            : t('business.businessResponse')
+                        }
+                      />
                     </li>
                   ))}
                 </ul>

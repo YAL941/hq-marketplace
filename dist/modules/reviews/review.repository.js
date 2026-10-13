@@ -39,7 +39,7 @@ export async function createReview(client, userId, input) {
         throw badRequest('A completed order for this business is required to write a review');
     }
     const { rows } = await client.query(`INSERT INTO reviews (business_id, user_id, order_id, rating, review_text, status)
-         VALUES ($1, $2, $3, $4, $5, 'pending')
+         VALUES ($1, $2, $3, $4, $5, 'published')
          ON CONFLICT (business_id, user_id) DO NOTHING
          RETURNING *`, [input.businessId, userId, input.orderId, input.rating, input.reviewText ?? null]);
     if (!rows[0])
@@ -95,7 +95,7 @@ export async function createProductReview(client, userId, input) {
         throw badRequest('A completed order containing this product is required to write a review');
     }
     const { rows } = await client.query(`INSERT INTO product_reviews (product_id, business_id, user_id, order_id, rating, review_text, status)
-         SELECT p.product_id, p.business_id, $2, $3, $4, $5, 'pending'
+         SELECT p.product_id, p.business_id, $2, $3, $4, $5, 'published'
            FROM products p
           WHERE p.product_id = $1
          ON CONFLICT (product_id, user_id) DO NOTHING

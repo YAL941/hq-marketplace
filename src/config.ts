@@ -66,12 +66,6 @@ const envSchema = z.object({
      * the correct choice for a deployed API behind a CDN or object store.
      */
     STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
-    /**
-     * Public base URL for the object store, for example
-     * `https://cdn.example.com` or `https://<account>.r2.dev`.
-     * When `STORAGE_DRIVER=s3`, the app writes remote URLs from this value.
-     */
-    S3_PUBLIC_URL: z.string().url().optional(),
     S3_ENDPOINT: z.string().url().optional(),
     S3_BUCKET: z.string().min(1).optional(),
     S3_REGION: z.string().min(1).optional(),
@@ -309,7 +303,6 @@ function assertS3Config(value: AppConfig): void {
     if (value.STORAGE_DRIVER !== 's3') return;
 
     const missing: string[] = [];
-    if (!value.S3_PUBLIC_URL) missing.push('S3_PUBLIC_URL');
     if (!value.S3_BUCKET) missing.push('S3_BUCKET');
     if (!value.S3_ACCESS_KEY_ID) missing.push('S3_ACCESS_KEY_ID');
     if (!value.S3_SECRET_ACCESS_KEY) missing.push('S3_SECRET_ACCESS_KEY');
@@ -318,7 +311,8 @@ function assertS3Config(value: AppConfig): void {
     if (missing.length > 0) {
         throw new Error(
             `Refusing to start: STORAGE_DRIVER=s3 requires ${missing.join(', ')}.\n`
-            + '  Use a Cloudflare R2 or S3-compatible bucket and set the public URL used by browsers.',
+            + '  Use a Cloudflare R2 or S3-compatible bucket. Set VITE_MEDIA_BASE in the frontend build '
+            + 'or proxy /uploads/* to the bucket so browsers can load images.',
         );
     }
 }

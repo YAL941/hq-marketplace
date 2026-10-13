@@ -50,6 +50,20 @@
     background-color: #12314f;
   }
 
+  html[data-theme='dark'] .bg-error-50 {
+    background-color: #3b1d27;
+  }
+
+  html[data-theme='dark'] .text-error-600,
+  html[data-theme='dark'] .text-error-700,
+  html[data-theme='dark'] .text-error-800 {
+    color: #fecaca;
+  }
+
+  html[data-theme='dark'] .border-error-200 {
+    border-color: #7f3544;
+  }
+
   html[data-theme='dark'] .product-details-dialog-header {
     border-color: #254768;
     background-color: #0d2742;
@@ -410,6 +424,19 @@ button, a, input, select, textarea {
 
 .animate-spin {
   animation: spin 1s linear infinite;
+}
+
+html[data-theme='dark'] .customer-delivery-code {
+  border-color: #355778;
+  background-color: #12314f;
+}
+
+html[data-theme='dark'] .customer-delivery-code__title {
+  color: #e6f2ff;
+}
+
+html[data-theme='dark'] .customer-delivery-code__hint {
+  color: #c4d5e5;
 }
 
 /* Pulse animation for skeletons */

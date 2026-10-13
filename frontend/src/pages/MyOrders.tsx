@@ -153,11 +153,11 @@ export function MyOrdersPage() {
                           {t('customerOrders.orderNumber', { number: order.order_number })}
                         </p>
                         {order.delivery_confirmation_code && (
-                          <div className="mt-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-800">
-                            <p className="font-semibold">
+                          <div className="customer-delivery-code mt-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm">
+                            <p className="customer-delivery-code__title font-semibold">
                               {t('customerOrders.deliveryCode')}: <span dir="ltr" className="tracking-[0.25em]">{order.delivery_confirmation_code}</span>
                             </p>
-                            <p className="mt-1 text-xs">{t('customerOrders.deliveryCodeHint')}</p>
+                            <p className="customer-delivery-code__hint mt-1 text-xs">{t('customerOrders.deliveryCodeHint')}</p>
                           </div>
                         )}
                         {order.courier_phone && (

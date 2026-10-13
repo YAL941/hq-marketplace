@@ -421,7 +421,7 @@ describe('Test 6: Reviews stay inside their business', () => {
             });
         assert.equal(reviewA.status, 201);
         assert.equal(reviewB.status, 201);
-        assert.equal(reviewA.body.data.status, 'pending', 'new reviews still require moderation');
+        assert.equal(reviewA.body.data.status, 'published', 'new reviews are immediately public');
 
         const duplicate = await request(app)
             .post('/api/reviews')
@@ -433,10 +433,6 @@ describe('Test 6: Reviews stay inside their business', () => {
             });
         assert.equal(duplicate.status, 409);
 
-        await adminPool.query(`UPDATE reviews SET status = 'published' WHERE review_id = ANY($1::bigint[])`, [
-            [reviewA.body.data.review_id, reviewB.body.data.review_id],
-        ]);
-
         const listB = await request(app)
             .get(`/api/business/${fixtures.ownerB.businessB}/reviews`)
             .set('Authorization', `Bearer ${fixtures.ownerB.token}`);
@@ -447,6 +443,7 @@ describe('Test 6: Reviews stay inside their business', () => {
 
         const publicList = await request(app).get(`/api/reviews?businessId=${fixtures.ownerB.businessB}`);
         const publicIds = publicList.body.data.map((r: { review_id: string }) => Number(r.review_id));
+        assert.ok(publicIds.includes(Number(reviewB.body.data.review_id)), 'new review is public immediately');
         assert.ok(!publicIds.includes(Number(reviewA.body.data.review_id)));
     });
 });
@@ -597,10 +594,11 @@ describe('Order status transitions and product reviews', () => {
                 reviewText: 'Exactly as described',
             });
         assert.equal(review.status, 201, JSON.stringify(review.body));
-        assert.equal(review.body.data.status, 'pending');
+        assert.equal(review.body.data.status, 'published');
 
-        const hiddenUntilApproved = await request(app).get(`/api/product-reviews?productId=${productId}`);
-        assert.equal(hiddenUntilApproved.body.data.length, 0);
+        const immediatelyPublic = await request(app).get(`/api/product-reviews?productId=${productId}`);
+        assert.equal(immediatelyPublic.body.data.length, 1);
+        assert.equal(immediatelyPublic.body.data[0].review_text, 'Exactly as described');
 
         const unpurchased = await request(app)
             .post('/api/product-reviews')

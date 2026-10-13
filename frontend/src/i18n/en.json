@@ -799,6 +799,7 @@
     "status": "Status",
     "allStatuses": "All statuses",
     "customer": "Customer",
+    "replyAction": "Reply",
     "ratingOf": "{{count}} out of 5",
     "noText": "The customer left no written review, only a rating.",
     "yourReply": "Your reply",
