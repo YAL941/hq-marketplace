@@ -87,19 +87,26 @@ Production (and Preview if previews should access the database):
 | `TRUST_PROXY_HOPS` | `1` |
 | `ORDERS_ENABLED` | `false` until order pricing has been reviewed for production |
 | `STORAGE_DRIVER` | `s3` |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Supabase Storage S3 connection details and a public bucket for the marketplace's public images |
+| `S3_ENDPOINT` | `https://wbcqwdfdxxemoldyrpju.supabase.co/storage/v1/s3` |
+| `S3_REGION` | `us-east-1` |
+| `S3_BUCKET` | `marketplace-images` |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | The S3 access key and secret generated in Supabase Storage settings |
 | `S3_FORCE_PATH_STYLE` | `true` |
-| `VITE_MEDIA_BASE` | `https://wbcqwdfdxxemoldyrpju.supabase.co/storage/v1/object/public/<bucket-name>` |
+| `VITE_MEDIA_BASE` | `https://wbcqwdfdxxemoldyrpju.supabase.co/storage/v1/object/public/marketplace-images` |
 
 Vercel functions have an ephemeral filesystem, so the API refuses to run there
 with `STORAGE_DRIVER=local`. The serverless database pool is also limited to one
 connection per pool instance to reduce connection spikes as Vercel scales.
-Create a Supabase Storage bucket for marketplace images and mark it public:
-business logos and product images are public directory content, and the current
-frontend does not request signed image URLs. Set `S3_ENDPOINT` to
-`https://wbcqwdfdxxemoldyrpju.supabase.co/storage/v1/s3`; copy the S3 access key
-and secret from Supabase Storage settings. Never put database passwords or S3
-secret keys in a `VITE_` variable.
+For uploads, use the `marketplace-images` bucket created in Supabase Storage and
+mark it public because business logos and product images are public directory
+content, and the frontend does not request signed image URLs. The API stores
+keys under `uploads/` within that bucket; `VITE_MEDIA_BASE` points at the public
+bucket root, allowing the frontend to resolve those paths. Generate the S3
+access key in **Supabase → Storage → S3** and store both credentials only in
+Vercel's server-side environment variables. Supabase's S3 access key can access
+all Storage buckets in this project and bypasses Storage RLS; it does not grant
+database access. Keep only trusted server code able to use it, and do not put
+either credential in a `VITE_` variable.
 
 Before deploying, connect locally to the Supabase PostgreSQL database using its
 administrative connection details, then run `npm run db:status`,
