@@ -150,6 +150,18 @@ describe('production guards', () => {
         assert.match(output, /absolute/i);
     });
 
+    it('does not require a local upload directory when using S3 storage', async () => {
+        const { ok, output } = await bootProductionConfig({
+            STORAGE_DRIVER: 's3',
+            S3_ENDPOINT: 'https://storage.example.com',
+            S3_BUCKET: 'marketplace-images',
+            S3_ACCESS_KEY_ID: 'test-access-key',
+            S3_SECRET_ACCESS_KEY: 'test-secret-key',
+            UPLOAD_DIR: undefined,
+        });
+        assert.equal(ok, true, output);
+    });
+
     it('refuses an unset proxy hop count', async () => {
         // Both wrong values are silent: too low merges every visitor into one
         // rate-limit counter, too high lets a caller forge X-Forwarded-For.

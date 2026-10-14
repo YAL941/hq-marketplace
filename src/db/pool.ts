@@ -16,7 +16,7 @@ const common = {
     host: config.PGHOST,
     port: config.PGPORT,
     database: config.PGDATABASE,
-    max: 20,
+    max: process.env['VERCEL'] === '1' ? 1 : 20,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
 };
@@ -30,7 +30,7 @@ export const adminPool = new Pool({
 
 export const appPool = new Pool({
     ...common,
-    user: config.APP_DB_USER,
+    user: config.APP_DB_CONNECTION_USER ?? config.APP_DB_USER,
     password: config.APP_DB_PASSWORD,
     application_name: 'hq-app',
 });

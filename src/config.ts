@@ -13,6 +13,7 @@ const envSchema = z.object({
 
     APP_DB_USER: z.string().default('hq_app'),
     APP_DB_PASSWORD: z.string().default('hq_app'),
+    APP_DB_CONNECTION_USER: z.string().optional(),
 
     PORT: z.coerce.number().int().positive().default(4000),
     SMTP_HOST: z.string().min(1).optional(),
@@ -329,7 +330,9 @@ if (parsed.data.NODE_ENV === 'production') {
     assertProductionSecret('APP_DB_PASSWORD', parsed.data.APP_DB_PASSWORD, 16);
     assertProductionAdminPassword(parsed.data.PGPASSWORD);
     assertSeparateDbRoles(parsed.data.APP_DB_USER, parsed.data.PGUSER);
-    assertAbsoluteUploadDir(parsed.data.UPLOAD_DIR);
+    if (parsed.data.STORAGE_DRIVER === 'local') {
+        assertAbsoluteUploadDir(parsed.data.UPLOAD_DIR);
+    }
     assertExplicitTrustProxyHops(parsed.data.TRUST_PROXY_HOPS);
 }
 

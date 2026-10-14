@@ -59,6 +59,55 @@ that the application role is one the policies actually apply to, that all
 migrations are applied, that the upload directory is writable, and that the port
 is free. It changes nothing, so it is also safe to run against a live server.
 
+## Vercel frontend and API with Supabase
+
+This repository can deploy the Vite frontend and the existing Express API as one
+Vercel project. `vercel.json` builds the frontend into `frontend/dist`, while
+`api/[...path].ts` exposes the Express routes as a serverless function. The
+frontend already uses `/api` as its same-origin API base.
+
+In Vercel **Project Settings → Build and Deployment**, set **Root Directory**
+to the repository root (not `frontend`) and enable including files outside the
+root directory if Vercel offers that option. The checked-in `vercel.json`
+supplies the install, build and static output settings.
+
+Set the following in **Project Settings → Environment Variables** for
+Production (and Preview if previews should access the database):
+
+| Variable | Value |
+| --- | --- |
+| `NODE_ENV` | `production` |
+| `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` | Supabase PostgreSQL transaction-pooler details from **Connect**; `PGUSER` is usually `postgres.<project-ref>` |
+| `APP_DB_USER` | `hq_app` |
+| `APP_DB_PASSWORD` | A strong password for the separate API database role |
+| `APP_DB_CONNECTION_USER` | `hq_app.<project-ref>` when using the Supabase transaction pooler; keep `APP_DB_USER` as the actual database role name `hq_app` |
+| `JWT_SECRET` | A newly generated random secret of at least 32 characters |
+| `CORS_ORIGIN` | `https://hq-marketplace.vercel.app` (replace with the production site origin if different) |
+| `PUBLIC_APP_URL` | `https://hq-marketplace.vercel.app` (replace with the production site origin if different) |
+| `TRUST_PROXY_HOPS` | `1` |
+| `ORDERS_ENABLED` | `false` until order pricing has been reviewed for production |
+| `STORAGE_DRIVER` | `s3` |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Supabase Storage S3 connection details and a public bucket for the marketplace's public images |
+| `S3_FORCE_PATH_STYLE` | `true` |
+| `VITE_MEDIA_BASE` | `https://wbcqwdfdxxemoldyrpju.supabase.co/storage/v1/object/public/<bucket-name>` |
+
+Vercel functions have an ephemeral filesystem, so the API refuses to run there
+with `STORAGE_DRIVER=local`. The serverless database pool is also limited to one
+connection per pool instance to reduce connection spikes as Vercel scales.
+Create a Supabase Storage bucket for marketplace images and mark it public:
+business logos and product images are public directory content, and the current
+frontend does not request signed image URLs. Set `S3_ENDPOINT` to
+`https://wbcqwdfdxxemoldyrpju.supabase.co/storage/v1/s3`; copy the S3 access key
+and secret from Supabase Storage settings. Never put database passwords or S3
+secret keys in a `VITE_` variable.
+
+Before deploying, connect locally to the Supabase PostgreSQL database using its
+administrative connection details, then run `npm run db:status`,
+`npm run db:migrate`, and `npm run db:grants`. Confirm the migrations and
+`hq_app` role exist before adding the API environment variables and deploying.
+The Supabase project URL and publishable key are not substitutes for PostgreSQL
+connection settings; this API uses PostgreSQL directly.
+
 ## Environment
 
 Copy `.env.example` and fill it in. The production rules below are refusals, not
@@ -71,12 +120,14 @@ warnings: the process will not start.
 | `PGPASSWORD` | at least 16 characters, not a placeholder | the schema owner's credential, which bypasses RLS |
 | `APP_DB_USER` | must differ from `PGUSER` | see "Database roles" below |
 | `CORS_ORIGIN` | at least one origin, all `https://`, no `*` | a wildcard with credentials is not a restriction |
-| `UPLOAD_DIR` | absolute path | a relative path resolves against the service manager's working directory |
+| `UPLOAD_DIR` | absolute path when `STORAGE_DRIVER=local` | a relative path resolves against the service manager's working directory |
+| `STORAGE_DRIVER` | `s3` on Vercel | Vercel function filesystems are ephemeral |
 | `TRUST_PROXY_HOPS` | set explicitly | there is no safe default |
-| `ORDERS_ENABLED` | defaults to `false` in production | order creation currently accepts adjustment amounts and currency from the client; enable only after those values are computed by server-side rules |
+| `ORDERS_ENABLED` | explicitly set to `false` in production until reviewed | order creation currently accepts adjustment amounts and currency from the client |
 
-`ORDERS_ENABLED` defaults to `true` in development and test, and `false` in
-production. When disabled, `POST /api/orders` returns the same 404 response as
+`ORDERS_ENABLED` defaults to `true` in every environment, so production must set
+it explicitly to `false` until order pricing is computed by trusted server-side
+rules. When disabled, `POST /api/orders` returns the same 404 response as
 an unknown route; existing order reads and business order management remain
 available. Do not enable production order creation until delivery fees,
 discounts, tax and currency are derived from trusted server-side rules.
@@ -130,8 +181,8 @@ do.
 
 ## Uploads
 
-`UPLOAD_DIR` must be its own volume in production, owned by the user the service
-runs as, and referenced by an absolute path:
+When using local disk storage, `UPLOAD_DIR` must be its own volume in production,
+owned by the user the service runs as, and referenced by an absolute path:
 
 ```ini
 UPLOAD_DIR=/var/lib/hq-marketplace/uploads
@@ -274,7 +325,8 @@ are refusals rather than warnings:
 - `APP_DB_PASSWORD` or `PGPASSWORD` missing, too short, or a placeholder
 - `APP_DB_USER` equal to `PGUSER`
 - `CORS_ORIGIN` empty, a wildcard, or containing an `http://` origin
-- `UPLOAD_DIR` relative
+- `UPLOAD_DIR` relative when `STORAGE_DRIVER=local`
+- `STORAGE_DRIVER=local` on Vercel
 - `TRUST_PROXY_HOPS` unset
 - the application database role being a superuser, holding `BYPASSRLS`, or owning
   a table without `FORCE ROW LEVEL SECURITY`
