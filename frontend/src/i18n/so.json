@@ -101,7 +101,18 @@
     "resetComplete": "Furaha sirta ah waa la cusboonaysiiyey. Hadda waad soo geli kartaa.",
     "resetInvalidLink": "Xiriiriyahani ma saxna ama wuu dhacay. Codso mid cusub.",
     "updatePassword": "Cusboonaysii furaha sirta ah",
-    "backToSignIn": "Dib ugu noqo gelitaanka"
+    "backToSignIn": "Dib ugu noqo gelitaanka",
+    "verifyEmailTitle": "Xaqiiji iimaylkaaga",
+    "verifyEmailBody": "Geli lambarka xaqiijinta ee 6-god ah ee iimaylka laguugu soo diray. Wuxuu dhacayaa 15 daqiiqo gudahood.",
+    "verificationCode": "Lambarka xaqiijinta",
+    "verifyEmail": "Xaqiiji iimaylka",
+    "resendVerificationCode": "Dib u dir lambarka",
+    "verificationResendSent": "Haddii cinwaankani leeyahay xisaab aan la xaqiijin, lambar cusub ayaa loo diri doonaa. Sug hal daqiiqo inta u dhexaysa codsiyada, sidoo kale eeg spam-ka.",
+    "verificationInitialSendFailed": "Lambarka hadda lama diri karin. Hubi dejinta iimaylka, dabadeed isku day dib u dirid.",
+    "verificationComplete": "Iimaylkaaga waa la xaqiijiyey. Hadda waad geli kartaa.",
+    "verifyEmailLink": "Ma u baahan tahay xaqiijinta iimaylka? Geli lambarka xaqiijinta",
+    "emailNotVerified": "Xaqiiji iimaylkaaga adigoo adeegsanaya lambarka ka hor gelitaanka.",
+    "verificationInvalidCode": "Lambarku waa khaldan yahay, wuu dhacay, ama hore ayaa loo isticmaalay."
   },
   "soon": {
     "backHome": "Dib ugu noqo OmniHQ",

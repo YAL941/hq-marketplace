@@ -8,6 +8,10 @@ export interface AuthOutcome {
   role: AuthRole;
   /** The business created alongside a `business_owner` signup, else undefined. */
   businessId?: Id;
+  /** Email accounts must verify before they can sign in. */
+  emailVerificationRequired?: boolean;
+  emailVerificationSent?: boolean;
+  email?: string;
 }
 
 export interface AuthContextType {

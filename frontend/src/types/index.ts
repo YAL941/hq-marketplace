@@ -152,9 +152,13 @@ export interface RegisterPayload {
   phone?: string;
 }
 
-export interface RegisterResponse extends LoginResponse {
+export interface RegisterResponse {
+  user: { user_id: Id; email: string | null; full_name: string };
+  token?: string;
   /** The business created alongside a `business_owner` account, else null. */
   business: BusinessSummary | null;
+  emailVerificationRequired?: boolean;
+  emailVerificationSent?: boolean;
 }
 
 /** What onboarding and registration hand back: id, name, slug and status. */

@@ -101,7 +101,18 @@
     "resetComplete": "Your password has been updated. You can now sign in.",
     "resetInvalidLink": "This reset link is invalid or expired. Request a new one.",
     "updatePassword": "Update password",
-    "backToSignIn": "Back to sign in"
+    "backToSignIn": "Back to sign in",
+    "verifyEmailTitle": "Verify your email",
+    "verifyEmailBody": "Enter the 6-digit verification code sent to your email. It expires in 15 minutes.",
+    "verificationCode": "Verification code",
+    "verifyEmail": "Verify email",
+    "resendVerificationCode": "Resend code",
+    "verificationResendSent": "If this address belongs to an unverified account, a new code will be sent. Wait one minute between requests and check your spam folder.",
+    "verificationInitialSendFailed": "We could not send the code just now. Check the email delivery settings, then try resending.",
+    "verificationComplete": "Your email is verified. You can now sign in.",
+    "verifyEmailLink": "Need to verify your email? Enter a verification code",
+    "emailNotVerified": "Verify your email with the code before signing in.",
+    "verificationInvalidCode": "The code is incorrect, expired, or has already been used."
   },
   "soon": {
     "backHome": "Back to OmniHQ",

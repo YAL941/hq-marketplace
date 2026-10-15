@@ -189,6 +189,12 @@ export const authApi = {
   register: (data: RegisterPayload) =>
     api.post<ApiResponse<RegisterResponse>>('/auth/register', data),
 
+  verifyEmail: (data: { email: string; code: string }) =>
+    api.post<ApiResponse<{ verified: boolean }>>('/auth/email-verification/verify', data),
+
+  resendEmailVerification: (email: string) =>
+    api.post<ApiResponse<{ message: string }>>('/auth/email-verification/resend', { email }),
+
   /**
    * `identifier` is one field the server reads as either a phone number or an
    * email address; it normalises a phone to the same E.164 form the account was

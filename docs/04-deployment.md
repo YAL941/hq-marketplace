@@ -46,6 +46,11 @@ npm run preflight      # everything that can be checked without starting the API
 Then promote the first administrator — see "The first administrator" below. It
 cannot be done by the seed, and the API has no endpoint for it.
 
+For a release that adds a database migration, apply it to Supabase using the
+database owner connection before deploying the matching API code. In particular,
+migration `034_email_verification.sql` must be applied before the new email
+registration route is deployed.
+
 `npm run preflight` is the step that catches a bad deployment on your machine
 rather than on the box. It exits non-zero if anything is wrong, so it works as a
 deploy gate:
@@ -85,13 +90,14 @@ Production (and Preview if previews should access the database):
 | `APP_DB_PASSWORD` | A strong password for the separate API database role |
 | `APP_DB_CONNECTION_USER` | `hq_app.<project-ref>` when using the Supabase transaction pooler; keep `APP_DB_USER` as the actual database role name `hq_app` |
 | `JWT_SECRET` | A newly generated random secret of at least 32 characters |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | Credentials and sender address from a verified SMTP provider; required for verification codes, password reset, and business-decision emails |
 | `CORS_ORIGIN` | `https://hq-marketplace.vercel.app` (replace with the production site origin if different) |
 | `PUBLIC_APP_URL` | `https://hq-marketplace.vercel.app` (replace with the production site origin if different) |
 | `TRUST_PROXY_HOPS` | `1` |
 | `ORDERS_ENABLED` | `false` until order pricing has been reviewed for production |
 | `STORAGE_DRIVER` | `s3` |
-| `S3_ENDPOINT` | `https://wbcqwdfdxxemoldyrpju.supabase.co/storage/v1/s3` |
-| `S3_REGION` | `us-east-1` |
+| `S3_ENDPOINT` | Copy the S3 endpoint from Supabase Storage → S3 Configuration, such as `https://<project-ref>.storage.supabase.co/storage/v1/s3` |
+| `S3_REGION` | The project region shown in Supabase Storage → S3 Configuration |
 | `S3_BUCKET` | `marketplace-images` |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | The S3 access key and secret generated in Supabase Storage settings |
 | `S3_FORCE_PATH_STYLE` | `true` |
@@ -110,6 +116,17 @@ Vercel's server-side environment variables. Supabase's S3 access key can access
 all Storage buckets in this project and bypasses Storage RLS; it does not grant
 database access. Keep only trusted server code able to use it, and do not put
 either credential in a `VITE_` variable.
+
+Email registrations require a six-digit verification code before the account
+can sign in. Codes expire after 15 minutes and are limited to five attempts;
+phone-only registration keeps its existing flow. The API sends the code through
+the SMTP settings above. Business approval and rejection emails also use SMTP,
+and business owners can see their review status in the dashboard.
+
+Use the environment variable name `S3_ENDPOINT` exactly; the API does not read
+`SUPABASE_S3_ENDPOINT`. Supabase's S3 endpoint and signing region are shown
+together in **Storage → S3 Configuration**. The S3 region is the Supabase
+project region, not necessarily `us-east-1`.
 
 Before deploying, connect locally to the Supabase PostgreSQL database using its
 administrative connection details, then run `npm run db:status`,

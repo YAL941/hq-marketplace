@@ -42,6 +42,9 @@ export function LoginPage() {
    * translated strings are only the fallbacks for when it said nothing useful.
    */
   const messageFor = (issue: FieldIssue): string => {
+    if (issue.message?.toLowerCase().includes('verify your email')) {
+      return t('auth.emailNotVerified');
+    }
     if (issue.message) return issue.message;
     switch (issue.status) {
       case 400:
@@ -165,6 +168,12 @@ export function LoginPage() {
                 {t('auth.forgotPassword')}
               </Link>
             </div>
+
+            <p className="text-sm text-center">
+              <Link to="/verify-email" className="text-primary-600 hover:text-primary-700">
+                {t('auth.verifyEmailLink')}
+              </Link>
+            </p>
 
             <Button type="submit" className="w-full" size="lg" loading={loading}>
               {t('auth.signIn')}

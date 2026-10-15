@@ -17,6 +17,7 @@ process.env['PGDATABASE'] = process.env['TEST_PGDATABASE'] ?? 'hq_marketplace_te
 process.env['JWT_SECRET'] = process.env['JWT_SECRET'] ?? 'test-secret-that-is-long-enough-123';
 
 import assertModule from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import request from 'supertest';
 import { normalisePhone, PhoneValidationError } from '../src/modules/auth/phone.js';
@@ -45,6 +46,20 @@ async function login(body: Record<string, unknown>) {
     return request(app).post('/api/auth/login').send(body);
 }
 
+async function verifyRegisteredEmail(email: string, code = '123456') {
+    const digest = createHmac('sha256', process.env['JWT_SECRET']!)
+        .update(`${email.toLowerCase()}:${code}`)
+        .digest('hex');
+    await adminPool.query(
+        `UPDATE user_email_verification_codes c
+            SET code_hash = $2, expires_at = $3, attempts = 0, consumed_at = NULL
+           FROM users u
+          WHERE c.user_id = u.user_id AND u.email = $1`,
+        [email, digest, new Date(Date.now() + 15 * 60 * 1000)],
+    );
+    return request(app).post('/api/auth/email-verification/verify').send({ email, code });
+}
+
 before(async () => {
     app = (await import('../src/app.js')).createApp();
     const poolModule = await import('../src/db/pool.js');
@@ -60,15 +75,30 @@ after(async () => {
 });
 
 describe('Registration: email, phone, or both', () => {
-    it('registers a customer with an email only, exactly as before', async () => {
+    it('requires email verification before an email account can sign in', async () => {
         const email = nextEmail('email-only');
         const res = await register({ email, password: PASSWORD, fullName: 'Email Only' });
 
         assert.equal(res.status, 201, JSON.stringify(res.body));
         assert.equal(res.body.data.user.email, email);
         assert.equal(res.body.data.user.phone, null);
-        assert.ok(res.body.data.token, 'a token is issued');
+        assert.equal(res.body.data.emailVerificationRequired, true);
+        assert.equal(typeof res.body.data.emailVerificationSent, 'boolean');
+        assert.equal(res.body.data.token, undefined, 'no token is issued before email verification');
         assert.equal(res.body.data.business, null, 'a customer owns no business');
+
+        const blockedLogin = await login({ identifier: email, password: PASSWORD });
+        assert.equal(blockedLogin.status, 401);
+        assert.match(blockedLogin.body.error.message, /verify your email/i);
+
+        const verified = await verifyRegisteredEmail(email);
+        assert.equal(verified.status, 200, JSON.stringify(verified.body));
+        const successfulLogin = await login({ identifier: email, password: PASSWORD });
+        assert.equal(successfulLogin.status, 200, JSON.stringify(successfulLogin.body));
+        const reusedCode = await request(app)
+            .post('/api/auth/email-verification/verify')
+            .send({ email, code: '123456' });
+        assert.equal(reusedCode.status, 400, 'a verification code can only be used once');
     });
 
     it('registers a customer with a phone number only', async () => {
@@ -92,6 +122,8 @@ describe('Registration: email, phone, or both', () => {
         assert.equal(res.status, 201, JSON.stringify(res.body));
         assert.equal(res.body.data.user.email, email);
         assert.equal(res.body.data.user.phone, '+252770000000');
+        assert.equal(res.body.data.emailVerificationRequired, true);
+        assert.equal(res.body.data.token, undefined);
     });
 
     it('stores every accepted spelling of one number as the same account', async () => {
@@ -240,6 +272,8 @@ describe('Login: identifier may be an email or a phone number', () => {
     it('logs in with an email', async () => {
         const email = nextEmail('login-email');
         await register({ email, password: PASSWORD, fullName: 'Email Login' });
+        const verified = await verifyRegisteredEmail(email);
+        assert.equal(verified.status, 200);
 
         const res = await login({ identifier: email, password: PASSWORD });
         assert.equal(res.status, 200, JSON.stringify(res.body));
@@ -267,6 +301,7 @@ describe('Login: identifier may be an email or a phone number', () => {
     it('still accepts the older `email` field name', async () => {
         const email = nextEmail('legacy-field');
         await register({ email, password: PASSWORD, fullName: 'Legacy Client' });
+        await verifyRegisteredEmail(email);
 
         const res = await login({ email, password: PASSWORD });
         assert.equal(res.status, 200, 'a client written before `identifier` still works');
@@ -275,6 +310,7 @@ describe('Login: identifier may be an email or a phone number', () => {
     it('is case insensitive for the email', async () => {
         const email = nextEmail('case-test');
         await register({ email, password: PASSWORD, fullName: 'Case Test' });
+        await verifyRegisteredEmail(email);
 
         const res = await login({ identifier: email.toUpperCase(), password: PASSWORD });
         assert.equal(res.status, 200);

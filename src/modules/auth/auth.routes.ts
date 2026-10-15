@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import { badRequest, conflict, unauthorized } from '../../db/errors.js';
@@ -8,7 +8,7 @@ import { ANONYMOUS, withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor, signAccessToken } from '../../middleware/auth.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import { config } from '../../config.js';
-import { sendPasswordResetEmail } from '../admin/mailer.js';
+import { sendEmailVerificationCode, sendPasswordResetEmail } from '../admin/mailer.js';
 import { isEmailLike, normalisePhone, PhoneValidationError } from './phone.js';
 
 /**
@@ -93,6 +93,25 @@ const passwordResetConfirmSchema = z.object({
     token: z.string().regex(/^[a-f0-9]{64}$/i),
     password: z.string().min(8).max(128),
 });
+const emailVerificationSchema = z.object({
+    email: z.string().email().max(254),
+    code: z.string().regex(/^\d{6}$/),
+});
+const emailVerificationResendSchema = z.object({
+    email: z.string().email().max(254),
+});
+
+const EMAIL_VERIFICATION_TTL_MS = 15 * 60 * 1000;
+
+function newEmailVerificationCode(): string {
+    return randomInt(0, 1_000_000).toString().padStart(6, '0');
+}
+
+function emailVerificationCodeHash(email: string, code: string): string {
+    return createHmac('sha256', config.JWT_SECRET)
+        .update(`${email.toLowerCase()}:${code}`)
+        .digest('hex');
+}
 
 export const authRoutes: Router = Router();
 
@@ -112,6 +131,7 @@ authRoutes.post('/auth/register', authLimiter, async (req, res, next) => {
         }
 
         const passwordHash = await bcrypt.hash(input.password, 12);
+        const verificationCode = email ? newEmailVerificationCode() : null;
 
         const result = await withTenant(ANONYMOUS, async (client) => {
             // The RLS policies read these two settings back when the row being
@@ -121,9 +141,9 @@ authRoutes.post('/auth/register', authLimiter, async (req, res, next) => {
 
             const { rows } = await client.query<{ user_id: string; email: string | null; full_name: string; phone: string | null }>(
                 `INSERT INTO users (email, phone, password_hash, full_name, status)
-                 VALUES ($1, $2, $3, $4, 'active')
+                 VALUES ($1, $2, $3, $4, $5::user_status)
                  RETURNING user_id, email, phone, full_name`,
-                [email, phone, passwordHash, input.fullName],
+                [email, phone, passwordHash, input.fullName, email ? 'pending' : 'active'],
             );
             const user = rows[0]!;
             const { rows: roleRows } = await client.query<{ role_id: string }>(
@@ -161,8 +181,47 @@ authRoutes.post('/auth/register', authLimiter, async (req, res, next) => {
                 })()
                 : null;
 
+            if (email && verificationCode) {
+                const { rowCount } = await client.query(
+                    `SELECT account_id
+                       FROM issue_user_email_verification_code($1, $2, $3)`,
+                    [
+                        email,
+                        emailVerificationCodeHash(email, verificationCode),
+                        new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
+                    ],
+                );
+                if (!rowCount) throw new Error('Could not create the email verification code');
+            }
+
             return { user, business };
         });
+
+        if (email && verificationCode) {
+            let emailSent = false;
+            try {
+                const delivery = await sendEmailVerificationCode({
+                    recipient: email,
+                    fullName: result.user.full_name,
+                    code: verificationCode,
+                });
+                emailSent = delivery.sent;
+                if (!delivery.sent) {
+                    console.warn(`[auth] verification email not sent for user ${result.user.user_id}: ${delivery.reason}`);
+                }
+            } catch (error) {
+                console.error(`[auth] verification email failed for user ${result.user.user_id}:`, error);
+            }
+            res.status(201).json({
+                data: {
+                    user: result.user,
+                    business: result.business,
+                    emailVerificationRequired: true,
+                    emailVerificationSent: emailSent,
+                },
+            });
+            return;
+        }
 
         const token = signAccessToken({
             id: Number(result.user.user_id),
@@ -183,6 +242,68 @@ authRoutes.post('/auth/register', authLimiter, async (req, res, next) => {
             ));
             return;
         }
+        next(error);
+    }
+});
+
+authRoutes.post('/auth/email-verification/verify', authLimiter, async (req, res, next) => {
+    try {
+        const input = emailVerificationSchema.parse(req.body);
+        const email = input.email.toLowerCase();
+        const codeHash = emailVerificationCodeHash(email, input.code);
+        const { rows } = await withTenant(ANONYMOUS, async (client) =>
+            client.query<{ verified: boolean }>(
+                'SELECT verify_user_email_code($1, $2) AS verified',
+                [email, codeHash],
+            ),
+        );
+        if (rows[0]?.verified !== true) {
+            next(badRequest('The verification code is invalid, expired, or has already been used'));
+            return;
+        }
+        res.json({ data: { verified: true } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+authRoutes.post('/auth/email-verification/resend', authLimiter, async (req, res, next) => {
+    try {
+        const input = emailVerificationResendSchema.parse(req.body);
+        const email = input.email.toLowerCase();
+        const code = newEmailVerificationCode();
+        const { rows } = await withTenant(ANONYMOUS, async (client) =>
+            client.query<{ account_id: string; user_email: string; user_name: string }>(
+                `SELECT account_id, user_email, user_name
+                   FROM issue_user_email_verification_code($1, $2, $3)`,
+                [
+                    email,
+                    emailVerificationCodeHash(email, code),
+                    new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
+                ],
+            ),
+        );
+        const account = rows[0];
+        if (account) {
+            try {
+                const delivery = await sendEmailVerificationCode({
+                    recipient: account.user_email,
+                    fullName: account.user_name,
+                    code,
+                });
+                if (!delivery.sent) {
+                    console.warn(`[auth] verification email not sent for user ${account.account_id}: ${delivery.reason}`);
+                }
+            } catch (error) {
+                console.error(`[auth] verification email failed for user ${account.account_id}:`, error);
+            }
+        }
+        res.json({
+            data: {
+                message: 'If the address belongs to an unverified account, a new code has been sent.',
+            },
+        });
+    } catch (error) {
         next(error);
     }
 });
@@ -216,6 +337,18 @@ authRoutes.post('/auth/login', authLimiter, async (req, res, next) => {
         if (!user || !passwordOk) {
             next(unauthorized('Invalid email or password'));
             return;
+        }
+        if (user.email) {
+            const { rows: verificationRows } = await withTenant(contextFor(req), async (client) =>
+                client.query<{ verified: boolean }>(
+                    'SELECT user_email_is_verified($1) AS verified',
+                    [user.user_id],
+                ),
+            );
+            if (verificationRows[0]?.verified !== true) {
+                next(unauthorized('Please verify your email address before signing in.'));
+                return;
+            }
         }
         if (user.status !== 'active') {
             next(unauthorized('Account is not active'));

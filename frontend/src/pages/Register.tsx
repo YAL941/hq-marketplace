@@ -123,6 +123,13 @@ export function RegisterPage() {
         },
         true,
       );
+      if (outcome.emailVerificationRequired && outcome.email) {
+        const params = new URLSearchParams({ email: outcome.email });
+        if (outcome.businessId) params.set('businessId', String(outcome.businessId));
+        if (!outcome.emailVerificationSent) params.set('sent', '0');
+        navigate(`/verify-email?${params.toString()}`, { replace: true });
+        return;
+      }
       // A business owner lands on the completion form for the business the
       // server just made (it starts with only a name), instead of on an empty
       // dashboard. If the id never came back, fall back to the dashboard rather

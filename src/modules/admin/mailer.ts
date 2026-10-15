@@ -44,6 +44,32 @@ export async function sendPasswordResetEmail(input: {
     });
 }
 
+export async function sendEmailVerificationCode(input: {
+    recipient: string;
+    fullName: string;
+    code: string;
+}): Promise<{ sent: boolean; reason?: string }> {
+    if (!transporter) return { sent: false, reason: 'SMTP is not configured' };
+    const safeName = escapeHtml(input.fullName);
+    const safeCode = escapeHtml(input.code);
+    await transporter.sendMail({
+        from: config.MAIL_FROM,
+        to: input.recipient,
+        subject: 'رمز تأكيد بريدك | Verify your email',
+        html: `<div style="font-family:Arial,sans-serif;line-height:1.7;color:#172554;max-width:600px;margin:auto">
+          <h2>تأكيد بريدك الإلكتروني</h2>
+          <p>مرحباً ${safeName}، استخدم الرمز التالي لتأكيد بريدك الإلكتروني في OmniHQ:</p>
+          <p dir="ltr" style="font-size:28px;font-weight:bold;letter-spacing:8px">${safeCode}</p>
+          <p>تنتهي صلاحية الرمز بعد 15 دقيقة. إذا لم تنشئ هذا الحساب، فتجاهل هذه الرسالة.</p>
+          <hr><h2>Verify your email</h2>
+          <p>Hello ${safeName}, use this code to verify your OmniHQ email address:</p>
+          <p dir="ltr" style="font-size:28px;font-weight:bold;letter-spacing:8px">${safeCode}</p>
+          <p>This code expires in 15 minutes. If you did not create this account, you can ignore this email.</p>
+        </div>`,
+    });
+    return { sent: true };
+}
+
 function escapeHtml(value: string): string {
     return value.replace(/[&<>"']/g, (character) => ({
         '&': '&amp;',

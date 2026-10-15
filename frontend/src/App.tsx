@@ -19,6 +19,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { BusinessProfilePage } from './pages/BusinessProfile';
 import { LoginPage } from './pages/Login';
 import { RegisterPage } from './pages/Register';
+import { VerifyEmailPage } from './pages/VerifyEmail';
 import './index.css';
 
 const DashboardHomePage = lazy(() =>
@@ -442,6 +443,7 @@ function App() {
           <Route path="/contact" element={<MainLayout><ContactPage /></MainLayout>} />
           <Route path="/login" element={<MainLayout><LoginPage /></MainLayout>} />
           <Route path="/register" element={<MainLayout><RegisterPage /></MainLayout>} />
+          <Route path="/verify-email" element={<MainLayout><VerifyEmailPage /></MainLayout>} />
           <Route
             path="/my-orders"
             element={

@@ -155,7 +155,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (payload: RegisterPayload, remember: boolean) => {
     const response = await authApi.register(payload);
     const data = response.data.data as RegisterResponse;
+    if (data.emailVerificationRequired) {
+      return {
+        role: payload.role,
+        businessId: data.business?.business_id,
+        emailVerificationRequired: true,
+        emailVerificationSent: data.emailVerificationSent === true,
+        email: payload.email,
+      };
+    }
+
     const { token } = data;
+    if (!token) throw new Error('Registration response did not include an access token');
 
     persistToken(token, remember);
     if (remember) localStorage.setItem(REMEMBER_KEY, '1');
