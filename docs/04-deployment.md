@@ -63,8 +63,11 @@ is free. It changes nothing, so it is also safe to run against a live server.
 
 This repository can deploy the Vite frontend and the existing Express API as one
 Vercel project. `vercel.json` builds the frontend into `frontend/dist`, while
-`api/[...path].ts` exposes the Express routes as a serverless function. The
-frontend already uses `/api` as its same-origin API base.
+`api/[...path].ts` exposes the Express routes as a serverless function.
+`api/index.ts` is the shared rewrite target for nested `/api/...` paths; it
+restores the requested path before handing the request to Express. The SPA
+fallback excludes both `/api` and `/api/...`. The frontend already uses `/api`
+as its same-origin API base.
 
 In Vercel **Project Settings → Build and Deployment**, set **Root Directory**
 to the repository root (not `frontend`) and enable including files outside the

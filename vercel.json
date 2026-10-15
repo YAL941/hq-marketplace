@@ -5,7 +5,11 @@
   "outputDirectory": "frontend/dist",
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/api/:path*",
+      "destination": "/api?__api_path=:path*"
+    },
+    {
+      "source": "/((?!api(?:/|$)).*)",
       "destination": "/index.html"
     }
   ]
