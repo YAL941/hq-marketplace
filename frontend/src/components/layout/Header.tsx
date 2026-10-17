@@ -381,7 +381,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
         </div>
 
         {!isLoginPage && mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-navy-100 bg-white text-navy-900 shadow-card animate-slide-down">
+          <div className="max-h-[calc(100dvh-4rem-env(safe-area-inset-top))] overflow-y-auto overscroll-contain border-t border-navy-100 bg-white py-4 text-navy-900 shadow-card animate-slide-down md:hidden">
             <div className="px-4 sm:px-6 mb-3 lg:hidden">
               <SearchBar
                 value={searchQuery}
