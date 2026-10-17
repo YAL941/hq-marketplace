@@ -360,7 +360,10 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
 
               {!isAuthenticated && (
                 <LanguageSwitcher
-                  className={homeHeroVisible ? '[&>button]:text-white [&>button:hover]:bg-white/15' : ''}
+                  className={cn(
+                    'hidden md:flex',
+                    homeHeroVisible && '[&>button]:text-white [&>button:hover]:bg-white/15'
+                  )}
                 />
               )}
 
@@ -512,11 +515,9 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
             )}
             {/* The popover variant would be clipped by the drawer's own
                 overflow, so the mobile list is rendered inline instead. */}
-            {!isAuthenticated && (
-              <div className="px-4 sm:px-6 pt-2">
-                <LanguageSwitcher variant="inline" />
-              </div>
-            )}
+            <div className="px-4 sm:px-6 pt-2">
+              <LanguageSwitcher variant="inline" />
+            </div>
           </div>
         )}
       </header>

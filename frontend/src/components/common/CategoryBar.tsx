@@ -182,7 +182,7 @@ export function CategoryBar({
 
   return (
     <div className="relative flex min-w-0 items-center gap-2">
-      {edges.start && (
+      {edges.start && !isOnDark && (
         <button
           type="button"
           onClick={() => scrollToAdjacentItem('previous')}
@@ -271,7 +271,7 @@ export function CategoryBar({
         )}
       </div>
 
-      {edges.end && (
+      {edges.end && !isOnDark && (
         <button
           type="button"
           onClick={() => scrollToAdjacentItem('next')}
