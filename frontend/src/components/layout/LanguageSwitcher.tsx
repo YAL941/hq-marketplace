@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown, Globe } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -14,9 +14,8 @@ import {
 interface LanguageSwitcherProps {
   className?: string;
   /**
-   * `menu` is the desktop dropdown. `inline` is the stacked list used inside
-   * the mobile drawer, where a floating popover would be clipped by the
-   * overflow on the drawer.
+   * `menu` is the desktop dropdown. `inline` is the collapsible list used
+   * inside the mobile drawer, where a floating popover would be clipped.
    */
   variant?: 'menu' | 'inline' | 'account';
 }
@@ -26,6 +25,7 @@ export function LanguageSwitcher({ className, variant = 'menu' }: LanguageSwitch
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const optionsId = useId();
   const current = (i18n.resolvedLanguage ?? i18n.language) as SupportedLanguage;
   const currentName = LANGUAGE_NAMES[current] ?? LANGUAGE_NAMES[DEFAULT_LANGUAGE];
 
@@ -64,28 +64,46 @@ export function LanguageSwitcher({ className, variant = 'menu' }: LanguageSwitch
 
   if (variant === 'inline') {
     return (
-      <div className={cn('space-y-1', className)} role="group" aria-label={t('language.change')}>
-        <p className="px-3 pt-2 pb-1 text-xs font-medium uppercase tracking-wide text-navy-500">
-          {t('language.label')}
-        </p>
-        {SUPPORTED_LANGUAGES.map((language) => (
-          <button
-            key={language}
-            type="button"
-            onClick={() => select(language)}
-            aria-current={language === current ? 'true' : undefined}
-            lang={language}
-            className={cn(
-              'w-full flex items-center justify-between px-3 py-2 rounded-button text-sm transition-colors',
-              language === current
-                ? 'bg-primary-50 text-primary-600 font-medium'
-                : 'text-navy-700 hover:bg-navy-50'
-            )}
-          >
-            <span>{LANGUAGE_NAMES[language]}</span>
-            {language === current && <Check className="w-4 h-4" aria-hidden="true" />}
-          </button>
-        ))}
+      <div ref={containerRef} className={cn(className)}>
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          aria-controls={optionsId}
+          aria-label={`${t('language.change')}: ${currentName}`}
+          className="flex min-h-10 w-full items-center gap-3 rounded-button px-3 py-2 text-sm text-navy-700 transition-colors hover:bg-navy-50"
+        >
+          <Globe className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{t('language.label')}</span>
+          <span className="ms-auto text-navy-500">{currentName}</span>
+          <ChevronDown
+            className={cn('h-4 w-4 transition-transform', open && 'rotate-180')}
+            aria-hidden="true"
+          />
+        </button>
+        {open && (
+          <ul id={optionsId} role="listbox" aria-label={t('language.label')} className="mt-1 space-y-1 ps-9">
+            {SUPPORTED_LANGUAGES.map((language) => (
+              <li key={language} role="option" aria-selected={language === current}>
+                <button
+                  type="button"
+                  onClick={() => select(language)}
+                  lang={language}
+                  dir={directionFor(language)}
+                  className={cn(
+                    'w-full flex min-h-10 items-center justify-between rounded-button px-3 py-2 text-sm transition-colors',
+                    language === current
+                      ? 'bg-primary-50 text-primary-600 font-medium'
+                      : 'text-navy-700 hover:bg-navy-50'
+                  )}
+                >
+                  <span>{LANGUAGE_NAMES[language]}</span>
+                  {language === current && <Check className="h-4 w-4" aria-hidden="true" />}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     );
   }
