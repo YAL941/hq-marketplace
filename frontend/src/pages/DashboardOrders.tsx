@@ -116,50 +116,53 @@ export function DashboardOrdersPage() {
         <div className="space-y-3">
           {orders.map((order) => (
             <Card key={order.order_id} padding="none" className="p-4">
-              <div className="flex flex-wrap items-center gap-4">
-                {order.preview_item_name && (
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-navy-100">
-                    <SmartImage
-                      value={order.preview_image_url}
-                      alt={order.preview_item_name}
-                      width={64}
-                      height={64}
-                      className="h-full w-full object-cover"
-                      fallback={<div className="flex h-full items-center justify-center text-navy-400"><Package className="h-6 w-6" aria-hidden="true" /></div>}
-                    />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold text-navy-900">{order.order_number}</h3>
-                    <Badge variant={STATUS_VARIANT[order.order_status]} size="sm">
-                      {t(`orderStatus.${order.order_status}`)}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-navy-500 mt-0.5">
-                    {t('order.placedOn', { date: formatDateTime(order.created_at) })}
-                  </p>
-                  <p className="text-xs text-navy-400 mt-0.5">
-                    {t('order.type')}: {t(`orderType.${order.order_type}`, { defaultValue: order.order_type })}
-                  </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+                <div className="flex min-w-0 items-center gap-3 sm:flex-1">
                   {order.preview_item_name && (
-                    <p className="text-sm text-navy-700 mt-1 truncate">{order.preview_item_name}</p>
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-navy-100 sm:h-16 sm:w-16">
+                      <SmartImage
+                        value={order.preview_image_url}
+                        alt={order.preview_item_name}
+                        width={64}
+                        height={64}
+                        className="h-full w-full object-cover"
+                        fallback={<div className="flex h-full items-center justify-center text-navy-400"><Package className="h-6 w-6" aria-hidden="true" /></div>}
+                      />
+                    </div>
                   )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-navy-900">{order.order_number}</h3>
+                      <Badge variant={STATUS_VARIANT[order.order_status]} size="sm">
+                        {t(`orderStatus.${order.order_status}`)}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-navy-500 mt-0.5">
+                      {t('order.placedOn', { date: formatDateTime(order.created_at) })}
+                    </p>
+                    <p className="text-xs text-navy-400 mt-0.5">
+                      {t('order.type')}: {t(`orderType.${order.order_type}`, { defaultValue: order.order_type })}
+                    </p>
+                    {order.preview_item_name && (
+                      <p className="text-sm text-navy-700 mt-1 truncate">{order.preview_item_name}</p>
+                    )}
+                  </div>
                 </div>
 
-                <p className="font-semibold text-navy-900">
-                  {formatCurrency(order.total_amount, order.currency)}
-                </p>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    navigate(`/dashboard/business/${businessId}/orders/${order.order_id}`)
-                  }
-                >
-                  {t('order.viewDetails')}
-                </Button>
+                <div className="flex items-center justify-between gap-3 border-t border-navy-100 pt-3 sm:border-0 sm:pt-0">
+                  <p className="font-semibold text-navy-900">
+                    {formatCurrency(order.total_amount, order.currency)}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      navigate(`/dashboard/business/${businessId}/orders/${order.order_id}`)
+                    }
+                  >
+                    {t('order.viewDetails')}
+                  </Button>
+                </div>
               </div>
             </Card>
           ))}

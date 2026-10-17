@@ -114,16 +114,16 @@ export function DashboardHomePage() {
         </div>
       )}
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
         {cards.map(({ label, value, Icon }) => (
-          <Card key={label} className="rounded-2xl border-navy-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-            <div className="mb-5 flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy-50">
-                <Icon className="h-5 w-5 text-navy-700" strokeWidth={1.8} aria-hidden="true" />
+          <Card key={label} className="rounded-2xl border-navy-100 bg-white p-3 shadow-sm transition-shadow hover:shadow-md sm:p-5">
+            <div className="mb-3 flex min-w-0 items-center gap-2 sm:mb-5 sm:gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-navy-50 sm:h-10 sm:w-10">
+                <Icon className="h-4 w-4 text-navy-700 sm:h-5 sm:w-5" strokeWidth={1.8} aria-hidden="true" />
               </span>
-              <p className="min-w-0 break-words text-2xl font-bold tracking-tight text-navy-950">{value}</p>
+              <p className="min-w-0 break-words text-xl font-bold tracking-tight text-navy-950 sm:text-2xl">{value}</p>
             </div>
-            <p className="text-sm font-medium text-navy-500">{label}</p>
+            <p className="text-xs font-medium leading-5 text-navy-500 sm:text-sm">{label}</p>
           </Card>
         ))}
       </div>

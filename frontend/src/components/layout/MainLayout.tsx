@@ -5,6 +5,7 @@ import { Header } from './Header';
 import { Footer } from './Footer';
 import { Sidebar } from './Sidebar';
 import { MobileBottomNav } from './MobileBottomNav';
+import { MobileOwnerBottomNav } from './MobileOwnerBottomNav';
 import { BusinessStatusBanner } from '../business/BusinessStatusBanner';
 import { useAuth } from '../../context/useAuth';
 import type { Id } from '../../types';
@@ -29,6 +30,7 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
       '/reset-password',
     ].includes(location.pathname);
     const showMobileBottomNav = !dashboardRoute && !authenticationRoute;
+    const showMobileOwnerBottomNav = dashboardRoute && !!showSidebar;
 
     /**
      * The business the banner describes.
@@ -48,6 +50,7 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
         className={cn(
           'min-h-screen bg-navy-50 flex flex-col',
           showMobileBottomNav && 'main-layout--mobile-tabs',
+          showMobileOwnerBottomNav && 'main-layout--mobile-owner-tabs',
           className,
         )}
         {...props}
@@ -77,6 +80,7 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
         </div>
         <Footer />
         {showMobileBottomNav && <MobileBottomNav />}
+        {showMobileOwnerBottomNav && <MobileOwnerBottomNav />}
       </div>
     );
   }

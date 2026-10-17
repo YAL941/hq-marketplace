@@ -316,8 +316,13 @@
   padding-bottom: calc(4rem + env(safe-area-inset-bottom));
 }
 
+.main-layout--mobile-owner-tabs {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+}
+
 @media (min-width: 768px) {
-  .main-layout--mobile-tabs {
+  .main-layout--mobile-tabs,
+  .main-layout--mobile-owner-tabs {
     padding-bottom: 0;
   }
 }
