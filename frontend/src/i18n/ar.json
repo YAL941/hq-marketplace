@@ -8,6 +8,7 @@
     "dashboardLabel": "لوحة تحكم OmniHQ"
   },
   "nav": {
+    "home": "الرئيسية",
     "explore": "استكشف",
     "categories": "الأقسام",
     "favorites": "المفضلة",
@@ -470,6 +471,7 @@
     "resultsCount": "{{count}} نتيجة",
     "noResults": "لا توجد نتائج",
     "applyFilters": "تطبيق المرشحات",
+    "showResults": "عرض النتائج",
     "resetFilters": "إعادة تعيين المرشحات",
     "filtersApplied": "{{count}} مرشح مطبق",
     "moreFilters": "مزيد من المرشحات",

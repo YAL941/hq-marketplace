@@ -8,6 +8,7 @@
     "dashboardLabel": "OmniHQ dashboard"
   },
   "nav": {
+    "home": "Home",
     "explore": "Explore",
     "categories": "Categories",
     "favorites": "Favorites",
@@ -454,6 +455,7 @@
     "resultsCount": "{{count}} results",
     "noResults": "No results found",
     "applyFilters": "Apply filters",
+    "showResults": "Show results",
     "resetFilters": "Reset filters",
     "filtersApplied": "{{count}} filters applied",
     "moreFilters": "More filters",

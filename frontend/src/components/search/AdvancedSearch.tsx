@@ -97,10 +97,24 @@ export function AdvancedSearch({
   const [draftQuery, setDraftQuery] = useState(initialFilters.query);
   const [panelOpen, setPanelOpen] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const filterToggleRef = useRef<HTMLButtonElement>(null);
 
   const searchId = useId();
   const panelId = useId();
   const sortId = useId();
+
+  useEffect(() => {
+    if (!panelOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPanelOpen(false);
+        filterToggleRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [panelOpen]);
 
   // The latest `onChange` and whether the incoming change came from the parent,
   // so a controlled sync never echoes straight back as a user edit.
@@ -253,6 +267,7 @@ export function AdvancedSearch({
 
       <div className="mt-3 flex items-center justify-between gap-3 lg:hidden">
         <button
+          ref={filterToggleRef}
           type="button"
           onClick={() => setPanelOpen((open) => !open)}
           aria-expanded={panelOpen}
@@ -284,11 +299,24 @@ export function AdvancedSearch({
       </div>
 
       <div className="mt-5 flex flex-col gap-6 lg:mt-6 lg:flex-row lg:gap-8">
+        {panelOpen && (
+          <button
+            type="button"
+            aria-label={t('common.close')}
+            onClick={() => {
+              setPanelOpen(false);
+              filterToggleRef.current?.focus();
+            }}
+            className="fixed inset-0 z-[69] bg-navy-950/50 lg:hidden"
+          />
+        )}
         <aside
           id={panelId}
           className={cn(
             'w-full lg:block lg:w-72 lg:shrink-0',
-            panelOpen ? 'block' : 'hidden'
+            panelOpen
+              ? 'fixed inset-x-0 bottom-0 z-[70] max-h-[85dvh] overflow-y-auto rounded-t-3xl border border-navy-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl animate-slide-up lg:static lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none'
+              : 'hidden lg:block',
           )}
           aria-label={t('advancedSearch.filters')}
         >
@@ -300,7 +328,10 @@ export function AdvancedSearch({
               </h3>
               <button
                 type="button"
-                onClick={() => setPanelOpen(false)}
+                onClick={() => {
+                  setPanelOpen(false);
+                  filterToggleRef.current?.focus();
+                }}
                 aria-label={t('common.close')}
                 className="rounded-full p-1 text-navy-500 transition-colors hover:bg-navy-100 hover:text-navy-700 focus:outline-none focus:ring-2 focus:ring-primary-500 lg:hidden"
               >
@@ -437,6 +468,19 @@ export function AdvancedSearch({
                 {t('advancedSearch.resetFilters')}
               </button>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPanelOpen(false);
+                filterToggleRef.current?.focus();
+              }}
+              className="mt-3 flex min-h-11 w-full items-center justify-center rounded-button bg-primary-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 lg:hidden"
+            >
+              {t('advancedSearch.showResults')}
+              {resultCount !== undefined && (
+                <span className="ms-1">({resultCount})</span>
+              )}
+            </button>
           </div>
         </aside>
 

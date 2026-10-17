@@ -312,6 +312,36 @@
   animation-delay: -9s;
 }
 
+.main-layout--mobile-tabs {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 768px) {
+  .main-layout--mobile-tabs {
+    padding-bottom: 0;
+  }
+}
+
+.mobile-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@keyframes mobileSheetUp {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: mobileSheetUp 180ms ease-out;
+}
+
 @keyframes hero-glow-drift {
   to {
     translate: 1.25rem -0.75rem;
@@ -349,7 +379,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .hero-glow-float,
-  .hero-glow-float-delayed {
+  .hero-glow-float-delayed,
+  .animate-slide-up {
     animation: none;
   }
 }

@@ -4,6 +4,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { Footer } from './Footer';
 import { Sidebar } from './Sidebar';
+import { MobileBottomNav } from './MobileBottomNav';
 import { BusinessStatusBanner } from '../business/BusinessStatusBanner';
 import { useAuth } from '../../context/useAuth';
 import type { Id } from '../../types';
@@ -17,6 +18,17 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
     const { isAuthenticated, currentBusiness } = useAuth();
     const location = useLocation();
     const showSidebar = withSidebar && isAuthenticated && currentBusiness;
+    const dashboardRoute =
+      location.pathname.startsWith('/dashboard') ||
+      location.pathname.startsWith('/admin');
+    const authenticationRoute = [
+      '/login',
+      '/register',
+      '/verify-email',
+      '/forgot-password',
+      '/reset-password',
+    ].includes(location.pathname);
+    const showMobileBottomNav = !dashboardRoute && !authenticationRoute;
 
     /**
      * The business the banner describes.
@@ -31,7 +43,15 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
     const bannerBusinessId: Id | '' = showSidebar ? (pathBusinessId ?? currentBusiness?.business_id ?? '') : '';
 
     return (
-      <div ref={ref} className={cn('min-h-screen bg-navy-50 flex flex-col', className)} {...props}>
+      <div
+        ref={ref}
+        className={cn(
+          'min-h-screen bg-navy-50 flex flex-col',
+          showMobileBottomNav && 'main-layout--mobile-tabs',
+          className,
+        )}
+        {...props}
+      >
         <Header />
         <div className="flex-1 flex">
           {showSidebar && <Sidebar />}
@@ -56,6 +76,7 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
           </div>
         </div>
         <Footer />
+        {showMobileBottomNav && <MobileBottomNav />}
       </div>
     );
   }

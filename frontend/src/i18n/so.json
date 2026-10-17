@@ -8,6 +8,7 @@
     "dashboardLabel": "Kontorada maamula ee OmniHQ"
   },
   "nav": {
+    "home": "Bogga hore",
     "explore": "Baar",
     "categories": "Qaybaha",
     "favorites": "Kuwa la jeclado",
@@ -454,6 +455,7 @@
     "resultsCount": "{{count}} natiijo",
     "noResults": "Natiibo la waabideed",
     "applyFilters": "Xuulka adeeg",
+    "showResults": "Muuji natiijooyinka",
     "resetFilters": "Cusboonaysii xuulka",
     "filtersApplied": "{{count}} xul loo adeegsaday",
     "moreFilters": "Xuul badan",
