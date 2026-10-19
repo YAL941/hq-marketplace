@@ -14,6 +14,9 @@ const envSchema = z.object({
     APP_DB_USER: z.string().default('hq_app'),
     APP_DB_PASSWORD: z.string().default('hq_app'),
     APP_DB_CONNECTION_USER: z.string().optional(),
+    PAYMENT_COMMISSION_BPS: z.coerce.number().int().min(0).max(10_000).default(500),
+    PAYMENTS_MOCK_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+    MOCK_MOBILE_MONEY_WEBHOOK_SECRET: z.string().optional(),
 
     PORT: z.coerce.number().int().positive().default(4000),
     SMTP_HOST: z.string().min(1).optional(),
@@ -325,6 +328,17 @@ if (!parsed.success) {
     throw new Error(`Invalid environment configuration:\n${issues}\n\nCopy .env.example to .env and fill it in.`);
 }
 
+if (
+    parsed.data.PAYMENTS_MOCK_ENABLED
+    && (!parsed.data.MOCK_MOBILE_MONEY_WEBHOOK_SECRET
+        || parsed.data.MOCK_MOBILE_MONEY_WEBHOOK_SECRET.length < 32)
+) {
+    throw new Error(
+        'Invalid environment configuration:\n'
+        + '  - MOCK_MOBILE_MONEY_WEBHOOK_SECRET: required and at least 32 characters when PAYMENTS_MOCK_ENABLED=true.',
+    );
+}
+
 if (parsed.data.NODE_ENV === 'production') {
     assertProductionSecret('JWT_SECRET', parsed.data.JWT_SECRET, 32);
     assertProductionSecret('APP_DB_PASSWORD', parsed.data.APP_DB_PASSWORD, 16);
@@ -334,6 +348,9 @@ if (parsed.data.NODE_ENV === 'production') {
         assertAbsoluteUploadDir(parsed.data.UPLOAD_DIR);
     }
     assertExplicitTrustProxyHops(parsed.data.TRUST_PROXY_HOPS);
+    if (parsed.data.PAYMENTS_MOCK_ENABLED) {
+        throw new Error('Refusing to start: PAYMENTS_MOCK_ENABLED must be false in production.');
+    }
 }
 
 const configBase = {
@@ -343,6 +360,10 @@ const configBase = {
         parsed.data.ORDERS_ENABLED === undefined
             ? true
             : parsed.data.ORDERS_ENABLED === 'true',
+    mockMobileMoneyEnabled:
+        parsed.data.NODE_ENV !== 'production'
+        && parsed.data.PAYMENTS_MOCK_ENABLED
+        && Boolean(parsed.data.MOCK_MOBILE_MONEY_WEBHOOK_SECRET),
     isProduction: parsed.data.NODE_ENV === 'production',
     isTest: parsed.data.NODE_ENV === 'test',
     corsOrigins: parseCorsOrigins(parsed.data.CORS_ORIGIN, parsed.data.NODE_ENV === 'production'),

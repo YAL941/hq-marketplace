@@ -13,8 +13,13 @@ let closePools: () => Promise<void>;
 let customerToken: string;
 let courierToken: string;
 let orderId: string;
+let mockSmsProvider: import('../src/modules/notifications/mock-sms.provider.js').MockSmsProvider;
+let mockWhatsAppProvider: import('../src/modules/notifications/mock-whatsapp.provider.js').MockWhatsAppProvider;
 
 before(async () => {
+    const notifications = await import('../src/modules/notifications/notification.service.js');
+    mockSmsProvider = notifications.mockSmsProvider;
+    mockWhatsAppProvider = notifications.mockWhatsAppProvider;
     app = (await import('../src/app.js')).createApp();
     const poolModule = await import('../src/db/pool.js');
     adminPool = poolModule.adminPool;
@@ -66,11 +71,13 @@ before(async () => {
         id: Number(customerId),
         email: 'delivery-offer-customer@hq.test',
         isPlatformAdmin: false,
+        token_version: 0,
     });
     courierToken = signAccessToken({
         id: Number(courierId),
         email: 'delivery-offer-courier@hq.test',
         isPlatformAdmin: false,
+        token_version: 0,
     });
 });
 
@@ -80,6 +87,8 @@ after(async () => {
 
 describe('courier delivery price offers', () => {
     it('shows route details, waits for customer approval, and applies the accepted price', async () => {
+        mockSmsProvider.clear();
+        mockWhatsAppProvider.clear();
         const completedAfter = encodeURIComponent(new Date(0).toISOString());
         const available = await request(app)
             .get(`/api/courier/deliveries?completedAfter=${completedAfter}`)
@@ -152,5 +161,16 @@ describe('courier delivery price offers', () => {
             .set('Authorization', `Bearer ${courierToken}`);
         assert.equal(activeDeliveries.body.data.pendingOffers.length, 0);
         assert.equal(activeDeliveries.body.data.assigned[0].order_id, orderId);
+
+        const pickedUp = await request(app)
+            .patch(`/api/courier/deliveries/${orderId}/status`)
+            .set('Authorization', `Bearer ${courierToken}`)
+            .send({ deliveryStatus: 'picked_up' });
+        assert.equal(pickedUp.status, 200, JSON.stringify(pickedUp.body));
+        assert.equal(pickedUp.body.data.order_status, 'out_for_delivery');
+        assert.equal(mockSmsProvider.delivered.length, 1);
+        assert.equal(mockSmsProvider.delivered[0]!.eventType, 'order_status_changed');
+        assert.equal(mockSmsProvider.delivered[0]!.to, '+252611234567');
+        assert.equal(mockWhatsAppProvider.delivered.length, 1);
     });
 });

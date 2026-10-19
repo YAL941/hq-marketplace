@@ -152,13 +152,27 @@ describe('readiness: GET /readyz', () => {
         // same budget as users, they would be part of the load they exist to
         // detect — and a probe that gets a `429` reads as "unhealthy" to
         // whatever is polling it.
-        const responses = await Promise.all(
-            Array.from({ length: 25 }, () => request(app).get('/readyz')),
-        );
+        const poolModule = await import('../src/db/pool.js');
+        const originalQuery = poolModule.appPool.query.bind(poolModule.appPool);
+        poolModule.appPool.query = (() => Promise.resolve({
+            command: 'SELECT',
+            rowCount: 1,
+            oid: 0,
+            rows: [],
+            fields: [],
+        })) as typeof poolModule.appPool.query;
 
-        for (const res of responses) {
-            assert.equal(res.status, 200, 'a probe must not be rate limited');
-            assert.equal(res.headers['ratelimit'], undefined, 'no limiter should have counted a probe');
+        try {
+            const responses = await Promise.all(
+                Array.from({ length: 25 }, () => request(app).get('/readyz')),
+            );
+
+            for (const res of responses) {
+                assert.equal(res.status, 200, 'a probe must not be rate limited');
+                assert.equal(res.headers['ratelimit'], undefined, 'no limiter should have counted a probe');
+            }
+        } finally {
+            poolModule.appPool.query = originalQuery;
         }
     });
 });

@@ -37,8 +37,8 @@ let adminUser: { id: number; token: string };
 async function createUser(email: string, fullName: string): Promise<number> {
     const passwordHash = await bcrypt.hash(PASSWORD, 10);
     const { rows } = await adminPool.query<{ user_id: string }>(
-        `INSERT INTO users (email, password_hash, full_name, status)
-         VALUES ($1, $2, $3, 'active') RETURNING user_id`,
+        `INSERT INTO users (email, password_hash, full_name, status, email_verified_at)
+         VALUES ($1, $2, $3, 'active', now()) RETURNING user_id`,
         [email, passwordHash, fullName],
     );
     return Number(rows[0]!.user_id);

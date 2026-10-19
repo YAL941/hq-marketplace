@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
 import { unauthorized } from '../db/errors.js';
 import { appPool } from '../db/pool.js';
+import { withTenant } from '../db/tenant.js';
 import type { TenantContext } from '../db/tenant.js';
 
 export interface AuthenticatedUser {
@@ -10,6 +11,7 @@ export interface AuthenticatedUser {
     /** Null for an account that registered with a phone number only. */
     email: string | null;
     isPlatformAdmin: boolean;
+    token_version: number;
 }
 
 declare global {
@@ -28,11 +30,35 @@ interface TokenPayload {
     /** Null for a phone-only account; the token still identifies the user by sub. */
     email: string | null;
     pa: boolean;
+    /** Binds the JWT to the user's token_version at issuance, enabling revocation. */
+    token_version: number;
 }
 
 export function signAccessToken(user: AuthenticatedUser): string {
-    const payload: TokenPayload = { sub: String(user.id), email: user.email, pa: user.isPlatformAdmin };
+    const payload: TokenPayload = {
+        sub: String(user.id),
+        email: user.email,
+        pa: user.isPlatformAdmin,
+        token_version: user.token_version,
+    };
     return jwt.sign(payload, config.JWT_SECRET, { expiresIn: config.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] });
+}
+
+/**
+ * One extra SELECT per authenticated request: the user's current token_version,
+ * fetched by primary key with no joins so it hits the users_pkey index.
+ * Runs on the existing appPool, not a new connection.
+ */
+async function tokenVersionMatches(userId: number, tokenVersion: number): Promise<boolean> {
+    const { rows } = await withTenant(
+        { userId, isPlatformAdmin: false, businessId: null },
+        (client) =>
+            client.query<{ token_version: number }>(
+                'SELECT token_version FROM users WHERE user_id = $1',
+                [userId],
+            ),
+    );
+    return Number(rows[0]?.token_version) === tokenVersion;
 }
 
 /**
@@ -72,10 +98,15 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
 
     try {
         const id = Number(decoded.sub);
+        if (!(await tokenVersionMatches(id, decoded.token_version ?? 0))) {
+            next(unauthorized('Session revoked'));
+            return;
+        }
         req.user = {
             id,
             email: decoded.email,
             isPlatformAdmin: decoded.pa === true && await hasPlatformAdminRole(id),
+            token_version: decoded.token_version ?? 0,
         };
         next();
     } catch (error) {
@@ -101,11 +132,15 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
 
     try {
         const id = Number(decoded.sub);
-        req.user = {
-            id,
-            email: decoded.email,
-            isPlatformAdmin: decoded.pa === true && await hasPlatformAdminRole(id),
-        };
+        if (await tokenVersionMatches(id, decoded.token_version ?? 0)) {
+            req.user = {
+                id,
+                email: decoded.email,
+                isPlatformAdmin: decoded.pa === true && await hasPlatformAdminRole(id),
+                token_version: decoded.token_version ?? 0,
+            };
+        }
+        // token_version mismatch: treat as anonymous visitor
         next();
     } catch (error) {
         next(error);

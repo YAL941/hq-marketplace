@@ -12,6 +12,7 @@ import { locationRoutes } from './modules/locations/location.routes.js';
 import { mediaRoutes } from './modules/media/media.routes.js';
 import { uploadRoot } from './modules/media/storage/local-disk.js';
 import { orderRoutes } from './modules/orders/order.routes.js';
+import { paymentRoutes } from './modules/payments/payment.routes.js';
 import { productRoutes } from './modules/products/product.routes.js';
 import { reviewRoutes } from './modules/reviews/review.routes.js';
 import { serviceRoutes } from './modules/services/service.routes.js';
@@ -57,6 +58,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
      */
     app.use(withApiContentSecurityPolicy());
     app.use(cors({ origin: config.corsOrigins, credentials: true }));
+    app.use('/api/payments/webhooks', express.raw({ type: 'application/json', limit: '1mb' }));
     app.use(express.json({ limit: '1mb' }));
 
     /**
@@ -156,6 +158,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
                     'GET  /api/products',
                     'GET  /api/services',
                     'GET  /api/reviews',
+                    'GET  /api/payments/methods',
+                    'POST /api/payments/webhooks/:provider',
                     'POST /api/auth/password-reset/request',
                     'POST /api/auth/password-reset/confirm',
                 ],
@@ -167,6 +171,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
                     'POST /api/orders',
                     'GET  /api/orders/mine',
                     'POST /api/orders/mine/:orderId/cancel',
+                    'POST /api/orders/mine/:orderId/payments',
+                    'POST /api/payments/:paymentId/mock-complete (development/test only)',
                     'POST /api/reviews',
                     'GET  /api/favorites',
                     'PUT|DELETE /api/favorites/:businessId',
@@ -227,6 +233,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
     app.use('/api', productRoutes);
     app.use('/api', serviceRoutes);
     app.use('/api', orderRoutes);
+    app.use('/api', paymentRoutes);
     app.use('/api', courierRoutes);
     app.use('/api', reviewRoutes);
     app.use('/api', locationRoutes);

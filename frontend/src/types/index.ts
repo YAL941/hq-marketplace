@@ -101,6 +101,7 @@ export interface AssignedCourierDelivery extends AvailableCourierDelivery {
   business_whatsapp: string | null;
   delivery_earning_amount: string | null;
   order_status: OrderStatus;
+  payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
   delivery_status: CourierDeliveryStatus;
   delivery_status_history: Array<{ status: string; changed_at: string; changed_by: Id | null }>;
 }
@@ -524,6 +525,8 @@ export type OrderStatus =
 
 /** The only statuses the owner is allowed to move an order into. */
 export type SettableOrderStatus = Exclude<OrderStatus, 'pending' | 'refunded'>;
+export type PaymentProviderName = 'cash_on_delivery' | 'mock_mobile_money';
+export type NotificationLanguage = 'ar' | 'en' | 'so';
 
 export interface Order {
   order_id: Id;
@@ -533,6 +536,7 @@ export interface Order {
   location_id: Id | null;
   order_type: string;
   order_status: OrderStatus;
+  payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
   subtotal: string;
   delivery_fee: string;
   discount_amount: string;
@@ -571,6 +575,7 @@ export interface CustomerOrderSummary {
   business_slug: string;
   order_type: string;
   order_status: OrderStatus;
+  payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
   delivery_requested: boolean;
   delivery_status: 'not_applicable' | 'waiting' | 'offer_pending' | 'assigned' | 'picked_up' | 'on_the_way' | 'delivered';
   delivery_earning_amount: string | null;
@@ -625,6 +630,29 @@ export interface OrderItem {
 export interface OrderDetail {
   order: Order;
   items: OrderItem[];
+}
+
+export interface CheckoutDraft {
+  businessId: number;
+  businessName: string;
+  businessSlug: string;
+  currency: string;
+  items: Array<{
+    productId?: number;
+    serviceId?: number;
+    itemName: string;
+    quantity: number;
+    unitPrice: string;
+    imageUrl?: string | null;
+  }>;
+  scheduledFor?: string;
+  deliveryRequested: boolean;
+  locationConsent: boolean;
+  deliveryLatitude?: number;
+  deliveryLongitude?: number;
+  deliveryNote?: string;
+  customerPhone?: string;
+  deliveryFee?: string;
 }
 
 export type ReviewStatus = 'pending' | 'published' | 'rejected' | 'hidden';

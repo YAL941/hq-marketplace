@@ -6,6 +6,8 @@ import { withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
+import { config } from '../../config.js';
+import { notifyOrderEventSafely } from '../notifications/notification.service.js';
 import {
     cancelOwnOrder,
     createOrder,
@@ -39,7 +41,8 @@ const createOrderSchema = z.object({
     deliveryLongitude: z.number().min(-180).max(180).nullish(),
     deliveryNote: z.string().trim().max(500).nullish(),
     customerPhone: z.string().trim().max(20).nullish(),
-    paymentMethod: z.literal('cash_on_delivery').optional(),
+    paymentMethod: z.enum(['cash_on_delivery', 'mock_mobile_money']).optional(),
+    notificationLanguage: z.enum(['ar', 'en', 'so']).optional(),
 });
 
 const listQuerySchema = z.object({
@@ -70,8 +73,12 @@ orderRoutes.post(
     async (req, res, next) => {
         try {
             const input = createOrderSchema.parse(req.body);
+            if (input.paymentMethod === 'mock_mobile_money' && !config.mockMobileMoneyEnabled) {
+                throw notFound('Payment method is not available');
+            }
             const ctx = contextFor(req);
             const order = await withTenant(ctx, (client) => createOrder(client, req.user!.id, input));
+            await notifyOrderEventSafely('new_order', order.order_id, req.user!.id);
             res.status(201).json({ data: order });
         } catch (error) {
             next(error);
@@ -85,7 +92,7 @@ orderRoutes.get('/orders/mine', authenticate, async (req, res, next) => {
         const orders = await withTenant(contextFor(req), async (client) => {
             const { rows } = await client.query(
                 `SELECT o.order_id, o.order_number, o.business_id, b.business_name, b.business_slug, o.order_type,
-                        o.order_status,
+                        o.order_status, o.payment_status,
                         CASE WHEN o.delivery_status = 'offer_pending'
                              THEN (o.subtotal - o.discount_amount + o.tax_amount + o.delivery_earning_amount)::numeric(14, 2)::text
                              ELSE o.total_amount::text END AS total_amount,
@@ -286,6 +293,7 @@ orderRoutes.patch('/business/:businessId/orders/:orderId/status', authenticate, 
         const order = await withTenant(contextFor(req, businessId), (client) =>
             updateOrderStatus(client, businessId, orderId, orderStatus),
         );
+        await notifyOrderEventSafely('order_status_changed', order.order_id, Number(order.customer_id));
         const {
             delivery_confirmation_code: _code,
             delivery_earning_amount: _earning,

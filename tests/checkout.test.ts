@@ -1,0 +1,94 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import {
+    buildCheckoutOrderInput,
+    estimateCheckoutTotal,
+    isCheckoutDraft,
+} from '../frontend/src/lib/checkout.js';
+import type { CheckoutDraft } from '../frontend/src/types/index.js';
+
+const draft: CheckoutDraft = {
+    businessId: 12,
+    businessName: 'Local shop',
+    businessSlug: 'local-shop',
+    currency: 'USD',
+    items: [{
+        productId: 34,
+        itemName: 'Coffee',
+        quantity: 2,
+        unitPrice: '3.50',
+        imageUrl: null,
+    }],
+    deliveryRequested: false,
+    locationConsent: false,
+};
+
+describe('customer checkout', () => {
+    it('accepts a valid product draft and rejects an item without exactly one catalogue id', () => {
+        assert.equal(isCheckoutDraft(draft), true);
+        assert.equal(isCheckoutDraft({
+            ...draft,
+            items: [{ ...draft.items[0]!, productId: undefined }],
+        }), false);
+        assert.equal(isCheckoutDraft({
+            ...draft,
+            items: [{ ...draft.items[0]!, serviceId: 45 }],
+        }), false);
+    });
+
+    it('rejects delivery drafts without consent, coordinates, and a usable phone', () => {
+        assert.equal(isCheckoutDraft({
+            ...draft,
+            deliveryRequested: true,
+        }), false);
+        assert.equal(isCheckoutDraft({
+            ...draft,
+            deliveryRequested: true,
+            locationConsent: true,
+            deliveryLatitude: 2.04,
+            deliveryLongitude: 45.32,
+            customerPhone: '+252612345678',
+        }), true);
+    });
+
+    it('builds the order request with the supported payment method and service booking time', () => {
+        const input = buildCheckoutOrderInput({
+            ...draft,
+            items: [{
+                serviceId: 56,
+                itemName: 'Consultation',
+                quantity: 1,
+                unitPrice: '10.00',
+            }],
+            scheduledFor: '2026-10-20T09:00:00.000Z',
+        });
+        assert.deepEqual(input, {
+            businessId: 12,
+            items: [{ serviceId: 56, quantity: 1 }],
+            scheduledFor: '2026-10-20T09:00:00.000Z',
+            deliveryRequested: false,
+            locationConsent: false,
+            paymentMethod: 'cash_on_delivery',
+            notificationLanguage: 'en',
+        });
+    });
+
+    it('keeps the selected checkout language for future order notifications', () => {
+        assert.equal(buildCheckoutOrderInput(draft, 'cash_on_delivery', 'ar').notificationLanguage, 'ar');
+        assert.equal(buildCheckoutOrderInput(draft, 'cash_on_delivery', 'so').notificationLanguage, 'so');
+        assert.equal(buildCheckoutOrderInput(draft, 'cash_on_delivery', 'fr').notificationLanguage, 'en');
+    });
+
+    it('estimates item totals and adds the selected business delivery fee', () => {
+        assert.equal(estimateCheckoutTotal(draft), 7);
+        assert.equal(estimateCheckoutTotal({
+            ...draft,
+            deliveryRequested: true,
+            locationConsent: true,
+            deliveryLatitude: 2.04,
+            deliveryLongitude: 45.32,
+            customerPhone: '+252612345678',
+            deliveryFee: '1.25',
+        }), 8.25);
+    });
+});

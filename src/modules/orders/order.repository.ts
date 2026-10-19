@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 import { badRequest, conflict, forbidden, notFound } from '../../db/errors.js';
 import { assertPermission } from '../services/service.repository.js';
+import type { NotificationLanguage } from '../notifications/notification.types.js';
 
 export interface OrderRow {
     order_id: string;
@@ -10,6 +11,7 @@ export interface OrderRow {
     location_id: string | null;
     order_type: string;
     order_status: string;
+    payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
     subtotal: string;
     delivery_fee: string;
     discount_amount: string;
@@ -28,6 +30,7 @@ export interface OrderRow {
     delivery_confirmation_code?: string | null;
     delivery_earning_amount?: string | null;
     payment_method: string;
+    notification_language: NotificationLanguage;
     status_history: Array<{ status: string; changed_at: string; changed_by: number | null }>;
     scheduled_for: Date | null;
     created_at: Date;
@@ -53,7 +56,8 @@ export interface CreateOrderInput {
     deliveryLongitude?: number | null;
     deliveryNote?: string | null;
     customerPhone?: string | null;
-    paymentMethod?: 'cash_on_delivery';
+    paymentMethod?: 'cash_on_delivery' | 'mock_mobile_money';
+    notificationLanguage?: NotificationLanguage;
 }
 
 const round = (n: number): number => Math.round(n * 100) / 100;
@@ -199,9 +203,9 @@ export async function createOrder(client: PoolClient, customerId: number, input:
              discount_amount, tax_amount, total_amount, currency, customer_note,
              delivery_address, scheduled_for, delivery_requested, location_consent,
              location_consent_at, delivery_latitude, delivery_longitude, delivery_note,
-             customer_phone, payment_method)
+             customer_phone, payment_method, notification_language)
          VALUES ($1, $2, $3, $4::order_type, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-                 $14, $15, CASE WHEN $15 THEN now() ELSE NULL END, $16, $17, $18, $19, $20)
+                 $14, $15, CASE WHEN $15 THEN now() ELSE NULL END, $16, $17, $18, $19, $20, $21)
          RETURNING *`,
         [
             input.businessId,
@@ -224,6 +228,7 @@ export async function createOrder(client: PoolClient, customerId: number, input:
             deliveryRequested ? input.deliveryNote?.trim() ?? null : null,
             deliveryRequested ? input.customerPhone?.trim() ?? null : null,
             input.paymentMethod ?? 'cash_on_delivery',
+            input.notificationLanguage ?? 'en',
         ],
     );
     const order = orderRows[0]!;

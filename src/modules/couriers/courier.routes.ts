@@ -7,6 +7,7 @@ import { authenticate, contextFor } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import { normalisePhone, PhoneValidationError } from '../auth/phone.js';
+import { notifyOrderEventSafely } from '../notifications/notification.service.js';
 import { assertPermission } from '../services/service.repository.js';
 
 export const courierRoutes: Router = Router();
@@ -273,12 +274,15 @@ courierRoutes.patch('/courier/deliveries/:orderId/status', courierAccess, authen
                         OR ($3 = 'on_the_way' AND order_status = 'out_for_delivery')
                         OR ($3 = 'delivered' AND order_status = 'out_for_delivery')
                     )
-                  RETURNING order_id, order_status, delivery_status, delivery_status_history`,
+                  RETURNING order_id, customer_id, order_status, delivery_status, delivery_status_history`,
                 [orderId, courierUserId, deliveryStatus, expected, confirmationCode ?? null],
             );
             if (!rows[0]) throw conflict('Delivery status changed or this delivery is not assigned to you');
             return rows[0];
         });
+        if (deliveryStatus === 'picked_up' || deliveryStatus === 'delivered') {
+            await notifyOrderEventSafely('order_status_changed', String(order.order_id), Number(order.customer_id));
+        }
         res.json({ data: order });
     } catch (error) {
         next(error);

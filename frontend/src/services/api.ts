@@ -26,6 +26,7 @@ import type {
   OrderDetail,
   OrderListQuery,
   OpeningHour,
+  PaymentProviderName,
   Product,
   ProductInput,
   ProductListQuery,
@@ -418,10 +419,14 @@ export const orderApi = {
     deliveryLongitude?: number;
     deliveryNote?: string;
     customerPhone?: string;
-    paymentMethod?: 'cash_on_delivery';
+    paymentMethod?: 'cash_on_delivery' | 'mock_mobile_money';
+    notificationLanguage?: 'ar' | 'en' | 'so';
   }) => api.post<ApiResponse<Order>>('/orders', data),
 
   listMine: () => api.get<ApiResponse<CustomerOrderSummary[]>>('/orders/mine'),
+
+  getMine: (orderId: Id) =>
+    api.get<ApiResponse<OrderDetail>>(`/orders/mine/${orderId}`),
 
   respondToDeliveryOffer: (orderId: Id, accept: boolean) =>
     api.post(`/orders/mine/${orderId}/delivery-offer-response`, { accept }),
@@ -447,6 +452,42 @@ export const orderApi = {
   /** Only the seven settable statuses are accepted by the route's schema. */
   updateStatus: (businessId: Id, orderId: Id, orderStatus: SettableOrderStatus) =>
     api.patch<ApiResponse<Order>>(`/business/${businessId}/orders/${orderId}/status`, { orderStatus }),
+};
+
+export type { PaymentProviderName } from '../types';
+
+export interface PaymentMethodOption {
+  name: PaymentProviderName;
+  available: boolean;
+  testOnly: boolean;
+}
+
+export interface PaymentRecord {
+  payment_id: Id;
+  order_id: Id;
+  provider: PaymentProviderName;
+  status: 'pending' | 'succeeded' | 'failed' | 'cancelled';
+  amount_minor: string;
+  currency: string;
+  provider_reference: string;
+  commission_minor: string | null;
+  merchant_amount_minor: string | null;
+  rate_used_bps: number | null;
+  paid_at: string | null;
+}
+
+export const paymentApi = {
+  methods: () => api.get<ApiResponse<PaymentMethodOption[]>>('/payments/methods'),
+  start: (orderId: Id, provider: PaymentProviderName) =>
+    api.post<ApiResponse<PaymentRecord>>(
+      `/orders/mine/${orderId}/payments`,
+      { provider },
+      { headers: { 'Idempotency-Key': globalThis.crypto.randomUUID() } },
+    ),
+  completeMock: (paymentId: Id) =>
+    api.post<ApiResponse<{ payment_id: Id; order_id: Id; payment_status: string; duplicate: boolean }>>(
+      `/payments/${paymentId}/mock-complete`,
+    ),
 };
 
 export const courierApi = {

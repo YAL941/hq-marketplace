@@ -152,6 +152,9 @@ export function MyOrdersPage() {
                         <p className="mt-1 text-sm text-navy-500">
                           {t('customerOrders.orderNumber', { number: order.order_number })}
                         </p>
+                        <p className="mt-1 text-sm text-navy-600">
+                          {t('customerOrders.paymentStatus')}: {t(`paymentStatus.${order.payment_status}`)}
+                        </p>
                         {order.delivery_confirmation_code && (
                           <div className="customer-delivery-code mt-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm">
                             <p className="customer-delivery-code__title font-semibold">
@@ -173,6 +176,13 @@ export function MyOrdersPage() {
                         <p className="mt-1 text-sm text-navy-500">
                           {t('order.placedOn', { date: formatDateTime(order.created_at) })}
                         </p>
+                        <Link
+                          to={`/orders/${order.order_id}`}
+                          onClick={(event) => event.stopPropagation()}
+                          className="mt-2 inline-flex min-h-10 items-center rounded-lg px-2 text-sm font-semibold text-primary-700 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                        >
+                          {t('customerOrders.viewDetails')}
+                        </Link>
                         {order.delivery_status === 'offer_pending' && order.delivery_earning_amount && (
                           <div className="mt-3 rounded-lg border border-primary-200 bg-primary-50 p-3">
                             <p className="text-sm font-semibold text-primary-900">

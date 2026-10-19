@@ -7,6 +7,7 @@ venv/
 test-output.txt
 *.log
 coverage/
+dist/
 .DS_Store
 frontend/dist/
 frontend/lint-out.txt

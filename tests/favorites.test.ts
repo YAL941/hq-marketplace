@@ -37,8 +37,8 @@ before(async () => {
              RETURNING business_id`,
         ),
     ]);
-    firstToken = signAccessToken({ id: Number(users[0]!.user_id), email: 'favorites-one@hq.test', isPlatformAdmin: false });
-    secondToken = signAccessToken({ id: Number(users[1]!.user_id), email: 'favorites-two@hq.test', isPlatformAdmin: false });
+    firstToken = signAccessToken({ id: Number(users[0]!.user_id), email: 'favorites-one@hq.test', isPlatformAdmin: false, token_version: 0 });
+    secondToken = signAccessToken({ id: Number(users[1]!.user_id), email: 'favorites-two@hq.test', isPlatformAdmin: false, token_version: 0 });
     businessId = businesses[0]!.business_id;
 });
 

@@ -16,11 +16,11 @@ import { ReportBusinessLink } from '../components/business/ReportBusinessLink';
 import { CustomerReviewItem } from '../components/business/CustomerReviewItem';
 import { ProductFeedback } from '../components/business/ProductFeedback';
 import { DeliveryLocationPicker } from '../components/business/DeliveryLocationPicker';
-import { businessApi, orderApi, productApi, reviewApi, serviceApi } from '../services/api';
+import { businessApi, productApi, reviewApi, serviceApi } from '../services/api';
 import { useAuth } from '../context/useAuth';
 import { safeExternalUrl } from '../lib/safeUrl';
 import { cn, formatCurrency, formatDate } from '../lib/utils';
-import type { Location, Product, PublicBusinessProfile, PublicReview, Service } from '../types';
+import type { CheckoutDraft, Location, Product, PublicBusinessProfile, PublicReview, Service } from '../types';
 
 /** Postgres `day_of_week`: 0 = Sunday. Indexed from Sunday to match. */
 const WEEKDAYS = [
@@ -84,8 +84,6 @@ export function BusinessProfilePage() {
   const [locating, setLocating] = useState(false);
   const [scheduledFor, setScheduledFor] = useState('');
   const [orderError, setOrderError] = useState('');
-  const [orderSubmitted, setOrderSubmitted] = useState(false);
-  const [orderLoading, setOrderLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState(false);
@@ -269,62 +267,63 @@ export function BusinessProfilePage() {
     ? bookableServices.find((service) => service.service_id === selectedItem.slice(8))
     : undefined;
 
-  const placeOrder = async (event: FormEvent<HTMLFormElement>) => {
+  const beginCheckout = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selectedItem) return;
+    if (!selectedItem || !business) return;
     const delivery = createDeliveryInput(!!selectedProduct && deliveryRequested);
     if (!delivery) {
       setOrderError(t('business.deliveryFieldsRequired'));
       return;
     }
     setOrderError('');
-    setOrderLoading(true);
-    try {
-      const item = selectedItem.split(':');
-      const parsedScheduledFor = scheduledFor ? new Date(scheduledFor).toISOString() : null;
-      await orderApi.create({
-        businessId: Number(business.business_id),
-        items: [{
-          ...(item[0] === 'product' ? { productId: Number(item[1]) } : { serviceId: Number(item[1]) }),
-          quantity,
-        }],
-        ...(parsedScheduledFor ? { scheduledFor: parsedScheduledFor } : {}),
-        ...delivery,
-      });
-      setOrderSubmitted(true);
-      setSelectedItem('');
-      setScheduledFor('');
-      setQuantity(1);
-    } catch {
-      setOrderError(t('business.orderError'));
-    } finally {
-      setOrderLoading(false);
-    }
+    const [kind, rawId] = selectedItem.split(':');
+    const numericId = Number(rawId);
+    const item = selectedProduct ?? selectedService;
+    if (!item || !Number.isSafeInteger(numericId) || numericId <= 0) return;
+
+    const draft: CheckoutDraft = {
+      businessId: Number(business.business_id),
+      businessName: business.business_name,
+      businessSlug: business.business_slug,
+      currency: item.currency,
+      items: [{
+        ...(kind === 'product' ? { productId: numericId } : { serviceId: numericId }),
+        itemName: 'product_name' in item ? item.product_name : item.service_name,
+        quantity,
+        unitPrice: 'discount_price' in item ? item.discount_price ?? item.price : item.price,
+        imageUrl: 'image_url' in item ? item.image_url : null,
+      }],
+      ...(scheduledFor ? { scheduledFor: new Date(scheduledFor).toISOString() } : {}),
+      ...delivery,
+      deliveryFee: business.delivery_fee,
+    };
+    navigate('/checkout', { state: draft });
   };
 
-  const placeProductOrder = async () => {
-    if (!productDetails || !isAuthenticated) return;
+  const beginProductCheckout = () => {
+    if (!productDetails || !business || !isAuthenticated) return;
     const delivery = createDeliveryInput(deliveryRequested);
     if (!delivery) {
       setOrderError(t('business.deliveryFieldsRequired'));
       return;
     }
     setOrderError('');
-    setOrderSubmitted(false);
-    setOrderLoading(true);
-    try {
-      await orderApi.create({
-        businessId: Number(business.business_id),
-        items: [{ productId: Number(productDetails.product_id), quantity: productQuantity }],
-        ...delivery,
-      });
-      setOrderSubmitted(true);
-      setProductQuantity(1);
-    } catch {
-      setOrderError(t('business.orderError'));
-    } finally {
-      setOrderLoading(false);
-    }
+    const draft: CheckoutDraft = {
+      businessId: Number(business.business_id),
+      businessName: business.business_name,
+      businessSlug: business.business_slug,
+      currency: productDetails.currency,
+      items: [{
+        productId: Number(productDetails.product_id),
+        itemName: productDetails.product_name,
+        quantity: productQuantity,
+        unitPrice: productDetails.discount_price ?? productDetails.price,
+        imageUrl: productDetails.image_url,
+      }],
+      ...delivery,
+      deliveryFee: business.delivery_fee,
+    };
+    navigate('/checkout', { state: draft });
   };
 
   const createDeliveryInput = (requested: boolean) => {
@@ -640,7 +639,6 @@ export function BusinessProfilePage() {
                         onClick={() => {
                           setProductQuantity(1);
                           setOrderError('');
-                          setOrderSubmitted(false);
                           setProductDetails(product);
                         }}
                         aria-label={t('business.openProductDetails', { name: product.product_name })}
@@ -702,7 +700,7 @@ export function BusinessProfilePage() {
                     {t('business.signInToOrder')}
                   </Link>
                 ) : (
-                  <form onSubmit={(event) => void placeOrder(event)} className="space-y-4">
+                  <form onSubmit={beginCheckout} className="space-y-4">
                     <label className="block">
                       <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.selectItem')}</span>
                       <select
@@ -770,8 +768,7 @@ export function BusinessProfilePage() {
                     )}
                     {renderDeliveryFields(!!selectedProduct)}
                     {orderError && <p role="alert" className="text-sm text-error-600">{orderError}</p>}
-                    {orderSubmitted && <p role="status" className="text-sm font-medium text-success-600">{t('business.orderSuccess')}</p>}
-                    <Button type="submit" loading={orderLoading} disabled={!selectedItem}>
+                    <Button type="submit" disabled={!selectedItem}>
                       {t('business.placeOrder')}
                     </Button>
                   </form>
@@ -1090,12 +1087,9 @@ export function BusinessProfilePage() {
                             </p>
                             {renderDeliveryFields(true)}
                             {orderError && <p role="alert" className="text-sm text-error-600">{orderError}</p>}
-                            {orderSubmitted && <p role="status" className="text-sm text-success-600">{t('business.orderSuccess')}</p>}
                             <Button
                               type="button"
-                              loading={orderLoading}
-                              disabled={orderLoading}
-                              onClick={() => void placeProductOrder()}
+                              onClick={beginProductCheckout}
                             >
                               {t('business.placeOrder')}
                             </Button>

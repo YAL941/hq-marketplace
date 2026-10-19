@@ -227,6 +227,7 @@ authRoutes.post('/auth/register', authLimiter, async (req, res, next) => {
             id: Number(result.user.user_id),
             email: result.user.email,
             isPlatformAdmin: false,
+            token_version: 0,
         });
         res.status(201).json({ data: { user: result.user, business: result.business, token } });
     } catch (error) {
@@ -329,6 +330,7 @@ authRoutes.post('/auth/login', authLimiter, async (req, res, next) => {
                 status: string;
                 full_name: string;
                 is_platform_admin: boolean;
+                token_version: string;
             }>('SELECT * FROM app_user_for_login($1)', [identifier]),
         );
 
@@ -359,6 +361,7 @@ authRoutes.post('/auth/login', authLimiter, async (req, res, next) => {
             id: Number(user.user_id),
             email: user.email,
             isPlatformAdmin: user.is_platform_admin,
+            token_version: Number(user.token_version),
         });
         res.json({ data: { user: { user_id: user.user_id, email: user.email, full_name: user.full_name }, token } });
     } catch (error) {

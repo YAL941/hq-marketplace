@@ -3,7 +3,7 @@ process.env['PGDATABASE'] = process.env['TEST_PGDATABASE'] ?? 'hq_marketplace_te
 process.env['JWT_SECRET'] = process.env['JWT_SECRET'] ?? 'test-secret-that-is-long-enough-123';
 
 import assertModule from 'node:assert/strict';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import request from 'supertest';
 
@@ -44,6 +44,22 @@ describe('password recovery', () => {
             .post('/api/auth/register')
             .send({ email, password: oldPassword, fullName: 'Reset Test User' });
         assert.equal(registration.status, 201, JSON.stringify(registration.body));
+
+        const verificationCode = '123456';
+        const verificationHash = createHmac('sha256', process.env['JWT_SECRET']!)
+            .update(`${email.toLowerCase()}:${verificationCode}`)
+            .digest('hex');
+        await adminPool.query(
+            `UPDATE user_email_verification_codes c
+                SET code_hash = $2, expires_at = $3, attempts = 0, consumed_at = NULL
+               FROM users u
+              WHERE c.user_id = u.user_id AND u.email = $1`,
+            [email, verificationHash, new Date(Date.now() + 15 * 60 * 1000)],
+        );
+        const verification = await request(app)
+            .post('/api/auth/email-verification/verify')
+            .send({ email, code: verificationCode });
+        assert.equal(verification.status, 200, JSON.stringify(verification.body));
 
         const rawToken = randomBytes(32).toString('hex');
         const tokenHash = createHash('sha256').update(rawToken).digest('hex');

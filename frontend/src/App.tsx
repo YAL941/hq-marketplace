@@ -37,6 +37,12 @@ const DashboardOrdersPage = lazy(() =>
 const MyOrdersPage = lazy(() =>
   import('./pages/MyOrders').then((module) => ({ default: module.MyOrdersPage })),
 );
+const CustomerOrderDetailPage = lazy(() =>
+  import('./pages/CustomerOrderDetail').then((module) => ({ default: module.CustomerOrderDetailPage })),
+);
+const CheckoutPage = lazy(() =>
+  import('./pages/Checkout').then((module) => ({ default: module.CheckoutPage })),
+);
 const DashboardReviewsPage = lazy(() =>
   import('./pages/DashboardReviews').then((module) => ({ default: module.DashboardReviewsPage })),
 );
@@ -445,10 +451,27 @@ function App() {
           <Route path="/register" element={<MainLayout><RegisterPage /></MainLayout>} />
           <Route path="/verify-email" element={<MainLayout><VerifyEmailPage /></MainLayout>} />
           <Route
-            path="/my-orders"
+            path="/orders"
             element={
               <PrivateRoute>
                 <MainLayout><MyOrdersPage /></MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route path="/my-orders" element={<Navigate to="/orders" replace />} />
+          <Route
+            path="/orders/:orderId"
+            element={
+              <PrivateRoute>
+                <MainLayout><CustomerOrderDetailPage /></MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/checkout"
+            element={
+              <PrivateRoute>
+                <MainLayout><CheckoutPage /></MainLayout>
               </PrivateRoute>
             }
           />

@@ -460,6 +460,53 @@ resolves the `/uploads/` prefix. Nothing has to be rewritten at migration time.
 All six are documented in [`.env.example`](.env.example) and all six have
 defaults, so the server boots and serves uploads without `.env` being edited.
 
+## Payments
+
+Migration `036_payments` adds payment records and an independent
+`orders.payment_status`; order fulfilment status is not changed by payment
+processing. Apply migrations and refresh the application role's grants before
+deploying:
+
+```sh
+npm run db:migrate
+npm run db:grants
+```
+
+The checkout supports cash on delivery and an optional mock mobile-money
+provider. Cash on delivery creates a pending payment; it is not marked paid
+because no cash-collection settlement integration is configured. The mock
+provider is available only outside production and does not charge real money:
+
+```dotenv
+PAYMENT_COMMISSION_BPS=500
+PAYMENTS_MOCK_ENABLED=true
+MOCK_MOBILE_MONEY_WEBHOOK_SECRET=<at-least-32-random-characters>
+```
+
+`PAYMENT_COMMISSION_BPS` uses basis points (`500` = 5%) and applies to the
+order subtotal, excluding delivery. The rate in effect when a verified payment
+succeeds is recorded with that payment. Payment attempts require an
+`Idempotency-Key`; signed webhooks are accepted at
+`POST /api/payments/webhooks/:provider`. The unique successful-payment index
+and atomic webhook handler prevent replayed events or concurrent callbacks from
+recording more than one successful payment for an order.
+
+## Notifications
+
+Notifications use a provider interface with mock SMS and WhatsApp adapters in
+development and tests. No real messaging credentials or production provider
+are configured. Order creation notifies the business; business and courier
+order-status transitions notify the customer; and a verified successful
+payment notifies the customer once. Payment notifications are not sent for
+unverified or duplicate webhooks.
+
+Messages are localized in Arabic, English, or Somali. Checkout submits the
+selected language, which is persisted on the order by migration
+`037_order_notification_language`. Sends are awaited after the database commit,
+but provider and context errors are logged and contained so they do not fail
+order or payment requests. Run `npm run db:migrate` and `npm run db:grants`
+when deploying the new migration.
+
 ## Project layout
 
 ```

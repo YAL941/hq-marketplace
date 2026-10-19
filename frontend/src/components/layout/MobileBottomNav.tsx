@@ -8,7 +8,7 @@ export function MobileBottomNav() {
   const { t } = useTranslation();
   const location = useLocation();
   const { isAuthenticated } = useAuth();
-  const ordersPath = isAuthenticated ? '/my-orders' : '/login?next=%2Fmy-orders';
+  const ordersPath = isAuthenticated ? '/orders' : '/login?next=%2Forders';
   const items = [
     { to: '/', label: t('nav.home'), Icon: Home, active: location.pathname === '/' },
     {
@@ -30,7 +30,7 @@ export function MobileBottomNav() {
       to: ordersPath,
       label: t('customerOrders.title'),
       Icon: Package,
-      active: location.pathname === '/my-orders',
+      active: location.pathname.startsWith('/orders'),
     },
   ];
 

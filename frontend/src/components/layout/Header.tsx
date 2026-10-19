@@ -312,7 +312,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
                         <Store className="w-4 h-4 inline me-2" /> {t('nav.listYourBusiness')}
                       </Link>
                       <Link
-                        to="/my-orders"
+                        to="/orders"
                         onClick={() => setUserMenuOpen(false)}
                         className="block px-4 py-2 text-sm text-navy-700 hover:bg-navy-50"
                       >
@@ -394,12 +394,12 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
               <nav className="flex flex-col gap-1 px-4 sm:px-6" aria-label={t('nav.dashboardNavigation')}>
                 {isAuthenticated && (
                   <Link
-                    to="/my-orders"
+                    to="/orders"
                     onClick={() => setMobileMenuOpen(false)}
-                    aria-current={location.pathname.startsWith('/my-orders') ? 'page' : undefined}
+                    aria-current={location.pathname.startsWith('/orders') ? 'page' : undefined}
                     className={cn(
                       'flex min-h-10 items-center gap-3 rounded-button px-3 py-2 text-sm transition-colors',
-                      location.pathname.startsWith('/my-orders')
+                      location.pathname.startsWith('/orders')
                         ? 'bg-primary-50 font-semibold text-primary-700'
                         : 'text-navy-700 hover:bg-navy-50'
                     )}
@@ -485,7 +485,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
               <Link to="/faq" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button">{t('footer.faq')}</Link>
               {isAuthenticated ? (
                 <>
-                  <Link to="/my-orders" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button flex items-center gap-2">
+                  <Link to="/orders" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button flex items-center gap-2">
                     <Package className="w-4 h-4" aria-hidden="true" /> {t('customerOrders.title')}
                   </Link>
                   <Link to="/list-your-business" className="px-3 py-2 text-navy-700 hover:bg-navy-50 rounded-button flex items-center gap-2">
