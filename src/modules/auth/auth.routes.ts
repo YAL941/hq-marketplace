@@ -389,13 +389,15 @@ authRoutes.post('/auth/password-reset/request', authLimiter, async (req, res, ne
         if (resetRecipient) {
             const resetUrl = new URL('/reset-password', config.PUBLIC_APP_URL);
             resetUrl.searchParams.set('token', token);
-            void sendPasswordResetEmail({
-                recipient: resetRecipient.user_email,
-                fullName: resetRecipient.user_name,
-                resetUrl: resetUrl.toString(),
-            }).catch((error: unknown) => {
+            try {
+                await sendPasswordResetEmail({
+                    recipient: resetRecipient.user_email,
+                    fullName: resetRecipient.user_name,
+                    resetUrl: resetUrl.toString(),
+                });
+            } catch (error: unknown) {
                 console.error('[auth] Password reset email could not be sent:', error);
-            });
+            }
         }
 
         res.json({

@@ -327,7 +327,9 @@ back to the right site, for example `https://omnihq.example`. Configure the
 SMTP values above to deliver reset links. Accounts created with a phone number
 only cannot use email recovery until an email address is associated with them.
 The request endpoint always returns the same message whether or not an active
-account uses the submitted email.
+account uses the submitted email. For a matching account, the API awaits the
+SMTP send attempt before responding, so serverless runtimes can finish the
+delivery operation; failures are logged without exposing account existence.
 
 The public header links to Explore, Categories, How it works and Favorites;
 signed-in visitors see their account actions instead of Sign in / Get started.
