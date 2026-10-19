@@ -64,8 +64,8 @@ interface PreflightResult {
  */
 async function preflight(overrides: Record<string, string | undefined> = {}): Promise<PreflightResult> {
     const env: Record<string, string> = {
-        PATH: process.env['PATH'] ?? '',
         ...readProjectEnv(),
+        ...process.env,
         PGDATABASE: process.env['TEST_PGDATABASE'] ?? 'hq_marketplace_test',
         // Overridable per case; the busy-port case needs to name its own.
         PORT: String(freePort),
