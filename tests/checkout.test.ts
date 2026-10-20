@@ -61,22 +61,22 @@ describe('customer checkout', () => {
                 unitPrice: '10.00',
             }],
             scheduledFor: '2026-10-20T09:00:00.000Z',
-        });
+        }, 'mock_mobile_money');
         assert.deepEqual(input, {
             businessId: 12,
             items: [{ serviceId: 56, quantity: 1 }],
             scheduledFor: '2026-10-20T09:00:00.000Z',
             deliveryRequested: false,
             locationConsent: false,
-            paymentMethod: 'cash_on_delivery',
+            paymentMethod: 'mock_mobile_money',
             notificationLanguage: 'en',
         });
     });
 
     it('keeps the selected checkout language for future order notifications', () => {
-        assert.equal(buildCheckoutOrderInput(draft, 'cash_on_delivery', 'ar').notificationLanguage, 'ar');
-        assert.equal(buildCheckoutOrderInput(draft, 'cash_on_delivery', 'so').notificationLanguage, 'so');
-        assert.equal(buildCheckoutOrderInput(draft, 'cash_on_delivery', 'fr').notificationLanguage, 'en');
+        assert.equal(buildCheckoutOrderInput(draft, 'mock_mobile_money', 'ar').notificationLanguage, 'ar');
+        assert.equal(buildCheckoutOrderInput(draft, 'mock_mobile_money', 'so').notificationLanguage, 'so');
+        assert.equal(buildCheckoutOrderInput(draft, 'mock_mobile_money', 'fr').notificationLanguage, 'en');
     });
 
     it('estimates item totals and adds the selected business delivery fee', () => {

@@ -15,7 +15,6 @@ export function getPaymentProvider(name: PaymentProviderName): PaymentProvider |
 
 export function listPaymentMethods() {
     return [
-        { name: 'cash_on_delivery' as const, available: true, testOnly: false },
         { name: 'mock_mobile_money' as const, available: mockMobileMoney !== null, testOnly: true },
     ];
 }

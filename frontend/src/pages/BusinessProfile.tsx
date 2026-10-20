@@ -341,7 +341,6 @@ export function BusinessProfilePage() {
       deliveryLongitude,
       deliveryNote: deliveryNote.trim(),
       customerPhone: customerPhone.trim(),
-      paymentMethod: 'cash_on_delivery' as const,
     };
   };
 

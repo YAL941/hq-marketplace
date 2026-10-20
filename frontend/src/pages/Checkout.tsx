@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Banknote, MapPin, Package, Smartphone, Store } from 'lucide-react';
+import { ArrowLeft, MapPin, Package, Smartphone, Store } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
@@ -17,16 +17,20 @@ export function CheckoutPage() {
   const draft = isCheckoutDraft(location.state) ? location.state : null;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOption[]>([
-    { name: 'cash_on_delivery', available: true, testOnly: false },
-  ]);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentProviderName>('cash_on_delivery');
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOption[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentProviderName | null>(null);
 
   useEffect(() => {
     let active = true;
     paymentApi.methods()
       .then((response) => {
-        if (active) setPaymentMethods(response.data.data.filter((method) => method.available));
+        if (active) {
+          const available = response.data.data.filter(
+            (method) => method.available && method.name !== 'cash_on_delivery',
+          );
+          setPaymentMethods(available);
+          setPaymentMethod(available[0]?.name ?? null);
+        }
       })
       .catch(() => {
         if (active) setError(t('checkout.methodsError'));
@@ -54,6 +58,10 @@ export function CheckoutPage() {
   const total = estimateCheckoutTotal(draft);
 
   const submitOrder = async () => {
+    if (!paymentMethod || !paymentMethods.some((method) => method.name === paymentMethod)) {
+      setError(t('checkout.noPaymentMethods'));
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -130,6 +138,11 @@ export function CheckoutPage() {
 
           <Card className="p-5 sm:p-6">
             <h2 className="mb-4 text-lg font-semibold text-navy-900">{t('checkout.paymentMethod')}</h2>
+            {paymentMethods.length === 0 && (
+              <p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900" role="status">
+                {t('checkout.noPaymentMethods')}
+              </p>
+            )}
             {paymentMethods.map((method) => (
               <label
                 key={method.name}
@@ -145,19 +158,13 @@ export function CheckoutPage() {
                   onChange={() => setPaymentMethod(method.name)}
                   className="h-4 w-4 accent-primary-600"
                 />
-                {method.name === 'cash_on_delivery'
-                  ? <Banknote className="h-5 w-5 text-primary-700" aria-hidden="true" />
-                  : <Smartphone className="h-5 w-5 text-primary-700" aria-hidden="true" />}
+                <Smartphone className="h-5 w-5 text-primary-700" aria-hidden="true" />
                 <span>
                   <span className="block font-semibold text-navy-900">
-                    {method.name === 'cash_on_delivery'
-                      ? t('checkout.cashOnDelivery')
-                      : `${t('checkout.mockMobileMoney')} (${t('checkout.testOnly')})`}
+                    {`${t('checkout.mockMobileMoney')} (${t('checkout.testOnly')})`}
                   </span>
                   <span className="mt-0.5 block text-sm text-navy-600">
-                    {method.name === 'cash_on_delivery'
-                      ? t('checkout.cashDescription')
-                      : t('checkout.mockMobileMoneyDescription')}
+                    {t('checkout.mockMobileMoneyDescription')}
                   </span>
                 </span>
               </label>
@@ -195,7 +202,13 @@ export function CheckoutPage() {
               </p>
             )}
             {error && <p className="mt-4 text-sm text-error-600" role="alert">{error}</p>}
-            <Button type="button" className="mt-5 w-full" loading={submitting} onClick={() => void submitOrder()}>
+            <Button
+              type="button"
+              className="mt-5 w-full"
+              loading={submitting}
+              disabled={!paymentMethod || paymentMethods.length === 0}
+              onClick={() => void submitOrder()}
+            >
               {t('checkout.confirmOrder')}
             </Button>
           </Card>

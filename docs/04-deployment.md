@@ -94,7 +94,7 @@ Production (and Preview if previews should access the database):
 | `CORS_ORIGIN` | `https://hq-marketplace.vercel.app` (replace with the production site origin if different) |
 | `PUBLIC_APP_URL` | `https://hq-marketplace.vercel.app` (replace with the production site origin if different) |
 | `TRUST_PROXY_HOPS` | `1` |
-| `ORDERS_ENABLED` | `false` until order pricing has been reviewed for production |
+| `ORDERS_ENABLED` | `false` until an online payment provider is integrated and configured |
 | `STORAGE_DRIVER` | `s3` |
 | `S3_ENDPOINT` | Copy the S3 endpoint from Supabase Storage → S3 Configuration, such as `https://<project-ref>.storage.supabase.co/storage/v1/s3` |
 | `S3_REGION` | The project region shown in Supabase Storage → S3 Configuration |
@@ -153,11 +153,12 @@ warnings: the process will not start.
 | `ORDERS_ENABLED` | explicitly set to `false` in production until reviewed | order creation currently accepts adjustment amounts and currency from the client |
 
 `ORDERS_ENABLED` defaults to `true` in every environment, so production must set
-it explicitly to `false` until order pricing is computed by trusted server-side
-rules. When disabled, `POST /api/orders` returns the same 404 response as
-an unknown route; existing order reads and business order management remain
-available. Do not enable production order creation until delivery fees,
-discounts, tax and currency are derived from trusted server-side rules.
+it explicitly to `false` until a real online payment provider is integrated and
+configured. The checkout does not offer cash on delivery. When order creation
+is disabled, `POST /api/orders` returns `503 ORDERS_UNAVAILABLE`; existing
+order reads and business order management remain available. Production also
+refuses to create orders without an available non-test payment provider.
+Product prices, currency, and delivery fees are derived by the server.
 
 Development and test keep their permissive defaults deliberately, so a fresh
 clone runs without writing a secret into a file first.

@@ -339,14 +339,14 @@ describe('Test 5: Customer creates an Order for one business', () => {
         assert.equal(res.status, 404);
     });
 
-    it('returns the unknown-route 404 when disabled while order reads stay available', async () => {
+    it('reports order creation unavailable when disabled while order reads stay available', async () => {
         assert.equal(app.get('ordersEnabled'), true);
         app.set('ordersEnabled', false);
         try {
             const hidden = await request(app).post('/api/orders').send({});
-            assert.equal(hidden.status, 404);
+            assert.equal(hidden.status, 503);
             assert.deepEqual(hidden.body, {
-                error: { code: 'NOT_FOUND', message: 'Route not found' },
+                error: { code: 'ORDERS_UNAVAILABLE', message: 'Order checkout is currently unavailable.' },
             });
 
             const existingOrders = await request(app)

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { ANONYMOUS, withTenant } from '../../db/tenant.js';
-import { badRequest, notFound, unauthorized } from '../../db/errors.js';
+import { AppError, badRequest, notFound, unauthorized } from '../../db/errors.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import { config } from '../../config.js';
@@ -33,6 +33,14 @@ paymentRoutes.post(
             const orderId = Number(req.params['orderId']);
             if (!Number.isSafeInteger(orderId) || orderId <= 0) throw notFound('Order not found');
             const { provider } = createPaymentSchema.parse(req.body);
+            const method = listPaymentMethods().find((option) => option.name === provider);
+            if (!method?.available || (config.isProduction && method.testOnly)) {
+                throw new AppError(
+                    503,
+                    'PAYMENT_PROVIDER_UNAVAILABLE',
+                    'Online payment is not configured. Orders must be paid when placed.',
+                );
+            }
             const idempotencyKey = req.header('Idempotency-Key')?.trim();
             if (!idempotencyKey || idempotencyKey.length > 200) {
                 throw badRequest('A valid Idempotency-Key header is required');

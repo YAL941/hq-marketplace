@@ -1,6 +1,6 @@
 ﻿import { Router } from 'express';
 import { z } from 'zod';
-import { conflict, notFound, unauthorized } from '../../db/errors.js';
+import { AppError, conflict, notFound, unauthorized } from '../../db/errors.js';
 import { randomInt } from 'node:crypto';
 import { withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
@@ -8,6 +8,7 @@ import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import { config } from '../../config.js';
 import { notifyOrderEventSafely } from '../notifications/notification.service.js';
+import { listPaymentMethods } from '../payments/payment.providers.js';
 import {
     cancelOwnOrder,
     createOrder,
@@ -63,7 +64,7 @@ orderRoutes.post(
     '/orders',
     (req, _res, next) => {
         if (req.app.get('ordersEnabled') !== true) {
-            next(notFound('Route not found'));
+        next(new AppError(503, 'ORDERS_UNAVAILABLE', 'Order checkout is currently unavailable.'));
             return;
         }
         next();
@@ -73,8 +74,18 @@ orderRoutes.post(
     async (req, res, next) => {
         try {
             const input = createOrderSchema.parse(req.body);
+            const selectedMethod = listPaymentMethods().find(
+                (method) => method.name === input.paymentMethod && method.available && !method.testOnly,
+            );
+            if (config.isProduction && !selectedMethod) {
+                throw new AppError(
+                    503,
+                    'PAYMENT_PROVIDER_UNAVAILABLE',
+                    'Online payment is not configured. Orders must be paid when placed.',
+                );
+            }
             if (input.paymentMethod === 'mock_mobile_money' && !config.mockMobileMoneyEnabled) {
-                throw notFound('Payment method is not available');
+                throw new AppError(503, 'PAYMENT_PROVIDER_UNAVAILABLE', 'Online payment is not configured.');
             }
             const ctx = contextFor(req);
             const order = await withTenant(ctx, (client) => createOrder(client, req.user!.id, input));

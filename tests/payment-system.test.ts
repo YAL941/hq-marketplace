@@ -78,6 +78,15 @@ after(async () => {
 });
 
 describe('payment lifecycle', () => {
+    it('does not offer cash on delivery as a checkout payment method', async () => {
+        const response = await request(app).get('/api/payments/methods');
+        assert.equal(response.status, 200);
+        assert.equal(
+            response.body.data.some((method: { name: string }) => method.name === 'cash_on_delivery'),
+            false,
+        );
+    });
+
     it('requires a verified idempotent webhook before marking an order paid, and accounts commission once', async () => {
         mockSmsProvider.clear();
         mockWhatsAppProvider.clear();

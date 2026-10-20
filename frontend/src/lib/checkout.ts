@@ -52,7 +52,7 @@ export function isCheckoutDraft(value: unknown): value is CheckoutDraft {
 
 export function buildCheckoutOrderInput(
   draft: CheckoutDraft,
-  paymentMethod: PaymentProviderName = 'cash_on_delivery',
+  paymentMethod: PaymentProviderName,
   language = 'en',
 ) {
   const notificationLanguage: NotificationLanguage =
