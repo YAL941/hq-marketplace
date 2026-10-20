@@ -388,6 +388,42 @@ adminRoutes.patch(
     reviewBusiness,
 );
 
+// Phase 5: monetization admin endpoints
+adminRoutes.post('/admin/businesses/:businessId/plan', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const businessId = Number(req.params['businessId']);
+        const planTier = String(req.body?.tier ?? 'free');
+        await withTenant(contextFor(req), async (client) => {
+            const { rows: planRows } = await client.query<{ id: number }>(
+                'SELECT id FROM subscription_plans WHERE tier = $1', [planTier],
+            );
+            if (!planRows[0]) throw badRequest('Unknown plan tier');
+            await client.query(
+                `INSERT INTO business_subscriptions (business_id, plan_id, status)
+                 VALUES ($1, $2, 'active')
+                 ON CONFLICT (business_id) DO UPDATE SET plan_id = $2, status = 'active', started_at = now()`,
+                [businessId, planRows[0].id],
+            );
+        });
+        res.status(204).end();
+    } catch (error) { next(error); }
+});
+
+adminRoutes.post('/admin/businesses/:businessId/featured', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const businessId = Number(req.params['businessId']);
+        const featured = Boolean(req.body?.featured);
+        const until = req.body?.until ? new Date(req.body.until) : null;
+        await withTenant(contextFor(req), async (client) => {
+            await client.query(
+                'UPDATE businesses SET is_featured = $1, featured_until = $2 WHERE business_id = $3',
+                [featured, until, businessId],
+            );
+        });
+        res.status(204).end();
+    } catch (error) { next(error); }
+});
+
 adminRoutes.patch(
     '/admin/businesses/:businessId/verification',
     authenticate,
@@ -395,3 +431,39 @@ adminRoutes.patch(
     rateLimiter('write'),
     reviewBusiness,
 );
+
+// Phase 5: monetization admin endpoints
+adminRoutes.post('/admin/businesses/:businessId/plan', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const businessId = Number(req.params['businessId']);
+        const planTier = String(req.body?.tier ?? 'free');
+        await withTenant(contextFor(req), async (client) => {
+            const { rows: planRows } = await client.query<{ id: number }>(
+                'SELECT id FROM subscription_plans WHERE tier = $1', [planTier],
+            );
+            if (!planRows[0]) throw badRequest('Unknown plan tier');
+            await client.query(
+                `INSERT INTO business_subscriptions (business_id, plan_id, status)
+                 VALUES ($1, $2, 'active')
+                 ON CONFLICT (business_id) DO UPDATE SET plan_id = $2, status = 'active', started_at = now()`,
+                [businessId, planRows[0].id],
+            );
+        });
+        res.status(204).end();
+    } catch (error) { next(error); }
+});
+
+adminRoutes.post('/admin/businesses/:businessId/featured', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const businessId = Number(req.params['businessId']);
+        const featured = Boolean(req.body?.featured);
+        const until = req.body?.until ? new Date(req.body.until) : null;
+        await withTenant(contextFor(req), async (client) => {
+            await client.query(
+                'UPDATE businesses SET is_featured = $1, featured_until = $2 WHERE business_id = $3',
+                [featured, until, businessId],
+            );
+        });
+        res.status(204).end();
+    } catch (error) { next(error); }
+});

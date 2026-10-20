@@ -173,7 +173,7 @@ export async function listPublicBusinesses(
         // Featured is a promotion, so it outranks everything, and rating
         // breaks the tie rather than created_at: a promoted business nobody
         // reviewed should not sit above a promoted business everyone did.
-        featured: 'b.is_featured DESC, rv.average_rating DESC NULLS LAST, b.created_at DESC',
+        featured: `CASE WHEN b.is_featured = true AND (b.featured_until IS NULL OR b.featured_until > now()) THEN 1 ELSE 0 END DESC, rv.average_rating DESC NULLS LAST, b.created_at DESC`,
         rating: 'rv.average_rating DESC NULLS LAST, rv.review_count DESC, b.created_at DESC',
         newest: 'b.created_at DESC',
     }[query.sort];
