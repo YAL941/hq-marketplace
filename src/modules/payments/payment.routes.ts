@@ -2,11 +2,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { ANONYMOUS, withTenant } from '../../db/tenant.js';
 import { AppError, badRequest, notFound, unauthorized } from '../../db/errors.js';
-import { authenticate, contextFor } from '../../middleware/auth.js';
+import { authenticate, contextFor, optionalAuth } from '../../middleware/auth.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
-import { config } from '../../config.js';
 import { applyVerifiedPaymentEvent, createPayment, findOwnedPayment } from './payment.repository.js';
-import { getPaymentProvider, listPaymentMethods } from './payment.providers.js';
+import { getPaymentProvider, isMockMobileMoneyAllowedFor, listPaymentMethods } from './payment.providers.js';
 import { PAYMENT_PROVIDERS, type PaymentProviderName } from './payment.types.js';
 import { MockMobileMoneyProvider } from './mock-mobile-money.provider.js';
 import { notifyPaidPaymentSafely } from '../notifications/notification.service.js';
@@ -20,8 +19,8 @@ const webhookLimiter = rateLimiter('public');
 
 export const paymentRoutes: Router = Router();
 
-paymentRoutes.get('/payments/methods', (_req, res) => {
-    res.json({ data: listPaymentMethods() });
+paymentRoutes.get('/payments/methods', optionalAuth, (req, res) => {
+    res.json({ data: listPaymentMethods(req.user?.email) });
 });
 
 paymentRoutes.post(
@@ -33,8 +32,8 @@ paymentRoutes.post(
             const orderId = Number(req.params['orderId']);
             if (!Number.isSafeInteger(orderId) || orderId <= 0) throw notFound('Order not found');
             const { provider } = createPaymentSchema.parse(req.body);
-            const method = listPaymentMethods().find((option) => option.name === provider);
-            if (!method?.available || (config.isProduction && method.testOnly)) {
+            const method = listPaymentMethods(req.user?.email).find((option) => option.name === provider);
+            if (!method?.available) {
                 throw new AppError(
                     503,
                     'PAYMENT_PROVIDER_UNAVAILABLE',
@@ -88,7 +87,7 @@ paymentRoutes.post(
     authenticate,
     async (req, res, next) => {
         try {
-            if (config.isProduction || !config.mockMobileMoneyEnabled) {
+            if (!isMockMobileMoneyAllowedFor(req.user?.email)) {
                 throw notFound('Route not found');
             }
             const paymentId = Number(req.params['paymentId']);

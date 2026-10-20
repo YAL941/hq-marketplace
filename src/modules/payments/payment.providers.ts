@@ -8,13 +8,40 @@ const mockMobileMoney = config.mockMobileMoneyEnabled
     ? new MockMobileMoneyProvider(config.MOCK_MOBILE_MONEY_WEBHOOK_SECRET!)
     : null;
 
+interface MockPaymentAccessSettings {
+    enabled: boolean;
+    isProduction: boolean;
+    testerEmail?: string;
+}
+
+export function isMockMobileMoneyAllowedFor(
+    email: string | null | undefined,
+    settings: MockPaymentAccessSettings = {
+        enabled: config.mockMobileMoneyEnabled,
+        isProduction: config.isProduction,
+        testerEmail: config.PAYMENTS_MOCK_TESTER_EMAIL,
+    },
+): boolean {
+    if (!settings.enabled) return false;
+    if (!settings.isProduction) return true;
+    return Boolean(
+        email
+        && settings.testerEmail
+        && email.trim().toLowerCase() === settings.testerEmail.trim().toLowerCase(),
+    );
+}
+
 export function getPaymentProvider(name: PaymentProviderName): PaymentProvider | null {
     if (name === 'cash_on_delivery') return cashOnDelivery;
     return mockMobileMoney;
 }
 
-export function listPaymentMethods() {
+export function listPaymentMethods(email?: string | null) {
     return [
-        { name: 'mock_mobile_money' as const, available: mockMobileMoney !== null, testOnly: true },
+        {
+            name: 'mock_mobile_money' as const,
+            available: mockMobileMoney !== null && isMockMobileMoneyAllowedFor(email),
+            testOnly: true,
+        },
     ];
 }

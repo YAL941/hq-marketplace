@@ -151,14 +151,22 @@ warnings: the process will not start.
 | `STORAGE_DRIVER` | `s3` on Vercel | Vercel function filesystems are ephemeral |
 | `TRUST_PROXY_HOPS` | set explicitly | there is no safe default |
 | `ORDERS_ENABLED` | explicitly set to `false` in production until reviewed | order creation currently accepts adjustment amounts and currency from the client |
+| `PAYMENTS_MOCK_ENABLED` | `false` by default; enable only for restricted testing | mock payments never collect real funds |
+| `PAYMENTS_MOCK_TESTER_EMAIL` | exact login email of the sole authorized test account when mock payments are enabled | hides and blocks mock payments for every other account |
 
 `ORDERS_ENABLED` defaults to `true` in every environment, so production must set
 it explicitly to `false` until a real online payment provider is integrated and
 configured. The checkout does not offer cash on delivery. When order creation
 is disabled, `POST /api/orders` returns `503 ORDERS_UNAVAILABLE`; existing
-order reads and business order management remain available. Production also
-refuses to create orders without an available non-test payment provider.
-Product prices, currency, and delivery fees are derived by the server.
+order reads and business order management remain available. Production refuses
+orders without an available real payment provider for regular customers; the
+single configured tester can use the mock provider only while it is explicitly
+enabled. Product prices, currency, and delivery fees are derived by the server.
+For a temporary production checkout test, set `ORDERS_ENABLED=true` and the
+three mock-payment variables above. Production order/payment routes accept the
+mock method only for `PAYMENTS_MOCK_TESTER_EMAIL`; disable mock payments again
+after testing. Mock-paid orders are visible to the selected business as paid,
+even though no real money is collected.
 
 Development and test keep their permissive defaults deliberately, so a fresh
 clone runs without writing a secret into a file first.

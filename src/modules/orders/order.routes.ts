@@ -8,7 +8,7 @@ import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import { config } from '../../config.js';
 import { notifyOrderEventSafely } from '../notifications/notification.service.js';
-import { listPaymentMethods } from '../payments/payment.providers.js';
+import { isMockMobileMoneyAllowedFor, listPaymentMethods } from '../payments/payment.providers.js';
 import {
     cancelOwnOrder,
     createOrder,
@@ -74,8 +74,10 @@ orderRoutes.post(
     async (req, res, next) => {
         try {
             const input = createOrderSchema.parse(req.body);
-            const selectedMethod = listPaymentMethods().find(
-                (method) => method.name === input.paymentMethod && method.available && !method.testOnly,
+            const selectedMethod = listPaymentMethods(req.user?.email).find(
+                (method) => method.name === input.paymentMethod
+                    && method.available
+                    && (!method.testOnly || isMockMobileMoneyAllowedFor(req.user?.email)),
             );
             if (config.isProduction && !selectedMethod) {
                 throw new AppError(

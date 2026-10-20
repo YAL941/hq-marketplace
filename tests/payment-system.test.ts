@@ -78,6 +78,38 @@ after(async () => {
 });
 
 describe('payment lifecycle', () => {
+    it('limits production mock payments to the configured tester email', async () => {
+        const settings = {
+            enabled: true,
+            isProduction: true,
+            testerEmail: 'tester@example.com',
+        };
+        const providers = await import('../src/modules/payments/payment.providers.js');
+        const config = (await import('../src/config.js')).config as {
+            isProduction: boolean;
+            PAYMENTS_MOCK_TESTER_EMAIL?: string;
+        };
+        const originalProduction = config.isProduction;
+        const originalTesterEmail = config.PAYMENTS_MOCK_TESTER_EMAIL;
+        config.isProduction = true;
+        config.PAYMENTS_MOCK_TESTER_EMAIL = settings.testerEmail;
+        try {
+            assert.equal(providers.isMockMobileMoneyAllowedFor('tester@example.com', settings), true);
+            assert.equal(providers.isMockMobileMoneyAllowedFor(' TESTER@example.com ', settings), true);
+            assert.equal(providers.isMockMobileMoneyAllowedFor('customer@example.com', settings), false);
+            assert.equal(providers.isMockMobileMoneyAllowedFor(null, settings), false);
+            assert.equal(
+                providers.isMockMobileMoneyAllowedFor('tester@example.com', { ...settings, enabled: false }),
+                false,
+            );
+            assert.equal(providers.listPaymentMethods('tester@example.com')[0]?.available, true);
+            assert.equal(providers.listPaymentMethods('customer@example.com')[0]?.available, false);
+        } finally {
+            config.isProduction = originalProduction;
+            config.PAYMENTS_MOCK_TESTER_EMAIL = originalTesterEmail;
+        }
+    });
+
     it('does not offer cash on delivery as a checkout payment method', async () => {
         const response = await request(app).get('/api/payments/methods');
         assert.equal(response.status, 200);
@@ -186,10 +218,17 @@ describe('payment lifecycle', () => {
             .set('Content-Type', 'application/json');
         assert.equal(forged.status, 401);
 
+        const simulatedCompletion = await request(app)
+            .post(`/api/payments/${payment.payment_id}/mock-complete`)
+            .set('Authorization', `Bearer ${customerToken}`);
+        assert.equal(simulatedCompletion.status, 200, JSON.stringify(simulatedCompletion.body));
+        assert.equal(simulatedCompletion.body.data.payment_status, 'paid');
+        assert.equal(simulatedCompletion.body.data.duplicate, false);
+
         const accepted = await webhook();
         assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
         assert.equal(accepted.body.data.payment_status, 'paid');
-        assert.equal(accepted.body.data.duplicate, false);
+        assert.equal(accepted.body.data.duplicate, true);
 
         const duplicate = await webhook();
         assert.equal(duplicate.status, 200, JSON.stringify(duplicate.body));

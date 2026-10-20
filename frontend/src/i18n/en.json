@@ -783,7 +783,7 @@
     "cashOnDelivery": "Cash on delivery",
     "cashDescription": "Pay the business when your order arrives or when you collect it.",
     "mockMobileMoney": "Mock mobile money",
-    "mockMobileMoneyDescription": "A simulated test payment; it is not a real charge.",
+    "mockMobileMoneyDescription": "Simulation only: no real money is charged, but a test order is created and shown to the business as paid.",
     "testOnly": "test only",
     "methodsError": "Payment methods could not be loaded. Please refresh the page.",
     "noPaymentMethods": "Online payment is not configured yet. Orders cannot be confirmed until a real payment provider is connected.",

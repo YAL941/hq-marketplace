@@ -481,16 +481,21 @@ npm run db:migrate
 npm run db:grants
 ```
 
-The checkout supports cash on delivery and an optional mock mobile-money
-provider. Cash on delivery creates a pending payment; it is not marked paid
-because no cash-collection settlement integration is configured. The mock
-provider is available only outside production and does not charge real money:
+The checkout has an optional mock mobile-money provider for testing; it never
+collects real money. In production, it must be explicitly enabled and is shown
+only to the configured tester account:
 
 ```dotenv
 PAYMENT_COMMISSION_BPS=500
 PAYMENTS_MOCK_ENABLED=true
 MOCK_MOBILE_MONEY_WEBHOOK_SECRET=<at-least-32-random-characters>
+PAYMENTS_MOCK_TESTER_EMAIL=<exact-login-email-for-the-test-account>
 ```
+
+Mock checkout creates a real order record marked paid in the application and
+can notify the selected business, even though no money moves. Use a test order
+and coordinate with the business owner. Other accounts cannot see or use the
+mock method. Keep `PAYMENTS_MOCK_ENABLED=false` when the test is complete.
 
 `PAYMENT_COMMISSION_BPS` uses basis points (`500` = 5%) and applies to the
 order subtotal, excluding delivery. The rate in effect when a verified payment

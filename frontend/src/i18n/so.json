@@ -783,7 +783,7 @@
     "cashOnDelivery": "Lacag caddaan ah marka la keeno",
     "cashDescription": "Ganacsiga sii lacagta marka dalabku yimaado ama aad ka qaadato.",
     "mockMobileMoney": "Lacag moobil tijaabo ah",
-    "mockMobileMoneyDescription": "Lacag-bixin la matalay oo tijaabo ah; lacag dhab ah lagama jarayo.",
+    "mockMobileMoneyDescription": "Tijaabo keliya: lacag dhab ah lagama jarayo, balse dalab tijaabo ah ayaa la abuuraa ganacsigana waxaa loo muujiyaa inuu bixiyay.",
     "testOnly": "Tijaabo keliya",
     "methodsError": "Hababka lacag-bixinta lama soo rari karin. Cusboonaysii bogga.",
     "noPaymentMethods": "Lacag-bixinta internetka weli lama habayn. Dalabka lama xaqiijin karo ilaa adeeg lacag-bixin dhab ah lagu xiro.",

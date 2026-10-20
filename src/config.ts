@@ -17,6 +17,7 @@ const envSchema = z.object({
     PAYMENT_COMMISSION_BPS: z.coerce.number().int().min(0).max(10_000).default(500),
     PAYMENTS_MOCK_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
     MOCK_MOBILE_MONEY_WEBHOOK_SECRET: z.string().optional(),
+    PAYMENTS_MOCK_TESTER_EMAIL: z.string().email().optional(),
 
     PORT: z.coerce.number().int().positive().default(4000),
     SMTP_HOST: z.string().min(1).optional(),
@@ -348,8 +349,11 @@ if (parsed.data.NODE_ENV === 'production') {
         assertAbsoluteUploadDir(parsed.data.UPLOAD_DIR);
     }
     assertExplicitTrustProxyHops(parsed.data.TRUST_PROXY_HOPS);
-    if (parsed.data.PAYMENTS_MOCK_ENABLED) {
-        throw new Error('Refusing to start: PAYMENTS_MOCK_ENABLED must be false in production.');
+    if (parsed.data.PAYMENTS_MOCK_ENABLED && !parsed.data.PAYMENTS_MOCK_TESTER_EMAIL) {
+        throw new Error(
+            'Refusing to start: PAYMENTS_MOCK_TESTER_EMAIL is required when '
+            + 'PAYMENTS_MOCK_ENABLED=true in production.',
+        );
     }
 }
 
@@ -361,8 +365,8 @@ const configBase = {
             ? true
             : parsed.data.ORDERS_ENABLED === 'true',
     mockMobileMoneyEnabled:
-        parsed.data.NODE_ENV !== 'production'
-        && parsed.data.PAYMENTS_MOCK_ENABLED
+        parsed.data.PAYMENTS_MOCK_ENABLED
+        && (parsed.data.NODE_ENV !== 'production' || Boolean(parsed.data.PAYMENTS_MOCK_TESTER_EMAIL))
         && Boolean(parsed.data.MOCK_MOBILE_MONEY_WEBHOOK_SECRET),
     isProduction: parsed.data.NODE_ENV === 'production',
     isTest: parsed.data.NODE_ENV === 'test',
