@@ -22,6 +22,10 @@ const transporter = config.SMTP_HOST
     })
     : null;
 
+export function isEmailDeliveryConfigured(): boolean {
+    return transporter !== null;
+}
+
 export async function sendPasswordResetEmail(input: {
     recipient: string;
     fullName: string;

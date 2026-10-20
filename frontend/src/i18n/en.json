@@ -110,6 +110,7 @@
     "resendVerificationCode": "Resend code",
     "verificationResendSent": "If this address belongs to an unverified account, a new code will be sent. Wait one minute between requests and check your spam folder.",
     "verificationInitialSendFailed": "We could not send the code just now. Check the email delivery settings, then try resending.",
+    "verificationDeliveryUnavailable": "We could not send the email right now. Check email delivery settings or contact support, then try again.",
     "verificationComplete": "Your email is verified. You can now sign in.",
     "verifyEmailLink": "Need to verify your email? Enter a verification code",
     "emailNotVerified": "Verify your email with the code before signing in.",

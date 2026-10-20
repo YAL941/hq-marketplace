@@ -3,12 +3,16 @@ import bcrypt from 'bcryptjs';
 import { createHash, createHmac, randomBytes, randomInt } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
-import { badRequest, conflict, unauthorized } from '../../db/errors.js';
+import { AppError, badRequest, conflict, unauthorized } from '../../db/errors.js';
 import { ANONYMOUS, withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor, signAccessToken } from '../../middleware/auth.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import { config } from '../../config.js';
-import { sendEmailVerificationCode, sendPasswordResetEmail } from '../admin/mailer.js';
+import {
+    isEmailDeliveryConfigured,
+    sendEmailVerificationCode,
+    sendPasswordResetEmail,
+} from '../admin/mailer.js';
 import { isEmailLike, normalisePhone, PhoneValidationError } from './phone.js';
 
 /**
@@ -102,6 +106,14 @@ const emailVerificationResendSchema = z.object({
 });
 
 const EMAIL_VERIFICATION_TTL_MS = 15 * 60 * 1000;
+
+function emailDeliveryUnavailable(): AppError {
+    return new AppError(
+        503,
+        'EMAIL_DELIVERY_UNAVAILABLE',
+        'Email delivery is temporarily unavailable. Please try again later or contact support.',
+    );
+}
 
 function newEmailVerificationCode(): string {
     return randomInt(0, 1_000_000).toString().padStart(6, '0');
@@ -271,6 +283,10 @@ authRoutes.post('/auth/email-verification/verify', authLimiter, async (req, res,
 authRoutes.post('/auth/email-verification/resend', authLimiter, async (req, res, next) => {
     try {
         const input = emailVerificationResendSchema.parse(req.body);
+        if (!isEmailDeliveryConfigured()) {
+            next(emailDeliveryUnavailable());
+            return;
+        }
         const email = input.email.toLowerCase();
         const code = newEmailVerificationCode();
         const { rows } = await withTenant(ANONYMOUS, async (client) =>
@@ -297,6 +313,8 @@ authRoutes.post('/auth/email-verification/resend', authLimiter, async (req, res,
                 }
             } catch (error) {
                 console.error(`[auth] verification email failed for user ${account.account_id}:`, error);
+                next(emailDeliveryUnavailable());
+                return;
             }
         }
         res.json({

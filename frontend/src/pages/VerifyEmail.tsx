@@ -52,7 +52,9 @@ export function VerifyEmailPage() {
       setResendNotice(true);
     } catch (error) {
       const fieldIssue = toFieldIssue(error);
-      setIssue(fieldIssue.message || t('auth.errorUnexpected'));
+      setIssue(fieldIssue.code === 'EMAIL_DELIVERY_UNAVAILABLE'
+        ? t('auth.verificationDeliveryUnavailable')
+        : fieldIssue.message || t('auth.errorUnexpected'));
     } finally {
       setResending(false);
     }

@@ -75,6 +75,21 @@ after(async () => {
 });
 
 describe('Registration: email, phone, or both', () => {
+    it('reports unavailable email delivery when SMTP is not configured', async (t) => {
+        const { isEmailDeliveryConfigured } = await import('../src/modules/admin/mailer.js');
+        if (isEmailDeliveryConfigured()) {
+            t.skip('SMTP is configured in this environment');
+            return;
+        }
+
+        const res = await request(app)
+            .post('/api/auth/email-verification/resend')
+            .send({ email: nextEmail('resend-unconfigured') });
+
+        assert.equal(res.status, 503);
+        assert.equal(res.body.error.code, 'EMAIL_DELIVERY_UNAVAILABLE');
+    });
+
     it('requires email verification before an email account can sign in', async () => {
         const email = nextEmail('email-only');
         const res = await register({ email, password: PASSWORD, fullName: 'Email Only' });

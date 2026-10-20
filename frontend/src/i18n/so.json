@@ -110,6 +110,7 @@
     "resendVerificationCode": "Dib u dir lambarka",
     "verificationResendSent": "Haddii cinwaankani leeyahay xisaab aan la xaqiijin, lambar cusub ayaa loo diri doonaa. Sug hal daqiiqo inta u dhexaysa codsiyada, sidoo kale eeg spam-ka.",
     "verificationInitialSendFailed": "Lambarka hadda lama diri karin. Hubi dejinta iimaylka, dabadeed isku day dib u dirid.",
+    "verificationDeliveryUnavailable": "Iimaylka hadda lama diri karin. Hubi dejinta iimaylka ama la xiriir taageerada, ka dibna mar kale isku day.",
     "verificationComplete": "Iimaylkaaga waa la xaqiijiyey. Hadda waad geli kartaa.",
     "verifyEmailLink": "Ma u baahan tahay xaqiijinta iimaylka? Geli lambarka xaqiijinta",
     "emailNotVerified": "Xaqiiji iimaylkaaga adigoo adeegsanaya lambarka ka hor gelitaanka.",
