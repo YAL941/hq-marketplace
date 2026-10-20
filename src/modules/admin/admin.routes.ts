@@ -409,6 +409,42 @@ adminRoutes.post('/admin/businesses/:businessId/plan', requirePlatformAdmin, asy
     } catch (error) { next(error); }
 });
 
+// Phase 6: admin user list + platform stats
+adminRoutes.get('/admin/users', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const data = await withTenant(contextFor(req), async (client) => {
+            const { rows } = await client.query(
+                'SELECT user_id, email, is_platform_admin, created_at FROM users ORDER BY created_at DESC LIMIT 100',
+            );
+            return rows;
+        });
+        res.json({ data });
+    } catch (error) { next(error); }
+});
+
+adminRoutes.get('/admin/stats', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const data = await withTenant(contextFor(req), async (client) => {
+            const biz = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM businesses');
+            const usr = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM users');
+            const ord = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM orders');
+            const rev = await client.query<{ gmv: string; comm: string }>(
+                `SELECT COALESCE(sum(payment_amount_minor),0)::text AS gmv,
+                        COALESCE(sum(commission_minor),0)::text AS comm
+                   FROM payments WHERE status = 'paid'`,
+            );
+            return {
+                businesses: Number(biz.rows[0]?.c ?? '0'),
+                users: Number(usr.rows[0]?.c ?? '0'),
+                orders: Number(ord.rows[0]?.c ?? '0'),
+                total_gmv_minor: rev.rows[0]?.gmv ?? '0',
+                total_commission_minor: rev.rows[0]?.comm ?? '0',
+            };
+        });
+        res.json({ data });
+    } catch (error) { next(error); }
+});
+
 adminRoutes.post('/admin/businesses/:businessId/featured', requirePlatformAdmin, async (req, res, next) => {
     try {
         const businessId = Number(req.params['businessId']);
@@ -421,6 +457,42 @@ adminRoutes.post('/admin/businesses/:businessId/featured', requirePlatformAdmin,
             );
         });
         res.status(204).end();
+    } catch (error) { next(error); }
+});
+
+// Phase 6: admin user list + platform stats
+adminRoutes.get('/admin/users', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const data = await withTenant(contextFor(req), async (client) => {
+            const { rows } = await client.query(
+                'SELECT user_id, email, is_platform_admin, created_at FROM users ORDER BY created_at DESC LIMIT 100',
+            );
+            return rows;
+        });
+        res.json({ data });
+    } catch (error) { next(error); }
+});
+
+adminRoutes.get('/admin/stats', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const data = await withTenant(contextFor(req), async (client) => {
+            const biz = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM businesses');
+            const usr = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM users');
+            const ord = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM orders');
+            const rev = await client.query<{ gmv: string; comm: string }>(
+                `SELECT COALESCE(sum(payment_amount_minor),0)::text AS gmv,
+                        COALESCE(sum(commission_minor),0)::text AS comm
+                   FROM payments WHERE status = 'paid'`,
+            );
+            return {
+                businesses: Number(biz.rows[0]?.c ?? '0'),
+                users: Number(usr.rows[0]?.c ?? '0'),
+                orders: Number(ord.rows[0]?.c ?? '0'),
+                total_gmv_minor: rev.rows[0]?.gmv ?? '0',
+                total_commission_minor: rev.rows[0]?.comm ?? '0',
+            };
+        });
+        res.json({ data });
     } catch (error) { next(error); }
 });
 
@@ -453,6 +525,42 @@ adminRoutes.post('/admin/businesses/:businessId/plan', requirePlatformAdmin, asy
     } catch (error) { next(error); }
 });
 
+// Phase 6: admin user list + platform stats
+adminRoutes.get('/admin/users', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const data = await withTenant(contextFor(req), async (client) => {
+            const { rows } = await client.query(
+                'SELECT user_id, email, is_platform_admin, created_at FROM users ORDER BY created_at DESC LIMIT 100',
+            );
+            return rows;
+        });
+        res.json({ data });
+    } catch (error) { next(error); }
+});
+
+adminRoutes.get('/admin/stats', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const data = await withTenant(contextFor(req), async (client) => {
+            const biz = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM businesses');
+            const usr = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM users');
+            const ord = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM orders');
+            const rev = await client.query<{ gmv: string; comm: string }>(
+                `SELECT COALESCE(sum(payment_amount_minor),0)::text AS gmv,
+                        COALESCE(sum(commission_minor),0)::text AS comm
+                   FROM payments WHERE status = 'paid'`,
+            );
+            return {
+                businesses: Number(biz.rows[0]?.c ?? '0'),
+                users: Number(usr.rows[0]?.c ?? '0'),
+                orders: Number(ord.rows[0]?.c ?? '0'),
+                total_gmv_minor: rev.rows[0]?.gmv ?? '0',
+                total_commission_minor: rev.rows[0]?.comm ?? '0',
+            };
+        });
+        res.json({ data });
+    } catch (error) { next(error); }
+});
+
 adminRoutes.post('/admin/businesses/:businessId/featured', requirePlatformAdmin, async (req, res, next) => {
     try {
         const businessId = Number(req.params['businessId']);
@@ -465,5 +573,41 @@ adminRoutes.post('/admin/businesses/:businessId/featured', requirePlatformAdmin,
             );
         });
         res.status(204).end();
+    } catch (error) { next(error); }
+});
+
+// Phase 6: admin user list + platform stats
+adminRoutes.get('/admin/users', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const data = await withTenant(contextFor(req), async (client) => {
+            const { rows } = await client.query(
+                'SELECT user_id, email, is_platform_admin, created_at FROM users ORDER BY created_at DESC LIMIT 100',
+            );
+            return rows;
+        });
+        res.json({ data });
+    } catch (error) { next(error); }
+});
+
+adminRoutes.get('/admin/stats', requirePlatformAdmin, async (req, res, next) => {
+    try {
+        const data = await withTenant(contextFor(req), async (client) => {
+            const biz = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM businesses');
+            const usr = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM users');
+            const ord = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM orders');
+            const rev = await client.query<{ gmv: string; comm: string }>(
+                `SELECT COALESCE(sum(payment_amount_minor),0)::text AS gmv,
+                        COALESCE(sum(commission_minor),0)::text AS comm
+                   FROM payments WHERE status = 'paid'`,
+            );
+            return {
+                businesses: Number(biz.rows[0]?.c ?? '0'),
+                users: Number(usr.rows[0]?.c ?? '0'),
+                orders: Number(ord.rows[0]?.c ?? '0'),
+                total_gmv_minor: rev.rows[0]?.gmv ?? '0',
+                total_commission_minor: rev.rows[0]?.comm ?? '0',
+            };
+        });
+        res.json({ data });
     } catch (error) { next(error); }
 });
