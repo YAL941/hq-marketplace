@@ -772,7 +772,11 @@
     "callCourier": "Wac gaarsiiyaha",
     "deliveryCode": "Koodhka xaqiijinta gaarsiinta",
     "deliveryCodeHint": "Tus koodhkan gaarsiiyaha marka uu yimaado. Wuxuu ka muuqanayaa kaarka dalabka marka gaarsiiye aqbalo.",
-    "note": "Fiiro gaar ah"
+    "note": "Fiiro gaar ah",
+    "reviewTitle": "Qiimee waayo-aragnimadaada",
+    "reviewHint": "Marka dalabka la dhammeeyo, qor qiimeyn iyo faallo si aad macaamiisha kale u caawiso.",
+    "reviewSubmitted": "Mahadsanid. Qiimeyntaada si guul leh ayaa loo diray.",
+    "reviewSubmitError": "Qiimeyntaada lama diri karin. Mar kale isku day."
   },
   "checkout": {
     "title": "Dhammaystir dalabka",

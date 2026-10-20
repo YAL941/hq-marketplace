@@ -79,6 +79,29 @@ describe('customer checkout', () => {
         assert.equal(buildCheckoutOrderInput(draft, 'mock_mobile_money', 'fr').notificationLanguage, 'en');
     });
 
+    it('includes delivery location, contact, consent, and note when delivery is selected at checkout', () => {
+        assert.deepEqual(buildCheckoutOrderInput({
+            ...draft,
+            deliveryRequested: true,
+            locationConsent: true,
+            deliveryLatitude: 2.04,
+            deliveryLongitude: 45.32,
+            deliveryNote: 'Near the main road',
+            customerPhone: '+252612345678',
+        }, 'mock_mobile_money'), {
+            businessId: 12,
+            items: [{ productId: 34, quantity: 2 }],
+            deliveryRequested: true,
+            locationConsent: true,
+            deliveryLatitude: 2.04,
+            deliveryLongitude: 45.32,
+            deliveryNote: 'Near the main road',
+            customerPhone: '+252612345678',
+            paymentMethod: 'mock_mobile_money',
+            notificationLanguage: 'en',
+        });
+    });
+
     it('estimates item totals and adds the selected business delivery fee', () => {
         assert.equal(estimateCheckoutTotal(draft), 7);
         assert.equal(estimateCheckoutTotal({

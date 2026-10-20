@@ -649,6 +649,9 @@ export interface CheckoutDraft {
   businessName: string;
   businessSlug: string;
   currency: string;
+  deliveryEnabled?: boolean;
+  businessLatitude?: number | null;
+  businessLongitude?: number | null;
   items: Array<{
     productId?: number;
     serviceId?: number;

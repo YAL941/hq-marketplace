@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MapPin, Package, Phone, Store } from 'lucide-react';
+import { ArrowLeft, MapPin, Package, Phone, Star, Store } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Badge, type BadgeVariant } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
@@ -8,7 +8,7 @@ import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { Skeleton } from '../components/common/Skeleton';
 import { SmartImage } from '../components/common/SmartImage';
-import { orderApi } from '../services/api';
+import { orderApi, reviewApi, type ReviewEligibility } from '../services/api';
 import { formatCurrency, formatDateTime } from '../lib/utils';
 import type { OrderDetail, OrderStatus } from '../types';
 
@@ -33,6 +33,13 @@ export function CustomerOrderDetailPage() {
   const [failed, setFailed] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelFailed, setCancelFailed] = useState(false);
+  const [reviewEligibility, setReviewEligibility] = useState<ReviewEligibility | null>(null);
+  const [reviewEligibilityError, setReviewEligibilityError] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewError, setReviewError] = useState('');
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,6 +57,53 @@ export function CustomerOrderDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const completedReviewBusinessId = data?.order.order_status === 'completed'
+    ? data.order.business_id
+    : null;
+
+  useEffect(() => {
+    if (completedReviewBusinessId === null) {
+      setReviewEligibility(null);
+      setReviewEligibilityError(false);
+      return;
+    }
+    let active = true;
+    void reviewApi.eligibility(completedReviewBusinessId)
+      .then((response) => {
+        if (active) {
+          setReviewEligibility(response.data.data);
+          setReviewEligibilityError(false);
+        }
+      })
+      .catch(() => {
+        if (active) setReviewEligibilityError(true);
+      });
+    return () => { active = false; };
+  }, [completedReviewBusinessId]);
+
+  const submitReview = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!data || reviewRating < 1 || data.order.order_status !== 'completed') return;
+    setReviewSaving(true);
+    setReviewError('');
+    try {
+      await reviewApi.create({
+        businessId: Number(data.order.business_id),
+        orderId: Number(data.order.order_id),
+        rating: reviewRating,
+        reviewText: reviewText.trim(),
+      });
+      setReviewSubmitted(true);
+      setReviewEligibility((current) => current
+        ? { ...current, eligible: false, already_reviewed: true }
+        : current);
+    } catch {
+      setReviewError(t('customerOrders.reviewSubmitError'));
+    } finally {
+      setReviewSaving(false);
+    }
+  };
 
   const cancelOrder = async () => {
     if (!data || data.order.order_status !== 'pending') return;
@@ -196,6 +250,64 @@ export function CustomerOrderDetailPage() {
               </p>
             )}
           </Card>
+
+          {order.order_status === 'completed' && (
+            <Card className="p-5 sm:p-6">
+              <h2 className="mb-2 text-lg font-semibold text-navy-900">{t('customerOrders.reviewTitle')}</h2>
+              <p className="mb-4 text-sm text-navy-600">{t('customerOrders.reviewHint')}</p>
+              {reviewSubmitted && (
+                <p role="status" className="rounded-xl bg-success-50 p-3 text-sm text-success-600">
+                  {t('customerOrders.reviewSubmitted')}
+                </p>
+              )}
+              {reviewEligibilityError && (
+                <p role="alert" className="rounded-xl bg-error-50 p-3 text-sm text-error-600">
+                  {t('business.reviewEligibilityError')}
+                </p>
+              )}
+              {reviewEligibility?.eligible && !reviewSubmitted && (
+                <form onSubmit={(event) => void submitReview(event)} className="space-y-4">
+                  <fieldset>
+                    <legend className="mb-2 text-sm font-medium text-navy-700">{t('business.yourRating')}</legend>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setReviewRating(value)}
+                          aria-label={t('common.starsLabel', { count: value })}
+                          aria-pressed={reviewRating === value}
+                          className="rounded p-1 text-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                        >
+                          <Star className={`h-7 w-7 ${reviewRating >= value ? 'fill-current' : ''}`} aria-hidden="true" />
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.reviewComment')}</span>
+                    <textarea
+                      value={reviewText}
+                      onChange={(event) => setReviewText(event.target.value)}
+                      maxLength={4000}
+                      rows={4}
+                      className="w-full rounded-xl border border-navy-200 p-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    />
+                  </label>
+                  {reviewError && <p role="alert" className="text-sm text-error-600">{reviewError}</p>}
+                  <Button type="submit" disabled={reviewRating === 0} loading={reviewSaving}>
+                    {t('business.submitReview')}
+                  </Button>
+                </form>
+              )}
+              {reviewEligibility?.already_reviewed && !reviewSubmitted && (
+                <p className="rounded-xl bg-navy-50 p-3 text-sm text-navy-600">{t('business.alreadyReviewed')}</p>
+              )}
+              {reviewEligibility?.is_member && !reviewEligibility.already_reviewed && (
+                <p className="rounded-xl bg-navy-50 p-3 text-sm text-navy-600">{t('business.reviewMemberCannotReview')}</p>
+              )}
+            </Card>
+          )}
         </div>
 
         <aside className="space-y-5">
@@ -228,7 +340,13 @@ export function CustomerOrderDetailPage() {
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-navy-600">{t('customerOrders.paymentMethod')}</dt>
-                <dd className="text-end font-medium text-navy-900">{t('checkout.cashOnDelivery')}</dd>
+                <dd className="text-end font-medium text-navy-900">
+                  {order.payment_method === 'mock_mobile_money'
+                    ? t('checkout.mockMobileMoney')
+                    : order.payment_method === 'cash_on_delivery'
+                      ? t('checkout.cashOnDelivery')
+                      : order.payment_method}
+                </dd>
               </div>
               {order.scheduled_for && (
                 <div className="flex justify-between gap-4">

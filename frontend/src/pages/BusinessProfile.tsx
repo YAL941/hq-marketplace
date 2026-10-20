@@ -286,6 +286,9 @@ export function BusinessProfilePage() {
       businessName: business.business_name,
       businessSlug: business.business_slug,
       currency: item.currency,
+      deliveryEnabled: business.delivery_enabled,
+      businessLatitude: business.latitude,
+      businessLongitude: business.longitude,
       items: [{
         ...(kind === 'product' ? { productId: numericId } : { serviceId: numericId }),
         itemName: 'product_name' in item ? item.product_name : item.service_name,
@@ -313,6 +316,9 @@ export function BusinessProfilePage() {
       businessName: business.business_name,
       businessSlug: business.business_slug,
       currency: productDetails.currency,
+      deliveryEnabled: business.delivery_enabled,
+      businessLatitude: business.latitude,
+      businessLongitude: business.longitude,
       items: [{
         productId: Number(productDetails.product_id),
         itemName: productDetails.product_name,

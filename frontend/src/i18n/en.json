@@ -772,7 +772,11 @@
     "callCourier": "Call courier",
     "deliveryCode": "Delivery confirmation code",
     "deliveryCodeHint": "Show this code to the courier when they arrive. It appears on this order card after a courier accepts the job.",
-    "note": "Note"
+    "note": "Note",
+    "reviewTitle": "Rate your experience",
+    "reviewHint": "After your order is completed, share a rating and comment to help other customers.",
+    "reviewSubmitted": "Thank you. Your review was submitted successfully.",
+    "reviewSubmitError": "Your review could not be submitted. Please try again."
   },
   "checkout": {
     "title": "Checkout",
