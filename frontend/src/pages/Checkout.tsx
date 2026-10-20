@@ -34,9 +34,7 @@ export function CheckoutPage() {
     paymentApi.methods()
       .then((response) => {
         if (active) {
-          const available = response.data.data.filter(
-            (method) => method.available && method.name !== 'cash_on_delivery',
-          );
+          const available = response.data.data.filter((method) => method.available);
           setPaymentMethods(available);
           setPaymentMethod(available[0]?.name ?? null);
         }
