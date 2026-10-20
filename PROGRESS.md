@@ -7,10 +7,10 @@
 - Phase 3: Notifications (SMS/WhatsApp mock, 3 triggers, migration 037+038) — 366 tests
 - Extra: Map display on business profile + branch location picker (Leaflet/OSM)
 - Phase 5: Monetization (subscription plans, featured listings, admin controls, migration 039) — 370 pass
+- Phase 6: Admin improvements, rate limiting verification, CI, docs — 370 pass
 
 ## In Progress
 - Phase 4: Discovery and contact (opening hours timezone, is_open_now on server, nearby map UI)
-- Phase 6: Admin improvements, rate limiting, CI
 
 ## Pending
 - (none)
@@ -23,6 +23,7 @@
 | Phase 2 | 362 |
 | Phase 3 | 366 |
 | Phase 5 | 370 |
+| Phase 6 | 370 |
 
 ## Key decisions
 - Commission: 5% on subtotal only (excluding delivery)
