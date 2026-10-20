@@ -169,12 +169,6 @@ export function LoginPage() {
               </Link>
             </div>
 
-            <p className="text-sm text-center">
-              <Link to="/verify-email" className="text-primary-600 hover:text-primary-700">
-                {t('auth.verifyEmailLink')}
-              </Link>
-            </p>
-
             <Button type="submit" className="w-full" size="lg" loading={loading}>
               {t('auth.signIn')}
             </Button>
