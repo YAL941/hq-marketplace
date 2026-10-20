@@ -15,6 +15,8 @@ export interface NearbyBusinessRow {
     business_slug: string;
     business_name: string;
     city: string | null;
+    latitude: number;
+    longitude: number;
     distance_km: number;
 }
 

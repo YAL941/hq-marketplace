@@ -51,13 +51,19 @@ export async function findNearby(client: PoolClient, input: NearbyQueryInput): P
             AND ${distance} <= $1
             ${filters.join('\n')}`;
 
-    // A business with several branches is listed once, at its closest
-    // branch — a customer drives to the near branch, not to the centroid.
+    // Select the nearest branch for each business so map markers represent
+    // the branch whose distance is reported.
     const listed = await client.query<NearbyBusinessRow>(
-        `SELECT b.business_id, b.business_slug, b.business_name, bl.city,
-                MIN(${distance}) AS distance_km${from}
-         GROUP BY b.business_id, b.business_slug, b.business_name, bl.city
-         ORDER BY distance_km ASC, b.business_id
+        `SELECT business_id, business_slug, business_name, city,
+                latitude, longitude, distance_km
+           FROM (
+             SELECT DISTINCT ON (b.business_id)
+                    b.business_id, b.business_slug, b.business_name, bl.city,
+                    bl.latitude, bl.longitude, ${distance} AS distance_km
+                    ${from}
+              ORDER BY b.business_id, ${distance} ASC
+           ) nearest
+         ORDER BY distance_km ASC, business_id
          LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
         params,
     );

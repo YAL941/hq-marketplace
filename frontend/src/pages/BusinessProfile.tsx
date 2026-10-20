@@ -543,6 +543,14 @@ export function BusinessProfilePage() {
               {business.category_name && (
                 <p className="text-navy-500 mt-0.5">{business.category_name}</p>
               )}
+              {business.current_day_hours && (
+                <p className="mt-1 text-sm text-navy-600">
+                  {t('business.todayHours', {
+                    opens: business.current_day_hours.opens_at,
+                    closes: business.current_day_hours.closes_at,
+                  })}
+                </p>
+              )}
               {hasRating && (
                 <div className="flex items-center gap-2 mt-1">
                   <RatingStars rating={parseFloat(business.average_rating ?? '0')} showValue size="sm" />
@@ -905,6 +913,7 @@ export function BusinessProfilePage() {
               <h2 className="text-lg font-semibold text-navy-900 mb-4">
                 {t('business.openingHours')}
               </h2>
+              <p className="mb-3 text-xs text-navy-500">{t('business.hoursTimezone')}</p>
               <ul className="space-y-1.5 text-sm">
                 {business.opening_hours.map((day) => (
                   <li key={day.day_of_week} className="flex items-center justify-between gap-3">

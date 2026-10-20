@@ -564,6 +564,14 @@ describe('GET /api/businesses/:businessId: the public profile', () => {
         const res = await request(app).get(`/api/businesses/${clinic.id}`);
         const hours = res.body.data.opening_hours;
 
+        assert.equal(typeof res.body.data.is_open_now, 'boolean');
+        assert.ok(
+            res.body.data.current_day_hours === null
+            || (
+                typeof res.body.data.current_day_hours.opens_at === 'string'
+                && typeof res.body.data.current_day_hours.closes_at === 'string'
+            ),
+        );
         assert.equal(hours.length, 7, 'a client can render the week without a missing-day branch');
         assert.deepEqual(hours.map((h: { day_of_week: number }) => h.day_of_week), [0, 1, 2, 3, 4, 5, 6]);
         assert.equal(hours[0].is_closed, true, 'Sunday was stated as closed');

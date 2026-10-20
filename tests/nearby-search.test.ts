@@ -96,6 +96,8 @@ describe('GET /api/businesses/nearby', () => {
             assert.equal(res.body.data.length, 2, 'both shops are inside the radius');
             assert.equal(Number(res.body.data[0].business_id), nearId, 'the nearer shop is first');
             assert.equal(Number(res.body.data[1].business_id), farId, 'the farther shop is second');
+            assert.equal(res.body.data[0].latitude, 2.04);
+            assert.equal(res.body.data[0].longitude, 45.34);
             // ~11.06 km between 2.04 and 2.14 latitude. Allow 2% for the
             // mean-earth-radius rounding.
             assert.ok(res.body.data[1].distance_km > 10.5 && res.body.data[1].distance_km < 11.5);
@@ -139,6 +141,8 @@ describe('GET /api/businesses/nearby', () => {
             // branch would be ~18 km. Anything above 5 km means the wrong
             // branch won the MIN.
             assert.ok(mine[0].distance_km < 5, `closest branch must win, got ${mine[0].distance_km} km`);
+            assert.equal(mine[0].latitude, 2.05, 'the map uses the nearest branch coordinates');
+            assert.equal(mine[0].longitude, 45.35);
         } finally {
             await deleteBusinesses([nearId]);
         }

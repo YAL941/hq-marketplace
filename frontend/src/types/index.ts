@@ -205,6 +205,16 @@ export interface PublicBusinessCard {
   is_open_now?: boolean;
 }
 
+export interface NearbyBusiness {
+  business_id: number;
+  business_slug: string;
+  business_name: string;
+  city: string | null;
+  latitude: number;
+  longitude: number;
+  distance_km: number;
+}
+
 /** One weekday. The server always returns all seven, closed days included. */
 export interface OpeningHour {
   /** 0 = Sunday through 6 = Saturday, matching Postgres `day_of_week`. */
@@ -231,6 +241,8 @@ export interface PublicBusinessProfile extends PublicBusinessCard {
   delivery_fee: string;
   rating_distribution: RatingDistribution;
   opening_hours: OpeningHour[];
+  is_open_now: boolean;
+  current_day_hours: Pick<OpeningHour, 'opens_at' | 'closes_at'> | null;
 }
 
 /** A published review. The reviewer's account is never published. */

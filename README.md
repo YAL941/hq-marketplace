@@ -195,9 +195,12 @@ GET  /api/products            GET /api/services        GET /api/reviews
 `GET /api/businesses/nearby?lat&lng&radiusKm[&city&categoryId&q&page&limit]`
 
 Returns public businesses ordered by distance from `(lat, lng)`, one row per
-business, `distance_km` in the row and the origin echoed in `meta`. The
-distance of a multi-branch business is the distance of its closest active
-branch, never an average.
+business, the nearest branch's latitude/longitude, `distance_km` in the row and
+the origin echoed in `meta`. The distance of a multi-branch business is the
+distance of its closest active branch, never an average. The Explore page's
+"Near me" action requests browser geolocation, then renders results on a
+Leaflet/OpenStreetMap map and in a linked list. No location is requested until
+the visitor chooses the action.
 
 | parameter | range | default | notes |
 | --- | --- | --- | --- |
@@ -224,6 +227,10 @@ Implementation notes:
   invisible.
 - The route is mounted before the directory router, so `/businesses/nearby`
   is not captured as a `:businessId`.
+- Public business profile responses include `is_open_now` and
+  `current_day_hours`; the server calculates them using the
+  `Africa/Mogadishu` timezone. The opening-hours table was introduced in
+  migration `009_public_directory.sql`.
 
 Authenticated:
 

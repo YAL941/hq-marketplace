@@ -22,6 +22,7 @@ import type {
   Id,
   Location,
   LoginResponse,
+  NearbyBusiness,
   Order,
   OrderDetail,
   OrderListQuery,
@@ -259,6 +260,17 @@ export const businessApi = {
         sort: query.sort,
         featured: query.featured,
         ...pageParams(query.page, query.limit),
+      },
+    }),
+
+  /** GET /businesses/nearby — public businesses ordered by distance. */
+  listNearby: (query: { lat: number; lng: number; radiusKm?: number; limit?: number }) =>
+    api.get<ApiResponse<NearbyBusiness[]>>('/businesses/nearby', {
+      params: {
+        lat: query.lat,
+        lng: query.lng,
+        radiusKm: query.radiusKm ?? 25,
+        limit: query.limit ?? 50,
       },
     }),
 

@@ -27,6 +27,7 @@ import {
     listPublicReviews,
     replaceOpeningHours,
 } from './business.repository.js';
+import { getPublicHoursStatus } from './opening-hours-status.js';
 import {
     businessIdParamSchema,
     businessSlugParamSchema,
@@ -181,7 +182,13 @@ businessRoutes.get('/businesses/:businessId', publicReadLimiter, async (req, res
             return { profile, openingHours };
         });
 
-        res.json({ data: { ...profile, opening_hours: openingHours } });
+        res.json({
+            data: {
+                ...profile,
+                opening_hours: openingHours,
+                ...getPublicHoursStatus(openingHours),
+            },
+        });
     } catch (error) {
         next(error);
     }
@@ -214,7 +221,13 @@ businessRoutes.get('/businesses/slug/:businessSlug', publicReadLimiter, async (r
             return { profile, openingHours };
         });
 
-        res.json({ data: { ...profile, opening_hours: openingHours } });
+        res.json({
+            data: {
+                ...profile,
+                opening_hours: openingHours,
+                ...getPublicHoursStatus(openingHours),
+            },
+        });
     } catch (error) {
         next(error);
     }
