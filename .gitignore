@@ -4,6 +4,7 @@ venv/
 .env
 .env.*
 !.env.example
+.env.test
 test-output.txt
 *.log
 coverage/
