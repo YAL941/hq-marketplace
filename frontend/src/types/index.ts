@@ -668,6 +668,8 @@ export interface CheckoutDraft {
   deliveryNote?: string;
   customerPhone?: string;
   deliveryAddress?: string;
+  fulfillmentType?: 'delivery' | 'pickup';
+  city?: string;
   deliveryFee?: string;
 }
 
