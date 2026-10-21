@@ -667,6 +667,7 @@ export interface CheckoutDraft {
   deliveryLongitude?: number;
   deliveryNote?: string;
   customerPhone?: string;
+  deliveryAddress?: string;
   deliveryFee?: string;
 }
 

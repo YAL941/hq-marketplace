@@ -26,6 +26,7 @@ export function CheckoutPage() {
   const [deliveryLongitude, setDeliveryLongitude] = useState<number | null>(draft?.deliveryLongitude ?? null);
   const [deliveryNote, setDeliveryNote] = useState(draft?.deliveryNote ?? '');
   const [customerPhone, setCustomerPhone] = useState(draft?.customerPhone ?? '');
+  const [deliveryAddress, setDeliveryAddress] = useState(draft?.deliveryAddress ?? '');
   const [locationError, setLocationError] = useState('');
   const [locating, setLocating] = useState(false);
 
@@ -69,6 +70,7 @@ export function CheckoutPage() {
     ...(deliveryLongitude === null ? {} : { deliveryLongitude }),
     deliveryNote,
     customerPhone,
+    deliveryAddress,
   };
   const subtotal = checkoutDraft.items.reduce((amount, item) => amount + Number(item.unitPrice) * item.quantity, 0);
   const deliveryFee = checkoutDraft.deliveryRequested ? Number(checkoutDraft.deliveryFee ?? 0) : 0;
@@ -102,7 +104,7 @@ export function CheckoutPage() {
     }
     if (
       checkoutDraft.deliveryRequested
-      && (!locationConsent || deliveryLatitude === null || deliveryLongitude === null || customerPhone.trim().length < 7)
+      && (!locationConsent || deliveryLatitude === null || deliveryLongitude === null || customerPhone.trim().length < 7 || deliveryAddress.trim().length < 3)
     ) {
       setError(t('business.deliveryFieldsRequired'));
       return;
@@ -240,6 +242,18 @@ export function CheckoutPage() {
                       minLength={7}
                       maxLength={20}
                       autoComplete="tel"
+                      className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryAddress')}</span>
+                    <input
+                      type="text"
+                      value={deliveryAddress}
+                      onChange={(event) => setDeliveryAddress(event.target.value)}
+                      minLength={3}
+                      maxLength={500}
+                      autoComplete="street-address"
                       className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                     />
                   </label>

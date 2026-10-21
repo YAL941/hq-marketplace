@@ -349,6 +349,7 @@
     "deliveryGeolocationError": "تعذر تحديد موقعك. اختره يدوياً على الخريطة.",
     "deliveryMapHint": "اضغط على الخريطة أو حرّك الدبوس لتحديد موقع التسليم.",
     "deliveryLandmark": "أقرب شارع أو معلم (اختياري)",
+    "deliveryAddress": "عنوان التسليم",
     "deliveryPhone": "رقم هاتف للتوصيل",
     "deliveryConsent": "أوافق على مشاركة هذا الموقع مع المندوب لهذا الطلب فقط.",
     "cashOnDelivery": "الدفع نقداً عند الاستلام.",

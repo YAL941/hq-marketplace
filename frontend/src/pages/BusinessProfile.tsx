@@ -80,6 +80,7 @@ export function BusinessProfilePage() {
   const [deliveryLongitude, setDeliveryLongitude] = useState<number | null>(null);
   const [deliveryNote, setDeliveryNote] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [locationError, setLocationError] = useState('');
   const [locating, setLocating] = useState(false);
   const [scheduledFor, setScheduledFor] = useState('');
@@ -338,7 +339,8 @@ export function BusinessProfilePage() {
       !locationConsent ||
       deliveryLatitude === null ||
       deliveryLongitude === null ||
-      customerPhone.trim().length < 7
+      customerPhone.trim().length < 7 ||
+      deliveryAddress.trim().length < 3
     ) return null;
     return {
       deliveryRequested: true,
@@ -347,6 +349,7 @@ export function BusinessProfilePage() {
       deliveryLongitude,
       deliveryNote: deliveryNote.trim(),
       customerPhone: customerPhone.trim(),
+      deliveryAddress: deliveryAddress.trim(),
     };
   };
 
@@ -445,6 +448,18 @@ export function BusinessProfilePage() {
                 value={deliveryNote}
                 onChange={(event) => setDeliveryNote(event.target.value)}
                 maxLength={500}
+                className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryAddress')}</span>
+              <input
+                value={deliveryAddress}
+                onChange={(event) => setDeliveryAddress(event.target.value)}
+                required
+                minLength={3}
+                maxLength={500}
+                autoComplete="street-address"
                 className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
               />
             </label>

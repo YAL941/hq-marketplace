@@ -42,7 +42,9 @@ export function isCheckoutDraft(value: unknown): value is CheckoutDraft {
         candidate.deliveryLongitude >= -180 &&
         candidate.deliveryLongitude <= 180 &&
         typeof candidate.customerPhone === 'string' &&
-        candidate.customerPhone.trim().length >= 7)) &&
+        candidate.customerPhone.trim().length >= 7 &&
+        typeof candidate.deliveryAddress === 'string' &&
+        candidate.deliveryAddress.trim().length >= 3)) &&
     (candidate.deliveryFee === undefined ||
       (typeof candidate.deliveryFee === 'string' &&
         Number.isFinite(Number(candidate.deliveryFee)) &&
@@ -72,6 +74,7 @@ export function buildCheckoutOrderInput(
       deliveryLongitude: draft.deliveryLongitude,
       deliveryNote: draft.deliveryNote,
       customerPhone: draft.customerPhone,
+      deliveryAddress: draft.deliveryAddress,
     } : {}),
     paymentMethod,
     notificationLanguage,

@@ -339,6 +339,7 @@
     "deliveryGeolocationError": "Could not get your location. Select it manually on the map.",
     "deliveryMapHint": "Tap the map or drag the pin to set the delivery location.",
     "deliveryLandmark": "Nearest street or landmark (optional)",
+    "deliveryAddress": "Delivery address",
     "deliveryPhone": "Phone number for delivery",
     "deliveryConsent": "I agree to share this location with the courier for this order only.",
     "cashOnDelivery": "Payment is cash on delivery.",
