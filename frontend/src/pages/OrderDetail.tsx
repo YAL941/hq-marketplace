@@ -114,7 +114,10 @@ export function OrderDetailPage() {
   }
 
   const { order, items } = data;
-  const availableStatuses = STATUS_TRANSITIONS[order.order_status] ?? [];
+  const availableStatuses = (STATUS_TRANSITIONS[order.order_status] ?? []).filter((status) =>
+    !order.delivery_requested
+    || (order.order_status !== 'out_for_delivery' && status !== 'out_for_delivery' && status !== 'completed'),
+  );
 
   return (
     <div>
@@ -237,7 +240,9 @@ export function OrderDetailPage() {
 
           <Card className="p-5">
             <h2 className="font-semibold text-navy-900 mb-1">{t('order.changeStatus')}</h2>
-            <p className="text-xs text-navy-500 mb-4">{t('order.statusHint')}</p>
+            <p className="text-xs text-navy-500 mb-4">
+              {t(order.delivery_requested ? 'order.courierStatusHint' : 'order.statusHint')}
+            </p>
 
             {issue && (
               <p className="mb-3 p-3 bg-error-50 border border-error-200 rounded-button text-error-700 text-sm" role="alert">

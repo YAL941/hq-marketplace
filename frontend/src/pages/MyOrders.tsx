@@ -163,6 +163,11 @@ export function MyOrdersPage() {
                             <p className="customer-delivery-code__hint mt-1 text-xs">{t('customerOrders.deliveryCodeHint')}</p>
                           </div>
                         )}
+                        {order.delivery_requested && !order.delivery_confirmation_code && (
+                          <p className="mt-2 rounded-lg border border-navy-200 bg-navy-50 px-3 py-2 text-sm text-navy-700">
+                            {t('customerOrders.deliveryCodePending')}
+                          </p>
+                        )}
                         {order.courier_phone && (
                           <a
                             href={`tel:${order.courier_phone}`}

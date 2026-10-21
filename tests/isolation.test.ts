@@ -538,6 +538,18 @@ describe('Order status transitions and product reviews', () => {
         assert.equal(Number(deliveredByRequest.body.data.total_amount), 27.5);
         assert.equal(deliveredByRequest.body.data.location_consent, true);
         assert.equal(deliveredByRequest.body.data.delivery_latitude, '2.050000');
+
+        const bypassCourier = await request(app)
+            .patch(`/api/business/${fixtures.ownerA.businessA}/orders/${deliveredByRequest.body.data.order_id}/status`)
+            .set('Authorization', 'Bearer ' + fixtures.ownerA.token)
+            .send({ orderStatus: 'out_for_delivery' });
+        assert.equal(bypassCourier.status, 400);
+
+        const bypassConfirmationCode = await request(app)
+            .patch(`/api/business/${fixtures.ownerA.businessA}/orders/${deliveredByRequest.body.data.order_id}/status`)
+            .set('Authorization', 'Bearer ' + fixtures.ownerA.token)
+            .send({ orderStatus: 'completed' });
+        assert.equal(bypassConfirmationCode.status, 400);
         assert.deepEqual(deliveredByRequest.body.data.status_history.map(
             (entry: { status: string }) => entry.status,
         ), ['pending']);

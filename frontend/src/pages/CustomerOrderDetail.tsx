@@ -246,6 +246,14 @@ export function CustomerOrderDetailPage() {
                     {t('customerOrders.deliveryCode')}: <span dir="ltr" className="font-semibold tracking-[0.25em]">{order.delivery_confirmation_code}</span>
                   </p>
                 )}
+                {!order.delivery_confirmation_code && (
+                  <div className="rounded-lg border border-navy-200 bg-navy-50 p-3">
+                    <p>{t('customerOrders.deliveryCodePending')}</p>
+                    <Link to="/orders" className="mt-2 inline-flex min-h-10 items-center font-medium text-primary-700">
+                      {t('customerOrders.back')}
+                    </Link>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="flex items-center gap-2 text-sm text-navy-600">
