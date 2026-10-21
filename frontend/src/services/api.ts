@@ -507,8 +507,8 @@ export const courierApi = {
     api.get<ApiResponse<CourierDeliveryList>>('/courier/deliveries', { params: { completedAfter } }),
   offerPrice: (orderId: Id, proposedEarningAmount: string) =>
     api.post(`/courier/deliveries/${orderId}/offer`, { proposedEarningAmount }),
-  updateStatus: (orderId: Id, deliveryStatus: 'picked_up' | 'on_the_way' | 'delivered', confirmationCode?: string) =>
-    api.patch(`/courier/deliveries/${orderId}/status`, { deliveryStatus, confirmationCode }),
+  updateStatus: (orderId: Id, deliveryStatus: 'picked_up' | 'on_the_way' | 'delivered') =>
+    api.patch(`/courier/deliveries/${orderId}/status`, { deliveryStatus }),
 };
 
 // Reviews API

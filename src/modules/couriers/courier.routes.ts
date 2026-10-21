@@ -240,13 +240,9 @@ courierRoutes.patch('/courier/deliveries/:orderId/status', courierAccess, authen
     try {
         if (!req.user) throw unauthorized();
         const orderId = idSchema.parse(req.params['orderId']);
-        const { deliveryStatus, confirmationCode } = z.object({
+        const { deliveryStatus } = z.object({
             deliveryStatus: z.enum(['picked_up', 'on_the_way', 'delivered']),
-            confirmationCode: z.string().regex(/^\d{4}$/).optional(),
         }).parse(req.body);
-        if (deliveryStatus === 'delivered' && !confirmationCode) {
-            throw badRequest('The customer delivery confirmation code is required', { field: 'confirmationCode' });
-        }
         const courierUserId = req.user.id;
         const order = await withTenant(contextFor(req), async (client) => {
             const expected = {
@@ -263,19 +259,17 @@ courierRoutes.patch('/courier/deliveries/:orderId/status', courierAccess, authen
                             WHEN $3 = 'delivered' THEN 'completed'::order_status
                             ELSE order_status
                         END,
-                        completed_at = CASE WHEN $3 = 'delivered' THEN now() ELSE completed_at END,
-                        delivery_confirmation_code = CASE WHEN $3 = 'delivered' THEN NULL ELSE delivery_confirmation_code END
+                        completed_at = CASE WHEN $3 = 'delivered' THEN now() ELSE completed_at END
                   WHERE order_id = $1
                     AND delivery_courier_id = $2
                     AND delivery_status = $4
-                    AND ($3 <> 'delivered' OR delivery_confirmation_code = $5)
                     AND (
                         ($3 = 'picked_up' AND order_status = 'ready')
                         OR ($3 = 'on_the_way' AND order_status = 'out_for_delivery')
                         OR ($3 = 'delivered' AND order_status = 'out_for_delivery')
                     )
                   RETURNING order_id, customer_id, order_status, delivery_status, delivery_status_history`,
-                [orderId, courierUserId, deliveryStatus, expected, confirmationCode ?? null],
+                [orderId, courierUserId, deliveryStatus, expected],
             );
             if (!rows[0]) throw conflict('Delivery status changed or this delivery is not assigned to you');
             return rows[0];

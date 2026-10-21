@@ -43,8 +43,7 @@ describe('notification templates and providers', () => {
             orderNumber: 'HQ-0042',
             businessName: 'Test Market',
             orderStatus: 'out_for_delivery',
-            deliveryConfirmationCode: '1234',
-        }), /1234/);
+        }), /خرج للتوصيل/);
     });
 
     it('routes new-order notices to the merchant and status/payment notices to the customer', async () => {

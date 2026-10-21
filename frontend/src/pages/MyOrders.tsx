@@ -155,19 +155,6 @@ export function MyOrdersPage() {
                         <p className="mt-1 text-sm text-navy-600">
                           {t('customerOrders.paymentStatus')}: {t(`paymentStatus.${order.payment_status}`)}
                         </p>
-                        {order.delivery_confirmation_code && (
-                          <div className="customer-delivery-code mt-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm">
-                            <p className="customer-delivery-code__title font-semibold">
-                              {t('customerOrders.deliveryCode')}: <span dir="ltr" className="tracking-[0.25em]">{order.delivery_confirmation_code}</span>
-                            </p>
-                            <p className="customer-delivery-code__hint mt-1 text-xs">{t('customerOrders.deliveryCodeHint')}</p>
-                          </div>
-                        )}
-                        {order.delivery_requested && !order.delivery_confirmation_code && (
-                          <p className="mt-2 rounded-lg border border-navy-200 bg-navy-50 px-3 py-2 text-sm text-navy-700">
-                            {t('customerOrders.deliveryCodePending')}
-                          </p>
-                        )}
                         {order.courier_phone && (
                           <a
                             href={`tel:${order.courier_phone}`}

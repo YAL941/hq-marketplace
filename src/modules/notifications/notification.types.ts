@@ -25,5 +25,4 @@ export interface OrderNotificationContext {
     customerPhone: string | null;
     language: NotificationLanguage;
     orderStatus: string;
-    deliveryConfirmationCode: string | null;
 }

@@ -27,7 +27,6 @@ export interface OrderRow {
     delivery_longitude: string | null;
     delivery_note: string | null;
     customer_phone: string | null;
-    delivery_confirmation_code?: string | null;
     delivery_earning_amount?: string | null;
     payment_method: string;
     notification_language: NotificationLanguage;
@@ -365,7 +364,6 @@ export async function updateOrderStatus(
         assignments.push("delivery_status = 'not_applicable'");
         assignments.push('delivery_courier_id = NULL');
         assignments.push('delivery_offer_courier_id = NULL');
-        assignments.push('delivery_confirmation_code = NULL');
         assignments.push('delivery_earning_amount = NULL');
     }
 

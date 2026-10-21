@@ -4,7 +4,6 @@ interface TemplateInput {
     orderNumber: string;
     businessName: string;
     orderStatus?: string;
-    deliveryConfirmationCode?: string | null;
 }
 
 type NotificationTemplate = (input: TemplateInput) => string;
@@ -50,12 +49,12 @@ const templates: Record<NotificationEventType, EventTemplates> = {
         so: ({ orderNumber, businessName }) => `Dalab cusub ${orderNumber} ayaa loo sameeyay ganacsiga ${businessName}.`,
     },
     order_status_changed: {
-        ar: ({ orderNumber, businessName, orderStatus, deliveryConfirmationCode }) =>
-            `تحدّثت حالة طلبك ${orderNumber} لدى ${businessName} إلى ${statusLabels.ar[orderStatus ?? ''] ?? 'حالة جديدة'}.${orderStatus === 'out_for_delivery' && deliveryConfirmationCode ? ` رمز استلام التوصيل: ${deliveryConfirmationCode}.` : ''}`,
-        en: ({ orderNumber, businessName, orderStatus, deliveryConfirmationCode }) =>
-            `Your order ${orderNumber} with ${businessName} is now ${statusLabels.en[orderStatus ?? ''] ?? 'updated'}.${orderStatus === 'out_for_delivery' && deliveryConfirmationCode ? ` Delivery confirmation code: ${deliveryConfirmationCode}.` : ''}`,
-        so: ({ orderNumber, businessName, orderStatus, deliveryConfirmationCode }) =>
-            `Xaaladda dalabkaaga ${orderNumber} ee ${businessName} hadda waa ${statusLabels.so[orderStatus ?? ''] ?? 'la cusboonaysiiyay'}.${orderStatus === 'out_for_delivery' && deliveryConfirmationCode ? ` Koodhka xaqiijinta gaarsiinta: ${deliveryConfirmationCode}.` : ''}`,
+        ar: ({ orderNumber, businessName, orderStatus }) =>
+            `تحدّثت حالة طلبك ${orderNumber} لدى ${businessName} إلى ${statusLabels.ar[orderStatus ?? ''] ?? 'حالة جديدة'}.`,
+        en: ({ orderNumber, businessName, orderStatus }) =>
+            `Your order ${orderNumber} with ${businessName} is now ${statusLabels.en[orderStatus ?? ''] ?? 'updated'}.`,
+        so: ({ orderNumber, businessName, orderStatus }) =>
+            `Xaaladda dalabkaaga ${orderNumber} ee ${businessName} hadda waa ${statusLabels.so[orderStatus ?? ''] ?? 'la cusboonaysiiyay'}.`,
     },
     payment_confirmed: {
         ar: ({ orderNumber, businessName }) => `تم تأكيد الدفع للطلب ${orderNumber} لدى ${businessName}.`,

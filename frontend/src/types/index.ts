@@ -564,7 +564,6 @@ export interface Order {
   delivery_longitude: string | null;
   delivery_note: string | null;
   customer_phone: string | null;
-  delivery_confirmation_code?: string | null;
   payment_method: string;
   status_history: Array<{ status: string; changed_at: string; changed_by: Id | number | null }>;
   scheduled_for: string | null;
@@ -597,7 +596,6 @@ export interface CustomerOrderSummary {
   delivery_latitude: string | null;
   delivery_longitude: string | null;
   customer_phone: string | null;
-  delivery_confirmation_code: string | null;
   total_amount: string;
   currency: string;
   created_at: string;

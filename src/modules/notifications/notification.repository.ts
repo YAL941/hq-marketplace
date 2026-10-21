@@ -12,7 +12,6 @@ interface OrderNotificationRow {
     customer_phone: string | null;
     notification_language: string;
     order_status: string;
-    delivery_confirmation_code: string | null;
 }
 
 export async function getOrderNotificationContext(
@@ -23,7 +22,7 @@ export async function getOrderNotificationContext(
         const { rows } = await client.query<OrderNotificationRow>(
             `SELECT o.order_id, o.order_number, o.business_id, b.business_name, b.phone AS business_phone,
                     o.customer_id, u.phone AS account_phone, o.customer_phone,
-                    o.notification_language, o.order_status, o.delivery_confirmation_code
+                    o.notification_language, o.order_status
                FROM orders o
                JOIN businesses b ON b.business_id = o.business_id
                JOIN users u ON u.user_id = o.customer_id
@@ -42,7 +41,6 @@ export async function getOrderNotificationContext(
             customerPhone: row.customer_phone ?? row.account_phone,
             language: isNotificationLanguage(row.notification_language) ? row.notification_language : 'en',
             orderStatus: row.order_status,
-            deliveryConfirmationCode: row.delivery_confirmation_code,
         };
     });
 }

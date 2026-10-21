@@ -19,7 +19,6 @@ export function CourierPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyOrderId, setBusyOrderId] = useState<Id | null>(null);
-  const [confirmationCodes, setConfirmationCodes] = useState<Record<Id, string>>({});
   const [earningDrafts, setEarningDrafts] = useState<Record<Id, string>>({});
   const [secondsToRefresh, setSecondsToRefresh] = useState(AUTO_REFRESH_SECONDS);
 
@@ -72,16 +71,10 @@ export function CourierPage() {
   };
 
   const changeStatus = async (delivery: AssignedCourierDelivery, nextStatus: 'picked_up' | 'on_the_way' | 'delivered') => {
-    const confirmationCode = confirmationCodes[delivery.order_id] ?? '';
-    if (nextStatus === 'delivered' && !/^\d{4}$/.test(confirmationCode)) {
-      setError(t('courier.codeRequired'));
-      return;
-    }
     setBusyOrderId(delivery.order_id);
     setError('');
     try {
-      await courierApi.updateStatus(delivery.order_id, nextStatus, nextStatus === 'delivered' ? confirmationCode : undefined);
-      setConfirmationCodes((previous) => ({ ...previous, [delivery.order_id]: '' }));
+      await courierApi.updateStatus(delivery.order_id, nextStatus);
       await load(true);
     } catch (requestError) {
       setError(toFieldIssue(requestError).message || t('courier.actionError'));
@@ -108,23 +101,10 @@ export function CourierPage() {
       );
     }
     return (
-      <div className="space-y-3">
-        <Input
-          label={t('courier.confirmationCode')}
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={4}
-          value={confirmationCodes[delivery.order_id] ?? ''}
-          onChange={(event) => setConfirmationCodes((previous) => ({
-            ...previous,
-            [delivery.order_id]: event.target.value.replace(/\D/g, '').slice(0, 4),
-          }))}
-        />
-        <Button disabled={busyOrderId === delivery.order_id} onClick={() => void changeStatus(delivery, 'delivered')}>
-          <PackageCheck className="me-2 h-4 w-4" aria-hidden="true" />
-          {t('courier.confirmDelivered')}
-        </Button>
-      </div>
+      <Button disabled={busyOrderId === delivery.order_id} onClick={() => void changeStatus(delivery, 'delivered')}>
+        <PackageCheck className="me-2 h-4 w-4" aria-hidden="true" />
+        {t('courier.confirmDelivered')}
+      </Button>
     );
   };
 
