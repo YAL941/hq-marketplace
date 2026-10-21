@@ -20,7 +20,7 @@ export function CheckoutPage() {
   const [error, setError] = useState('');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOption[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentProviderName | null>(null);
-  const [deliveryRequested, setDeliveryRequested] = useState(draft?.deliveryRequested ?? false);
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<'delivery' | 'pickup'>('delivery');
   const [locationConsent, setLocationConsent] = useState(draft?.locationConsent ?? false);
   const [deliveryLatitude, setDeliveryLatitude] = useState<number | null>(draft?.deliveryLatitude ?? null);
   const [deliveryLongitude, setDeliveryLongitude] = useState<number | null>(draft?.deliveryLongitude ?? null);
@@ -62,6 +62,7 @@ export function CheckoutPage() {
   }
 
   const hasDeliverableProducts = Boolean(draft.deliveryEnabled && draft.items.some((item) => item.productId));
+  const deliveryRequested = fulfillmentMethod === 'delivery';
   const checkoutDraft = {
     ...draft,
     deliveryRequested: hasDeliverableProducts && deliveryRequested,
@@ -70,7 +71,7 @@ export function CheckoutPage() {
     ...(deliveryLongitude === null ? {} : { deliveryLongitude }),
     deliveryNote,
     customerPhone,
-    deliveryAddress,
+    deliveryAddress: fulfillmentMethod === 'pickup' ? 'Pick up from the business' : deliveryAddress,
   };
   const subtotal = checkoutDraft.items.reduce((amount, item) => amount + Number(item.unitPrice) * item.quantity, 0);
   const deliveryFee = checkoutDraft.deliveryRequested ? Number(checkoutDraft.deliveryFee ?? 0) : 0;
@@ -185,34 +186,40 @@ export function CheckoutPage() {
 
           {hasDeliverableProducts && (
             <Card className="p-5 sm:p-6">
-              <fieldset>
-                <legend className="mb-3 text-lg font-semibold text-navy-900">{t('business.deliveryQuestion')}</legend>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {(['pickup', 'delivery'] as const).map((mode) => (
-                    <label
-                      key={mode}
-                      className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-4 ${
-                        checkoutDraft.deliveryRequested === (mode === 'delivery')
-                          ? 'border-primary-300 bg-primary-50'
-                          : 'border-navy-200'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="deliveryMode"
-                        checked={checkoutDraft.deliveryRequested === (mode === 'delivery')}
-                        onChange={() => {
-                          setDeliveryRequested(mode === 'delivery');
-                          setError('');
-                        }}
-                        className="h-4 w-4 accent-primary-600"
-                      />
-                      <span className="font-medium text-navy-900">{t(`business.deliveryMode.${mode}`)}</span>
-                    </label>
-                  ))}
+              <div className="bg-white p-6 rounded-xl border border-gray-200 mb-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">طريقة الاستلام (Fulfillment Method)</h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* خيار التوصيل للمنزل */}
+                  <button
+                    type="button"
+                    onClick={() => setFulfillmentMethod('delivery')}
+                    className={`p-4 rounded-lg border-2 text-left transition-all ${
+                      fulfillmentMethod === 'delivery'
+                        ? 'border-blue-600 bg-blue-50 text-blue-700 font-semibold'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-medium text-base">🚚 توصيل للمنزل (Delivery)</div>
+                    <div className="text-xs text-gray-500 mt-1">يتم إرسال الطلب إلى عنوانك الخاص</div>
+                  </button>
+
+                  {/* خيار الاستلام من مقر العمل */}
+                  <button
+                    type="button"
+                    onClick={() => setFulfillmentMethod('pickup')}
+                    className={`p-4 rounded-lg border-2 text-left transition-all ${
+                      fulfillmentMethod === 'pickup'
+                        ? 'border-blue-600 bg-blue-50 text-blue-700 font-semibold'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-medium text-base">🏬 استلام من المحل (Pick up)</div>
+                    <div className="text-xs text-gray-500 mt-1">تستلم الطلب بنفسك من موقع المتجر</div>
+                  </button>
                 </div>
-              </fieldset>
-              {checkoutDraft.deliveryRequested && (
+              </div>
+              {(fulfillmentMethod === 'delivery') && (
                 <div className="mt-5 space-y-4">
                   <p className="text-sm text-navy-600">
                     {t('business.deliveryFeeBeforeOrder', {
