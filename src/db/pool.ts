@@ -16,9 +16,14 @@ const common = {
     host: config.PGHOST,
     port: config.PGPORT,
     database: config.PGDATABASE,
-    max: process.env['VERCEL'] === '1' ? 1 : 20,
+    // On Vercel each function instance owns its pool, so `max: 1` serializes every
+    // concurrent request and the frontend's mount-time burst (categories, cities,
+    // businesses ×2) queues and timeouts. Four concurrent connections per instance
+    // covers that burst with headroom. `connectionTimeoutMillis` is shortened to
+    // fail fast on serverless rather than holding an invocation for five seconds.
+    max: process.env['VERCEL'] === '1' ? 4 : 20,
     idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000,
+    connectionTimeoutMillis: process.env['VERCEL'] === '1' ? 2_000 : 5_000,
 };
 
 export const adminPool = new Pool({
