@@ -27,8 +27,34 @@ export function CheckoutPage() {
   const [deliveryNote, setDeliveryNote] = useState(draft?.deliveryNote ?? '');
   const [customerPhone, setCustomerPhone] = useState(draft?.customerPhone ?? '');
   const [deliveryAddress, setDeliveryAddress] = useState(draft?.deliveryAddress ?? '');
+  const [fulfillmentType, setFulfillmentType] = useState<'delivery' | 'pickup'>('delivery');
+  const [city, setCity] = useState('');
   const [locationError, setLocationError] = useState('');
   const [locating, setLocating] = useState(false);
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError(t('business.deliveryGeolocationUnavailable'));
+      return;
+    }
+    setLocating(true);
+    setLocationError('');
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const lat = Number(coords.latitude.toFixed(4));
+        const lng = Number(coords.longitude.toFixed(4));
+        setDeliveryLatitude(Number(coords.latitude.toFixed(6)));
+        setDeliveryLongitude(Number(coords.longitude.toFixed(6)));
+        setDeliveryAddress(`GPS Location: (${lat}, ${lng})`);
+        setLocating(false);
+      },
+      () => {
+        setLocationError(t('business.deliveryGeolocationError'));
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  };
 
   useEffect(() => {
     let active = true;
@@ -71,41 +97,22 @@ export function CheckoutPage() {
     deliveryNote,
     customerPhone,
     deliveryAddress,
+    fulfillmentType,
+    city,
   };
   const subtotal = checkoutDraft.items.reduce((amount, item) => amount + Number(item.unitPrice) * item.quantity, 0);
   const deliveryFee = checkoutDraft.deliveryRequested ? Number(checkoutDraft.deliveryFee ?? 0) : 0;
   const total = estimateCheckoutTotal(checkoutDraft);
-
-  const useCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError(t('business.deliveryGeolocationUnavailable'));
-      return;
-    }
-    setLocating(true);
-    setLocationError('');
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setDeliveryLatitude(Number(coords.latitude.toFixed(6)));
-        setDeliveryLongitude(Number(coords.longitude.toFixed(6)));
-        setLocating(false);
-      },
-      () => {
-        setLocationError(t('business.deliveryGeolocationError'));
-        setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
-  };
 
   const submitOrder = async () => {
     if (!paymentMethod || !paymentMethods.some((method) => method.name === paymentMethod)) {
       setError(t('checkout.noPaymentMethods'));
       return;
     }
-    if (
+    if (fulfillmentType === 'delivery' && (
       checkoutDraft.deliveryRequested
       && (!locationConsent || deliveryLatitude === null || deliveryLongitude === null || customerPhone.trim().length < 7 || deliveryAddress.trim().length < 3)
-    ) {
+    )) {
       setError(t('business.deliveryFieldsRequired'));
       return;
     }
@@ -183,7 +190,30 @@ export function CheckoutPage() {
             </ul>
           </Card>
 
-          {hasDeliverableProducts && (
+          <Card className="p-5 sm:p-6">
+            <h3 className="mb-4 text-lg font-semibold text-navy-900">{t('checkout.fulfillmentMethod')}</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(['delivery', 'pickup'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setFulfillmentType(mode);
+                    setError('');
+                  }}
+                  className={`flex min-h-14 items-center justify-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                    fulfillmentType === mode
+                      ? 'border-primary-600 bg-primary-50'
+                      : 'border-navy-200 hover:border-navy-300'
+                  }`}
+                >
+                  <span className="font-medium text-navy-900">{t(`checkout.fulfillmentMode.${mode}`)}</span>
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          {fulfillmentType === 'delivery' && hasDeliverableProducts && (
             <Card className="p-5 sm:p-6">
               <fieldset>
                 <legend className="mb-3 text-lg font-semibold text-navy-900">{t('business.deliveryQuestion')}</legend>
@@ -220,7 +250,7 @@ export function CheckoutPage() {
                     })}
                   </p>
                   <p className="text-sm font-medium text-navy-800">{t('business.deliveryMapHint')}</p>
-                  <Button type="button" variant="outline" size="sm" loading={locating} onClick={useCurrentLocation}>
+                  <Button type="button" variant="outline" size="sm" loading={locating} onClick={handleGetLocation}>
                     {t('business.useCurrentLocation')}
                   </Button>
                   <DeliveryLocationPicker
@@ -233,18 +263,31 @@ export function CheckoutPage() {
                       setDeliveryLongitude(longitude);
                     }}
                   />
-                  <label className="block">
-                    <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryPhone')}</span>
-                    <input
-                      type="tel"
-                      value={customerPhone}
-                      onChange={(event) => setCustomerPhone(event.target.value)}
-                      minLength={7}
-                      maxLength={20}
-                      autoComplete="tel"
-                      className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                    />
-                  </label>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.city')}</span>
+                      <input
+                        type="text"
+                        value={city}
+                        onChange={(event) => setCity(event.target.value)}
+                        minLength={2}
+                        maxLength={100}
+                        className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryPhone')}</span>
+                      <input
+                        type="tel"
+                        value={customerPhone}
+                        onChange={(event) => setCustomerPhone(event.target.value)}
+                        minLength={7}
+                        maxLength={20}
+                        autoComplete="tel"
+                        className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                      />
+                    </label>
+                  </div>
                   <label className="block">
                     <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryAddress')}</span>
                     <input
@@ -279,6 +322,12 @@ export function CheckoutPage() {
                   {locationError && <p role="alert" className="text-sm text-error-600">{locationError}</p>}
                 </div>
               )}
+            </Card>
+          )}
+
+          {fulfillmentType === 'pickup' && (
+            <Card className="p-5 sm:p-6">
+              <p className="text-sm text-navy-600">{t('checkout.pickupInfo')}</p>
             </Card>
           )}
 

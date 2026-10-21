@@ -341,6 +341,13 @@
     "deliveryLandmark": "Nearest street or landmark (optional)",
     "deliveryAddress": "Delivery address",
     "deliveryPhone": "Phone number for delivery",
+    "city": "City",
+    "fulfillmentMethod": "Fulfillment method",
+    "fulfillmentMode": {
+      "delivery": "Delivery to home",
+      "pickup": "Pick up at store"
+    },
+    "pickupInfo": "Store location and order number will be provided after order confirmation.",
     "deliveryConsent": "I agree to share this location with the courier for this order only.",
     "cashOnDelivery": "Payment is cash on delivery.",
     "minutes": "min",
