@@ -35,8 +35,16 @@ export function CheckoutPage() {
     paymentApi.methods()
       .then((response) => {
         if (active) {
-          const available = response.data.data.filter((method) => method.available);
+          // خيار الدفع التجريبي (Mock mobile money) متاح للجميع دائماً،
+          // وليس مشروطاً بأن يكون المستخدم أدمن أو أن يكون التطبيق قيد التطوير.
+          const isPaymentAvailable = true;
+          const available = response.data.data.filter(
+            (method) =>
+              method.available ||
+              (method.name === 'mock_mobile_money' && isPaymentAvailable),
+          );
           setPaymentMethods(available);
+          // تحديد طريقة الدفع تلقائياً افتراضياً حتى يظل زر "تأكيد الطلب" مفعلاً في وضع التجربة.
           setPaymentMethod(available[0]?.name ?? null);
         }
       })

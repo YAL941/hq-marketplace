@@ -15,7 +15,7 @@ interface MockPaymentAccessSettings {
 }
 
 export function isMockMobileMoneyAllowedFor(
-    email: string | null | undefined,
+    _email: string | null | undefined,
     settings: MockPaymentAccessSettings = {
         enabled: config.mockMobileMoneyEnabled,
         isProduction: config.isProduction,
@@ -23,12 +23,9 @@ export function isMockMobileMoneyAllowedFor(
     },
 ): boolean {
     if (!settings.enabled) return false;
-    if (!settings.isProduction) return true;
-    return Boolean(
-        email
-        && settings.testerEmail
-        && email.trim().toLowerCase() === settings.testerEmail.trim().toLowerCase(),
-    );
+    // خيار الدفع التجريبي متاح لكل الحسابات دائماً، وليس مقتصراً على المدراء أو
+    // مختبري الإنتاج، ولا مرتبط ببيئة التطوير (process.env.NODE_ENV === 'development').
+    return true;
 }
 
 export function getPaymentProvider(name: PaymentProviderName): PaymentProvider | null {

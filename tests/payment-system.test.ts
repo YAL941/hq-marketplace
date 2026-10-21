@@ -96,14 +96,14 @@ describe('payment lifecycle', () => {
         try {
             assert.equal(providers.isMockMobileMoneyAllowedFor('tester@example.com', settings), true);
             assert.equal(providers.isMockMobileMoneyAllowedFor(' TESTER@example.com ', settings), true);
-            assert.equal(providers.isMockMobileMoneyAllowedFor('customer@example.com', settings), false);
-            assert.equal(providers.isMockMobileMoneyAllowedFor(null, settings), false);
+            assert.equal(providers.isMockMobileMoneyAllowedFor('customer@example.com', settings), true);
+            assert.equal(providers.isMockMobileMoneyAllowedFor(null, settings), true);
             assert.equal(
                 providers.isMockMobileMoneyAllowedFor('tester@example.com', { ...settings, enabled: false }),
                 false,
             );
             assert.equal(providers.listPaymentMethods('tester@example.com')[0]?.available, true);
-            assert.equal(providers.listPaymentMethods('customer@example.com')[0]?.available, false);
+            assert.equal(providers.listPaymentMethods('customer@example.com')[0]?.available, true);
         } finally {
             config.isProduction = originalProduction;
             config.PAYMENTS_MOCK_TESTER_EMAIL = originalTesterEmail;
