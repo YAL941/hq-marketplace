@@ -41,21 +41,25 @@ export function CustomerOrderDetailPage() {
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setFailed(false);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setFailed(false);
+    }
     try {
       const response = await orderApi.getMine(orderId);
       setData(response.data.data);
     } catch {
-      setFailed(true);
+      if (!silent) setFailed(true);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [orderId]);
 
   useEffect(() => {
     void load();
+    const interval = window.setInterval(() => void load(true), 30_000);
+    return () => window.clearInterval(interval);
   }, [load]);
 
   const completedReviewBusinessId = data?.order.order_status === 'completed'

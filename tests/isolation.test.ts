@@ -504,6 +504,20 @@ describe('Order status transitions and product reviews', () => {
             });
         assert.equal(withoutConsent.status, 400);
 
+        const withoutAddress = await request(app)
+            .post('/api/orders')
+            .set('Authorization', 'Bearer ' + fixtures.customer.token)
+            .send({
+                businessId: fixtures.ownerA.businessA,
+                items: [{ productId }],
+                deliveryRequested: true,
+                locationConsent: true,
+                deliveryLatitude: 2.05,
+                deliveryLongitude: 45.32,
+                customerPhone: '+252612345678',
+            });
+        assert.equal(withoutAddress.status, 400);
+
         const deliveredByRequest = await request(app)
             .post('/api/orders')
             .set('Authorization', 'Bearer ' + fixtures.customer.token)
@@ -514,6 +528,7 @@ describe('Order status transitions and product reviews', () => {
                 locationConsent: true,
                 deliveryLatitude: 2.05,
                 deliveryLongitude: 45.32,
+                deliveryAddress: 'Customer delivery address',
                 deliveryNote: 'Near the main road',
                 customerPhone: '+252612345678',
                 deliveryFee: 0,

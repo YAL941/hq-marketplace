@@ -30,6 +30,7 @@ export class NotificationService {
                 orderNumber: context.orderNumber,
                 businessName: context.businessName,
                 orderStatus: context.orderStatus,
+                deliveryConfirmationCode: context.deliveryConfirmationCode,
             }),
             eventType,
             orderId,

@@ -82,6 +82,9 @@ export async function createOrder(client: PoolClient, customerId: number, input:
             throw badRequest('A delivery location is required');
         }
         if (!input.customerPhone?.trim()) throw badRequest('A customer phone number is required for delivery');
+        if (!input.deliveryAddress?.trim() || input.deliveryAddress.trim().length < 3) {
+            throw badRequest('A delivery address is required');
+        }
     } else if (input.locationConsent || input.deliveryLatitude != null || input.deliveryLongitude != null) {
         throw badRequest('Pickup orders cannot include delivery location data');
     }

@@ -171,6 +171,35 @@ describe('courier delivery price offers', () => {
         assert.equal(mockSmsProvider.delivered.length, 1);
         assert.equal(mockSmsProvider.delivered[0]!.eventType, 'order_status_changed');
         assert.equal(mockSmsProvider.delivered[0]!.to, '+252611234567');
+        assert.match(mockSmsProvider.delivered[0]!.body, new RegExp(finalOrder.delivery_confirmation_code));
         assert.equal(mockWhatsAppProvider.delivered.length, 1);
+
+        const outForDelivery = await request(app)
+            .get(`/api/courier/deliveries?completedAfter=${completedAfter}`)
+            .set('Authorization', `Bearer ${courierToken}`);
+        assert.equal(outForDelivery.body.data.assigned[0].order_status, 'out_for_delivery');
+        assert.equal(outForDelivery.body.data.assigned[0].delivery_status, 'picked_up');
+
+        const onTheWay = await request(app)
+            .patch(`/api/courier/deliveries/${orderId}/status`)
+            .set('Authorization', `Bearer ${courierToken}`)
+            .send({ deliveryStatus: 'on_the_way' });
+        assert.equal(onTheWay.status, 200, JSON.stringify(onTheWay.body));
+
+        const wrongCode = await request(app)
+            .patch(`/api/courier/deliveries/${orderId}/status`)
+            .set('Authorization', `Bearer ${courierToken}`)
+            .send({ deliveryStatus: 'delivered', confirmationCode: '0000' });
+        assert.equal(wrongCode.status, 409);
+
+        const delivered = await request(app)
+            .patch(`/api/courier/deliveries/${orderId}/status`)
+            .set('Authorization', `Bearer ${courierToken}`)
+            .send({ deliveryStatus: 'delivered', confirmationCode: finalOrder.delivery_confirmation_code });
+        assert.equal(delivered.status, 200, JSON.stringify(delivered.body));
+        assert.equal(delivered.body.data.order_status, 'completed');
+        assert.equal(delivered.body.data.delivery_status, 'delivered');
+        assert.equal(mockSmsProvider.delivered.length, 2);
+        assert.equal(mockSmsProvider.delivered[1]!.body.includes(finalOrder.delivery_confirmation_code), false);
     });
 });

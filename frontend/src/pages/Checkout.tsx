@@ -20,15 +20,15 @@ export function CheckoutPage() {
   const [error, setError] = useState('');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodOption[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentProviderName | null>(null);
-  const [deliveryRequested, setDeliveryRequested] = useState(draft?.deliveryRequested ?? false);
   const [locationConsent, setLocationConsent] = useState(draft?.locationConsent ?? false);
   const [deliveryLatitude, setDeliveryLatitude] = useState<number | null>(draft?.deliveryLatitude ?? null);
   const [deliveryLongitude, setDeliveryLongitude] = useState<number | null>(draft?.deliveryLongitude ?? null);
   const [deliveryNote, setDeliveryNote] = useState(draft?.deliveryNote ?? '');
   const [customerPhone, setCustomerPhone] = useState(draft?.customerPhone ?? '');
   const [deliveryAddress, setDeliveryAddress] = useState(draft?.deliveryAddress ?? '');
-  const [fulfillmentType, setFulfillmentType] = useState<'delivery' | 'pickup'>('delivery');
-  const [city, setCity] = useState('');
+  const [fulfillmentType, setFulfillmentType] = useState<'delivery' | 'pickup'>(
+    draft?.deliveryRequested ? 'delivery' : 'pickup',
+  );
   const [locationError, setLocationError] = useState('');
   const [locating, setLocating] = useState(false);
 
@@ -90,7 +90,7 @@ export function CheckoutPage() {
   const hasDeliverableProducts = Boolean(draft.deliveryEnabled && draft.items.some((item) => item.productId));
   const checkoutDraft = {
     ...draft,
-    deliveryRequested: hasDeliverableProducts && deliveryRequested,
+    deliveryRequested: hasDeliverableProducts && fulfillmentType === 'delivery',
     locationConsent,
     ...(deliveryLatitude === null ? {} : { deliveryLatitude }),
     ...(deliveryLongitude === null ? {} : { deliveryLongitude }),
@@ -98,7 +98,6 @@ export function CheckoutPage() {
     customerPhone,
     deliveryAddress,
     fulfillmentType,
-    city,
   };
   const subtotal = checkoutDraft.items.reduce((amount, item) => amount + Number(item.unitPrice) * item.quantity, 0);
   const deliveryFee = checkoutDraft.deliveryRequested ? Number(checkoutDraft.deliveryFee ?? 0) : 0;
@@ -109,9 +108,12 @@ export function CheckoutPage() {
       setError(t('checkout.noPaymentMethods'));
       return;
     }
-    if (fulfillmentType === 'delivery' && (
-      checkoutDraft.deliveryRequested
-      && (!locationConsent || deliveryLatitude === null || deliveryLongitude === null || customerPhone.trim().length < 7 || deliveryAddress.trim().length < 3)
+    if (checkoutDraft.deliveryRequested && (
+      !locationConsent
+      || deliveryLatitude === null
+      || deliveryLongitude === null
+      || customerPhone.trim().length < 7
+      || deliveryAddress.trim().length < 3
     )) {
       setError(t('business.deliveryFieldsRequired'));
       return;
@@ -190,142 +192,102 @@ export function CheckoutPage() {
             </ul>
           </Card>
 
-          <Card className="p-5 sm:p-6">
-            <h3 className="mb-4 text-lg font-semibold text-navy-900">{t('checkout.fulfillmentMethod')}</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(['delivery', 'pickup'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => {
-                    setFulfillmentType(mode);
-                    setError('');
-                  }}
-                  className={`flex min-h-14 items-center justify-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
-                    fulfillmentType === mode
-                      ? 'border-primary-600 bg-primary-50'
-                      : 'border-navy-200 hover:border-navy-300'
-                  }`}
-                >
-                  <span className="font-medium text-navy-900">{t(`checkout.fulfillmentMode.${mode}`)}</span>
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          {fulfillmentType === 'delivery' && hasDeliverableProducts && (
+          {hasDeliverableProducts && (
             <Card className="p-5 sm:p-6">
-              <fieldset>
-                <legend className="mb-3 text-lg font-semibold text-navy-900">{t('business.deliveryQuestion')}</legend>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {(['pickup', 'delivery'] as const).map((mode) => (
-                    <label
-                      key={mode}
-                      className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-4 ${
-                        checkoutDraft.deliveryRequested === (mode === 'delivery')
-                          ? 'border-primary-300 bg-primary-50'
-                          : 'border-navy-200'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="deliveryMode"
-                        checked={checkoutDraft.deliveryRequested === (mode === 'delivery')}
-                        onChange={() => {
-                          setDeliveryRequested(mode === 'delivery');
-                          setError('');
-                        }}
-                        className="h-4 w-4 accent-primary-600"
-                      />
-                      <span className="font-medium text-navy-900">{t(`business.deliveryMode.${mode}`)}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              {checkoutDraft.deliveryRequested && (
-                <div className="mt-5 space-y-4">
-                  <p className="text-sm text-navy-600">
-                    {t('business.deliveryFeeBeforeOrder', {
-                      fee: formatCurrency(draft.deliveryFee ?? '0', draft.currency),
-                    })}
-                  </p>
-                  <p className="text-sm font-medium text-navy-800">{t('business.deliveryMapHint')}</p>
-                  <Button type="button" variant="outline" size="sm" loading={locating} onClick={handleGetLocation}>
-                    {t('business.useCurrentLocation')}
-                  </Button>
-                  <DeliveryLocationPicker
-                    latitude={deliveryLatitude}
-                    longitude={deliveryLongitude}
-                    centerLatitude={draft.businessLatitude ?? null}
-                    centerLongitude={draft.businessLongitude ?? null}
-                    onChange={(latitude, longitude) => {
-                      setDeliveryLatitude(latitude);
-                      setDeliveryLongitude(longitude);
+              <h3 className="mb-4 text-lg font-semibold text-navy-900">{t('checkout.fulfillmentMethod')}</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(['delivery', 'pickup'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      setFulfillmentType(mode);
+                      setError('');
                     }}
-                  />
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.city')}</span>
-                      <input
-                        type="text"
-                        value={city}
-                        onChange={(event) => setCity(event.target.value)}
-                        minLength={2}
-                        maxLength={100}
-                        className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryPhone')}</span>
-                      <input
-                        type="tel"
-                        value={customerPhone}
-                        onChange={(event) => setCustomerPhone(event.target.value)}
-                        minLength={7}
-                        maxLength={20}
-                        autoComplete="tel"
-                        className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                      />
-                    </label>
-                  </div>
-                  <label className="block">
-                    <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryAddress')}</span>
-                    <input
-                      type="text"
-                      value={deliveryAddress}
-                      onChange={(event) => setDeliveryAddress(event.target.value)}
-                      minLength={3}
-                      maxLength={500}
-                      autoComplete="street-address"
-                      className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryLandmark')}</span>
-                    <textarea
-                      value={deliveryNote}
-                      onChange={(event) => setDeliveryNote(event.target.value)}
-                      maxLength={500}
-                      rows={2}
-                      className="w-full rounded-xl border border-navy-200 p-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                    />
-                  </label>
-                  <label className="flex items-start gap-2 text-sm text-navy-700">
-                    <input
-                      type="checkbox"
-                      checked={locationConsent}
-                      onChange={(event) => setLocationConsent(event.target.checked)}
-                      className="mt-1 h-4 w-4 rounded accent-primary-600"
-                    />
-                    <span>{t('business.deliveryConsent')}</span>
-                  </label>
-                  {locationError && <p role="alert" className="text-sm text-error-600">{locationError}</p>}
-                </div>
-              )}
+                    className={`flex min-h-14 items-center justify-center gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                      fulfillmentType === mode
+                        ? 'border-primary-600 bg-primary-50'
+                        : 'border-navy-200 hover:border-navy-300'
+                    }`}
+                  >
+                    <span className="font-medium text-navy-900">{t(`checkout.fulfillmentMode.${mode}`)}</span>
+                  </button>
+                ))}
+              </div>
             </Card>
           )}
 
-          {fulfillmentType === 'pickup' && (
+          {checkoutDraft.deliveryRequested && (
+            <Card className="p-5 sm:p-6">
+              <div className="space-y-4">
+                <p className="text-sm text-navy-600">
+                  {t('business.deliveryFeeBeforeOrder', {
+                    fee: formatCurrency(draft.deliveryFee ?? '0', draft.currency),
+                  })}
+                </p>
+                <p className="text-sm font-medium text-navy-800">{t('business.deliveryMapHint')}</p>
+                <Button type="button" variant="outline" size="sm" loading={locating} onClick={handleGetLocation}>
+                  {t('business.useCurrentLocation')}
+                </Button>
+                <DeliveryLocationPicker
+                  latitude={deliveryLatitude}
+                  longitude={deliveryLongitude}
+                  centerLatitude={draft.businessLatitude ?? null}
+                  centerLongitude={draft.businessLongitude ?? null}
+                  onChange={(latitude, longitude) => {
+                    setDeliveryLatitude(latitude);
+                    setDeliveryLongitude(longitude);
+                  }}
+                />
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryPhone')}</span>
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(event) => setCustomerPhone(event.target.value)}
+                    minLength={7}
+                    maxLength={20}
+                    autoComplete="tel"
+                    className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryAddress')}</span>
+                  <input
+                    type="text"
+                    value={deliveryAddress}
+                    onChange={(event) => setDeliveryAddress(event.target.value)}
+                    minLength={3}
+                    maxLength={500}
+                    autoComplete="street-address"
+                    className="min-h-11 w-full rounded-xl border border-navy-200 px-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-navy-700">{t('business.deliveryLandmark')}</span>
+                  <textarea
+                    value={deliveryNote}
+                    onChange={(event) => setDeliveryNote(event.target.value)}
+                    maxLength={500}
+                    rows={2}
+                    className="w-full rounded-xl border border-navy-200 p-3 text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  />
+                </label>
+                <label className="flex items-start gap-2 text-sm text-navy-700">
+                  <input
+                    type="checkbox"
+                    checked={locationConsent}
+                    onChange={(event) => setLocationConsent(event.target.checked)}
+                    className="mt-1 h-4 w-4 rounded accent-primary-600"
+                  />
+                  <span>{t('business.deliveryConsent')}</span>
+                </label>
+                {locationError && <p role="alert" className="text-sm text-error-600">{locationError}</p>}
+              </div>
+            </Card>
+          )}
+
+          {hasDeliverableProducts && fulfillmentType === 'pickup' && (
             <Card className="p-5 sm:p-6">
               <p className="text-sm text-navy-600">{t('checkout.pickupInfo')}</p>
             </Card>

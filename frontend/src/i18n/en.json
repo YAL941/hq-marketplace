@@ -328,7 +328,7 @@
     "placeOrder": "Place order request",
     "orderSuccess": "Your request was sent. The business can now review it.",
     "orderError": "We couldn't place the request. Check availability and try again.",
-    "deliveryFieldsRequired": "Choose a delivery location, consent to sharing it, and enter a valid phone number.",
+    "deliveryFieldsRequired": "Choose a delivery location, enter your address and phone number, and consent to sharing your location.",
     "deliveryQuestion": "Would you like delivery?",
     "deliveryMode": { "pickup": "Pick up from business", "delivery": "Delivery" },
     "deliveryFeeBeforeOrder": "Delivery fee: {{fee}}",

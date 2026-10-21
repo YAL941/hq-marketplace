@@ -14,6 +14,7 @@ const context = {
     customerPhone: '+252610000017',
     language: 'so' as const,
     orderStatus: 'confirmed',
+    deliveryConfirmationCode: null,
 };
 
 describe('notification templates and providers', () => {
@@ -38,6 +39,12 @@ describe('notification templates and providers', () => {
             businessName: 'Test Market',
             orderStatus: 'confirmed',
         }), /la xaqiijiyay/);
+        assert.match(renderNotification('order_status_changed', 'ar', {
+            orderNumber: 'HQ-0042',
+            businessName: 'Test Market',
+            orderStatus: 'out_for_delivery',
+            deliveryConfirmationCode: '1234',
+        }), /1234/);
     });
 
     it('routes new-order notices to the merchant and status/payment notices to the customer', async () => {

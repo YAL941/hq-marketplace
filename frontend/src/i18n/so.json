@@ -328,7 +328,7 @@
     "placeOrder": "Dir codsiga dalabka",
     "orderSuccess": "Codsigaaga waa la diray. Ganacsigu hadda wuu eegi karaa.",
     "orderError": "Codsiga lama dirin. Hubi helitaanka oo mar kale isku day.",
-    "deliveryFieldsRequired": "Dooro goobta gaarsiinta, oggolow wadaagista, oo geli lambar telefoon sax ah.",
+    "deliveryFieldsRequired": "Dooro goobta gaarsiinta, geli cinwaanka iyo lambarka telefoonka, oo oggolow wadaagista goobta.",
     "deliveryQuestion": "Ma rabtaa in laguu keeno?",
     "deliveryMode": { "pickup": "Ka qaado ganacsiga", "delivery": "Gaarsiin" },
     "deliveryFeeBeforeOrder": "Kharashka gaarsiinta: {{fee}}",
