@@ -807,7 +807,19 @@
     "confirmOrder": "Confirm order",
     "submitError": "We couldn't place your order. Please check availability and try again.",
     "missingTitle": "Checkout details are missing",
-    "missingDescription": "Return to a business profile and start checkout from an item."
+    "missingDescription": "Return to a business profile and start checkout from an item.",
+    "fulfillmentMethod": "How would you like to receive your order?",
+    "fulfillmentMode": {
+      "delivery": "Delivery to my address",
+      "pickup": "Pick up at the store"
+    },
+    "pickupInfo": "We will send you the store location and order number as soon as your order is confirmed.",
+    "customerDetails": "Customer details",
+    "deliveryNotes": "Delivery notes (optional)",
+    "addressDetails": "Address details",
+    "city": "City",
+    "address": "Full address",
+    "phone": "Phone number"
   },
   "paymentStatus": {
     "pending": "Awaiting payment confirmation",

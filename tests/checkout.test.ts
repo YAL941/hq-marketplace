@@ -48,6 +48,7 @@ describe('customer checkout', () => {
             deliveryLatitude: 2.04,
             deliveryLongitude: 45.32,
             customerPhone: '+252612345678',
+            deliveryAddress: '123 Main St',
         }), true);
     });
 
@@ -88,6 +89,7 @@ describe('customer checkout', () => {
             deliveryLongitude: 45.32,
             deliveryNote: 'Near the main road',
             customerPhone: '+252612345678',
+            deliveryAddress: '123 Main St',
         }, 'mock_mobile_money'), {
             businessId: 12,
             items: [{ productId: 34, quantity: 2 }],
@@ -97,6 +99,7 @@ describe('customer checkout', () => {
             deliveryLongitude: 45.32,
             deliveryNote: 'Near the main road',
             customerPhone: '+252612345678',
+            deliveryAddress: '123 Main St',
             paymentMethod: 'mock_mobile_money',
             notificationLanguage: 'en',
         });

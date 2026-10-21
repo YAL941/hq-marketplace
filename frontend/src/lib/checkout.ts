@@ -74,7 +74,7 @@ export function buildCheckoutOrderInput(
       deliveryLongitude: draft.deliveryLongitude,
       deliveryNote: draft.deliveryNote,
       customerPhone: draft.customerPhone,
-      deliveryAddress: draft.deliveryAddress,
+      ...(draft.deliveryAddress ? { deliveryAddress: draft.deliveryAddress } : {}),
     } : {}),
     paymentMethod,
     notificationLanguage,
