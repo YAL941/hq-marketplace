@@ -1,6 +1,6 @@
 ﻿import { Router } from 'express';
 import { z } from 'zod';
-import { forbidden, notFound } from '../../db/errors.js';
+import { badRequest, forbidden, notFound } from '../../db/errors.js';
 import { hasBusinessPermission, withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
 import { requireBusinessPermission, resolveBusiness } from '../../middleware/error.js';
@@ -40,8 +40,11 @@ function createSchema(businessId: number) {
         price: z.number().nonnegative(),
         currency: z.string().length(3).regex(/^[A-Z]{3}$/).optional(),
         sku: z.string().max(64).nullish(),
+        barcode: z.string().trim().min(1).max(128).nullish(),
+        unitOfMeasure: z.string().trim().min(1).max(32).optional(),
+        minimumStock: z.number().int().nonnegative().max(2_147_483_647).optional(),
         imageUrl: optionalManagedImageUrlSchema(businessId),
-        stockQuantity: z.number().int().nonnegative().optional(),
+        stockQuantity: z.number().int().nonnegative().max(2_147_483_647).optional(),
         status: z.enum(['draft', 'active', 'inactive', 'archived']).optional(),
     });
 }
@@ -96,6 +99,9 @@ productRoutes.patch('/business/:businessId/products/:productId', authenticate, r
         const businessId = req.businessId!;
         const productId = Number(req.params['productId']);
         const patch = updateSchema(businessId).parse(req.body) as Record<string, unknown>;
+        if (patch['stockQuantity'] !== undefined) {
+            throw badRequest('Use the inventory movement endpoint to change stock quantities', { field: 'stockQuantity' });
+        }
         const ctx = contextFor(req, businessId);
         if (patch['status'] === 'archived') {
             const canArchive = await hasBusinessPermission(ctx, businessId, 'products.delete');
@@ -133,7 +139,10 @@ productRoutes.get('/products', async (req, res, next) => {
     try {
         const q = listQuerySchema.parse(req.query);
         const products = await withTenant(contextFor(req), (client) => listPublicProducts(client, q));
-        res.json({ data: products, meta: { count: products.length } });
+        res.json({
+            data: products.map(({ barcode: _barcode, minimum_stock: _minimumStock, ...product }) => product),
+            meta: { count: products.length },
+        });
     } catch (error) {
         next(error);
     }

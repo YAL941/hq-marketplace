@@ -17,6 +17,9 @@ import { productRoutes } from './modules/products/product.routes.js';
 import { reviewRoutes } from './modules/reviews/review.routes.js';
 import { serviceRoutes } from './modules/services/service.routes.js';
 import { courierRoutes } from './modules/couriers/courier.routes.js';
+import { inventoryRoutes } from './modules/inventory/inventory.routes.js';
+import { wholesaleRoutes } from './modules/wholesale/wholesale.routes.js';
+import { inAppNotificationRoutes } from './modules/notifications/in-app-notification.routes.js';
 import { setUploadContentSecurityPolicy, withApiContentSecurityPolicy } from './middleware/csp.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 
@@ -183,6 +186,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
                     'GET|POST|PATCH         /api/business/:businessId/locations[/:locationId]',
                     'GET                   /api/business/:businessId/orders[/:orderId]',
                     'PATCH                 /api/business/:businessId/orders/:orderId/status',
+                    'GET                   /api/business/:businessId/inventory',
+                    'GET|POST              /api/business/:businessId/inventory/movements',
+                    'GET|POST|PATCH         /api/business/:businessId/inventory/restock-requests[/:requestId]',
+                    'GET                   /api/business/:businessId/inventory/reports/:report?format=csv',
                     'GET                   /api/business/:businessId/reviews',
                     'POST                  /api/business/:businessId/reviews/:reviewId/respond',
                     'PATCH                 /api/business/:businessId/reviews/:reviewId/moderate',
@@ -235,6 +242,9 @@ export function createApp(options: CreateAppOptions = {}): Express {
     app.use('/api', orderRoutes);
     app.use('/api', paymentRoutes);
     app.use('/api', courierRoutes);
+    app.use('/api', inventoryRoutes);
+    app.use('/api', wholesaleRoutes);
+    app.use('/api', inAppNotificationRoutes);
     app.use('/api', reviewRoutes);
     app.use('/api', locationRoutes);
     app.use('/api', adminRoutes);

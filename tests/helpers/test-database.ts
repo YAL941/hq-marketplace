@@ -38,6 +38,21 @@ import type { Pool, PoolClient } from 'pg';
 const TEST_SETUP_LOCK_KEY = '72717374'; // "hqst" in ASCII hex
 
 export const TEST_TABLES = [
+    'in_app_notifications',
+    'wholesale_events',
+    'wholesale_receipt_items',
+    'wholesale_receipt_attempts',
+    'wholesale_receipts',
+    'wholesale_purchase_order_items',
+    'wholesale_purchase_orders',
+    'wholesale_rfq_items',
+    'wholesale_rfqs',
+    'wholesale_offer_tiers',
+    'wholesale_offers',
+    'wholesale_suppliers',
+    'stock_restock_requests',
+    'stock_movements',
+    'inventory_balances',
     'product_reviews',
     'user_favorites',
     'order_items',

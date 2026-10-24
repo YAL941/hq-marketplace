@@ -46,12 +46,9 @@ interface PreflightResult {
  * Runs the preflight with `overrides` applied on top of a working environment,
  * so each case can describe one specific deployment.
  *
- * The base environment comes from the project's own `.env`, read here rather
- * than inherited. That matters more than it looks: the real credentials reach a
- * child process through `dotenv/config` inside the tool, not through the parent
- * `process.env`, so inheriting would hand the tool an unset password and every
- * database check would fail for the wrong reason. Nothing in this file prints
- * these values — they are read to be passed on, never to be asserted on.
+ * The base environment comes from `.env.test`, not the developer's `.env`.
+ * That keeps the subprocess on the same test database as the rest of the suite
+ * instead of accidentally probing a development or production database.
  *
  * The database is then pointed at the test one, which is migrated and has the
  * safe application role, so the tool's queries are answered by a known fixture
@@ -64,8 +61,9 @@ interface PreflightResult {
  */
 async function preflight(overrides: Record<string, string | undefined> = {}): Promise<PreflightResult> {
     const env: Record<string, string> = {
-        ...readProjectEnv(),
+        ...readTestEnv(),
         ...process.env,
+        DOTENV_CONFIG_PATH: resolve(projectRoot, '.env.test'),
         PGDATABASE: process.env['TEST_PGDATABASE'] ?? 'hq_marketplace_test',
         // Overridable per case; the busy-port case needs to name its own.
         PORT: String(freePort),
@@ -89,18 +87,18 @@ async function preflight(overrides: Record<string, string | undefined> = {}): Pr
     }
 }
 
-/** The project's `.env` as key/value pairs, or nothing if it is absent. */
-let projectEnvCache: Record<string, string> | undefined;
+/** The test database environment as key/value pairs, or nothing if absent. */
+let testEnvCache: Record<string, string> | undefined;
 
-function readProjectEnv(): Record<string, string> {
-    if (projectEnvCache) return projectEnvCache;
+function readTestEnv(): Record<string, string> {
+    if (testEnvCache) return testEnvCache;
 
-    const envPath = resolve(projectRoot, '.env');
-    projectEnvCache = existsSync(envPath)
+    const envPath = resolve(projectRoot, '.env.test');
+    testEnvCache = existsSync(envPath)
         ? (parseDotenv(readFileSync(envPath, 'utf8')) as Record<string, string>)
         : {};
 
-    return projectEnvCache;
+    return testEnvCache;
 }
 
 /** An ephemeral upload folder, so the tool's directory checks are exercised for real. */

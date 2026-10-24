@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS lock_order_inventory_products(BIGINT, BIGINT[]);

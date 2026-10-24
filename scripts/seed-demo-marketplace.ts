@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { adminPool, closePools } from '../src/db/pool.js';
 import { processImage } from '../src/modules/media/image-processing.js';
@@ -147,14 +148,13 @@ async function main(): Promise<void> {
              VALUES
                 ($1, $2, 'Nertu Fashion Striped Polo & Jeans Set',
                  'DEMO PRODUCT — striped short-sleeve polo shirt with light-blue denim jeans, as shown in the supplied photo.',
-                 $3, 'USD', $4, 20, TRUE, 'active')
+                 $3, 'USD', $4, 0, TRUE, 'active')
              ON CONFLICT (business_id, sku) DO UPDATE SET
                  category_id = EXCLUDED.category_id,
                  product_name = EXCLUDED.product_name,
                  description = EXCLUDED.description,
                  price = EXCLUDED.price,
                  currency = EXCLUDED.currency,
-                 stock_quantity = EXCLUDED.stock_quantity,
                  is_stock_tracked = TRUE,
                  status = 'active',
                  deleted_at = NULL
@@ -163,6 +163,63 @@ async function main(): Promise<void> {
         );
         const productId = Number(productRows[0]!.product_id);
         previousImage = productRows[0]!.image_url;
+
+        const { rows: inventoryLocations } = await client.query<{ location_id: string }>(
+            `SELECT location_id
+               FROM business_locations
+              WHERE business_id = $1 AND is_active
+              ORDER BY is_primary DESC, created_at, location_id
+              LIMIT 1`,
+            [businessId],
+        );
+        const inventoryLocationId = inventoryLocations[0]?.location_id ?? null;
+        await client.query(
+            `INSERT INTO inventory_balances (business_id, product_id, location_id, quantity)
+             VALUES ($1, $2, $3, 0)
+             ON CONFLICT ON CONSTRAINT inventory_balances_location_unique DO NOTHING`,
+            [businessId, productId, inventoryLocationId],
+        );
+        const { rows: balances } = await client.query<{ quantity: number }>(
+            `SELECT quantity
+               FROM inventory_balances
+              WHERE business_id = $1 AND product_id = $2 AND location_id IS NOT DISTINCT FROM $3::BIGINT
+              FOR UPDATE`,
+            [businessId, productId, inventoryLocationId],
+        );
+        const previousQuantity = balances[0]!.quantity;
+        const resultingQuantity = 20;
+        if (previousQuantity !== resultingQuantity) {
+            const movementType = resultingQuantity > previousQuantity ? 'adjustment_in' : 'adjustment_out';
+            const movementQuantity = Math.abs(resultingQuantity - previousQuantity);
+            await client.query(
+                `UPDATE inventory_balances
+                    SET quantity = $4
+                  WHERE business_id = $1 AND product_id = $2 AND location_id IS NOT DISTINCT FROM $3::BIGINT`,
+                [businessId, productId, inventoryLocationId, resultingQuantity],
+            );
+            await client.query(
+                `UPDATE products
+                    SET stock_quantity = stock_quantity + $3
+                  WHERE business_id = $1 AND product_id = $2`,
+                [businessId, productId, resultingQuantity - previousQuantity],
+            );
+            await client.query(
+                `INSERT INTO stock_movements (
+                    business_id, product_id, location_id, movement_type, quantity,
+                    previous_quantity, resulting_quantity, source_type, source_reference, note
+                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'demo_seed', $8, 'Demo seed inventory reconciliation')`,
+                [
+                    businessId,
+                    productId,
+                    inventoryLocationId,
+                    movementType,
+                    movementQuantity,
+                    previousQuantity,
+                    resultingQuantity,
+                    randomUUID(),
+                ],
+            );
+        }
 
         const stored = await storage.put(
             buildImageKey(businessId, `products/${productId}`),

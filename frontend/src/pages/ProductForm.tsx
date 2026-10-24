@@ -22,6 +22,9 @@ interface FormState {
   price: string;
   currency: string;
   sku: string;
+  barcode: string;
+  unitOfMeasure: string;
+  minimumStock: string;
   imageUrl: string;
   stockQuantity: string;
   status: CatalogueStatus;
@@ -53,6 +56,9 @@ export function ProductFormPage() {
     price: '',
     currency: 'USD',
     sku: '',
+    barcode: '',
+    unitOfMeasure: 'piece',
+    minimumStock: '0',
     imageUrl: '',
     stockQuantity: '',
     status: 'draft',
@@ -102,6 +108,9 @@ export function ProductFormPage() {
           price: p.price,
           currency: p.currency,
           sku: p.sku ?? '',
+          barcode: p.barcode ?? '',
+          unitOfMeasure: p.unit_of_measure,
+          minimumStock: String(p.minimum_stock),
           imageUrl: p.image_url ?? '',
           stockQuantity: p.is_stock_tracked ? String(p.stock_quantity) : '',
           status: p.status,
@@ -181,6 +190,12 @@ export function ProductFormPage() {
         return { field: 'stockQuantity', message: t('product.errorStock') };
       }
     }
+    if (form.minimumStock.trim() === '' || !Number.isInteger(Number(form.minimumStock)) || Number(form.minimumStock) < 0) {
+      return { field: 'minimumStock', message: t('product.errorMinimumStock') };
+    }
+    if (!form.unitOfMeasure.trim() || form.unitOfMeasure.trim().length > 32) {
+      return { field: 'unitOfMeasure', message: t('product.errorUnitOfMeasure') };
+    }
     return null;
   };
 
@@ -205,9 +220,12 @@ export function ProductFormPage() {
         price: Number(form.price),
         currency: form.currency.toUpperCase(),
         sku: form.sku.trim() || null,
-        stockQuantity: form.stockQuantity.trim() === '' ? undefined : Number(form.stockQuantity),
+        barcode: form.barcode.trim() || null,
+        unitOfMeasure: form.unitOfMeasure.trim(),
+        minimumStock: Number(form.minimumStock),
         status: form.status,
       };
+      if (!isEdit && form.stockQuantity.trim() !== '') payload.stockQuantity = Number(form.stockQuantity);
 
       // The upload route owns this column. Sending it again from the form would
       // duplicate a write the server already made, and would revert the image if
@@ -391,7 +409,54 @@ export function ProductFormPage() {
                 error={fieldError('sku')}
               />
               <Input
-                label={t('product.stock')}
+                label={t('product.barcode')}
+                value={form.barcode}
+                onChange={(e) => set('barcode', e.target.value)}
+                maxLength={128}
+                error={fieldError('barcode')}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label={t('product.unitOfMeasure')}
+                value={form.unitOfMeasure}
+                onChange={(e) => set('unitOfMeasure', e.target.value)}
+                maxLength={32}
+                required
+                error={fieldError('unitOfMeasure')}
+              />
+              <Input
+                label={t('product.minimumStock')}
+                value={form.minimumStock}
+                onChange={(e) => set('minimumStock', e.target.value)}
+                type="number"
+                min="0"
+                step="1"
+                inputMode="numeric"
+                required
+                error={fieldError('minimumStock')}
+              />
+            </div>
+
+            {isEdit ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-button border border-navy-200 bg-navy-50 p-3">
+                <p className="text-sm text-navy-700">
+                  {t('product.stock')}: <span className="font-semibold">{product?.stock_quantity ?? '—'}</span>
+                  <span className="ms-1">{form.unitOfMeasure}</span>
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate(`/dashboard/business/${businessId}/inventory?productId=${productId}`)}
+                >
+                  {t('product.manageStock')}
+                </Button>
+              </div>
+            ) : (
+              <Input
+                label={t('product.openingStock')}
                 value={form.stockQuantity}
                 onChange={(e) => set('stockQuantity', e.target.value)}
                 type="number"
@@ -400,7 +465,7 @@ export function ProductFormPage() {
                 inputMode="numeric"
                 error={fieldError('stockQuantity')}
               />
-            </div>
+            )}
 
             {/* The upload route is `/business/:businessId/products/:productId/image`, so a
                 product that has not been created yet has no id to address it

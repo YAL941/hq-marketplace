@@ -468,6 +468,9 @@ export interface Product {
   discount_price: string | null;
   currency: string;
   sku: string | null;
+  barcode?: string | null;
+  unit_of_measure: string;
+  minimum_stock?: number;
   image_url: string | null;
   stock_quantity: number;
   is_stock_tracked: boolean;
@@ -506,9 +509,244 @@ export interface ProductInput {
   price: number;
   currency?: string;
   sku?: string | null;
+  barcode?: string | null;
+  unitOfMeasure?: string;
+  minimumStock?: number;
   imageUrl?: string | null;
+  /** Used only when creating a product; edits must use a stock movement. */
   stockQuantity?: number;
   status?: CatalogueStatus;
+}
+
+export interface InventorySummary {
+  active_products: number;
+  total_units: number;
+  low_stock_products: number;
+  out_of_stock_products: number;
+}
+
+export interface InventoryProduct {
+  product_id: Id;
+  business_id: Id;
+  location_id: Id | null;
+  product_name: string;
+  description: string | null;
+  sku: string | null;
+  barcode: string | null;
+  unit_of_measure: string;
+  minimum_stock: number;
+  stock_quantity: number;
+  is_stock_tracked: boolean;
+  status: CatalogueStatus;
+  price: string;
+  currency: string;
+}
+
+export type StockMovementType =
+  | 'opening_balance'
+  | 'purchase'
+  | 'sale'
+  | 'return'
+  | 'adjustment_in'
+  | 'adjustment_out'
+  | 'cancellation_restore';
+
+export interface StockMovement {
+  stock_movement_id: Id;
+  business_id: Id;
+  product_id: Id;
+  location_id: Id | null;
+  product_name: string;
+  location_name: string | null;
+  movement_type: StockMovementType;
+  quantity: number;
+  previous_quantity: number;
+  resulting_quantity: number;
+  source_type: string | null;
+  source_reference: string | null;
+  acting_user_id: Id | null;
+  acting_user_name: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface StockRestockRequest {
+  restock_request_id: Id;
+  business_id: Id;
+  product_id: Id;
+  location_id: Id | null;
+  requested_quantity: number;
+  status: 'requested' | 'acknowledged' | 'fulfilled' | 'cancelled';
+  integration_key: 'hq_wholesale' | string;
+  external_reference: string | null;
+  requested_by: Id | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+  product_name?: string;
+  sku?: string | null;
+  location_name?: string | null;
+}
+
+export interface InventoryDashboardData {
+  summary: InventorySummary;
+  products: { rows: InventoryProduct[]; total: number };
+  recentMovements: StockMovement[];
+  restockRequests: StockRestockRequest[];
+  canManageInventory: boolean;
+}
+
+export interface InventoryListQuery {
+  productId?: Id | number;
+  locationId?: Id | number;
+  search?: string;
+  stockStatus?: 'all' | 'low' | 'out' | 'in_stock';
+  limit?: number;
+  offset?: number;
+}
+
+export type WholesaleSupplierStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
+export type WholesaleOrderStatus =
+  | 'pending_confirmation' | 'confirmed' | 'processing' | 'shipped'
+  | 'partially_delivered' | 'delivered' | 'cancelled';
+
+export interface WholesaleOfferTier {
+  tier_id?: Id;
+  minimum_quantity: number;
+  maximum_quantity: number | null;
+  unit_price: string;
+}
+
+export interface WholesaleOffer {
+  offer_id: Id;
+  supplier_business_id: Id;
+  product_id: Id;
+  wholesale_price: string;
+  currency: string;
+  minimum_order_quantity: number;
+  available_quantity: number;
+  status: 'active' | 'inactive';
+  product_name: string;
+  sku: string | null;
+  image_url?: string | null;
+  business_name: string;
+  city: string | null;
+  tiers: WholesaleOfferTier[];
+}
+
+export interface WholesaleRfqItem {
+  rfq_item_id: Id;
+  offer_id: Id;
+  product_id: Id;
+  buyer_product_id?: Id | null;
+  requested_quantity: number;
+  quoted_unit_price: string | null;
+  wholesale_price: string;
+  product_name: string;
+  sku: string | null;
+  currency: string;
+  minimum_order_quantity: number;
+  available_quantity: number;
+}
+
+export interface WholesaleRfq {
+  rfq_id: Id;
+  buyer_business_id: Id;
+  supplier_business_id: Id;
+  status: 'pending' | 'quoted' | 'accepted' | 'rejected' | 'expired' | 'cancelled';
+  valid_until: string | null;
+  buyer_name: string;
+  supplier_name: string;
+  items: WholesaleRfqItem[];
+}
+
+export interface WholesalePurchaseOrderItem {
+  purchase_order_item_id: Id;
+  product_id: Id;
+  ordered_quantity: number;
+  received_quantity: number;
+  unit_price: string;
+  product_name: string;
+  sku: string | null;
+}
+
+export interface WholesalePurchaseOrder {
+  purchase_order_id: Id;
+  order_number: string;
+  buyer_business_id: Id;
+  supplier_business_id: Id;
+  status: WholesaleOrderStatus;
+  currency: string;
+  total_amount: string;
+  buyer_name: string;
+  supplier_name: string;
+  items: WholesalePurchaseOrderItem[];
+}
+
+export interface WholesaleReceiptAttempt {
+  attemptId: string;
+  payloadHash: string | null;
+  state: 'pending' | 'completed';
+  result: Record<string, unknown> | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface InAppNotification {
+  notification_id: Id;
+  business_id: Id;
+  event_id: Id;
+  event_type: string;
+  target_type: 'purchase_order' | 'rfq';
+  target_id: Id;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  read_at: string | null;
+}
+
+export interface InAppNotificationPage {
+  notifications: InAppNotification[];
+  unreadCount: number;
+  limit: number;
+  offset: number;
+  total: number;
+  hasMore: boolean;
+}
+
+export interface WholesaleDashboardData {
+  supplier: ({ status: WholesaleSupplierStatus; description: string | null } & Record<string, unknown>) | null;
+  canManageWholesale: boolean;
+  canManageInventory: boolean;
+  offers: WholesaleOffer[];
+  rfqs: WholesaleRfq[];
+  purchaseOrders: WholesalePurchaseOrder[];
+  events: Array<{ event_id: Id; event_type: string; created_at: string }>;
+  stats: {
+    incoming_orders: number;
+    placed_orders: number;
+    supplier_sales_by_currency: Record<string, string>;
+  };
+}
+
+export interface WholesaleSupplierApplication {
+  business_id: Id;
+  status: WholesaleSupplierStatus;
+  description: string | null;
+  applied_at: string;
+  business_name: string;
+  city: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface StockMovementQuery {
+  locationId?: Id | number;
+  productId?: Id | number;
+  movementType?: StockMovementType;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export interface ServiceInput {

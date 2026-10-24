@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import { badRequest, conflict, forbidden, notFound } from '../../db/errors.js';
 import { assertPermission } from '../services/service.repository.js';
 import type { NotificationLanguage } from '../notifications/notification.types.js';
+import { defaultInventoryLocationId, validateInventoryLocation } from '../inventory/inventory.repository.js';
 
 export interface OrderRow {
     order_id: string;
@@ -98,8 +99,20 @@ export async function createOrder(client: PoolClient, customerId: number, input:
         unitPrice: number;
         totalPrice: number;
         currency: string;
+        stockTracked?: boolean;
     }> = [];
     let containsService = false;
+    const includesProducts = input.items.some((item) => item.productId !== undefined);
+    const inventoryLocationId = includesProducts
+        ? input.locationId == null
+            ? await defaultInventoryLocationId(client, input.businessId)
+            : await validateInventoryLocation(client, input.businessId, input.locationId)
+        : null;
+    const productIds = [...new Set(input.items.flatMap((item) => item.productId === undefined ? [] : [item.productId]))]
+        .sort((left, right) => left - right);
+    if (productIds.length > 0) {
+        await client.query('SELECT lock_order_inventory_products($1, $2::BIGINT[])', [input.businessId, productIds]);
+    }
 
     for (const item of input.items) {
         const quantity = item.quantity ?? 1;
@@ -115,8 +128,8 @@ export async function createOrder(client: PoolClient, customerId: number, input:
                 stock_quantity: number;
                 is_stock_tracked: boolean;
             }>(
-                `SELECT * FROM reserve_order_product($1, $2, $3)`,
-                [item.productId, input.businessId, quantity],
+                `SELECT * FROM reserve_order_product($1, $2, $3, $4)`,
+                [item.productId, input.businessId, quantity, inventoryLocationId],
             );
             const product = rows[0];
             if (!product || product.reservation_status === 'not_found') {
@@ -135,6 +148,7 @@ export async function createOrder(client: PoolClient, customerId: number, input:
                 unitPrice,
                 totalPrice: round(unitPrice * quantity),
                 currency: product.currency,
+                stockTracked: product.is_stock_tracked,
             });
         } else if (item.serviceId !== undefined) {
             const { rows } = await client.query<{
@@ -213,7 +227,7 @@ export async function createOrder(client: PoolClient, customerId: number, input:
         [
             input.businessId,
             customerId,
-            input.locationId ?? null,
+            includesProducts ? inventoryLocationId : input.locationId ?? null,
             orderType,
             subtotal,
             deliveryFee,
@@ -239,8 +253,9 @@ export async function createOrder(client: PoolClient, customerId: number, input:
     for (const item of snapshots) {
         await client.query(
             `INSERT INTO order_items
-                (order_id, business_id, product_id, service_id, item_type, item_name, quantity, unit_price, total_price)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                (order_id, business_id, product_id, service_id, item_type, item_name, quantity,
+                 unit_price, total_price, inventory_location_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
             [
                 order.order_id,
                 input.businessId,
@@ -251,9 +266,12 @@ export async function createOrder(client: PoolClient, customerId: number, input:
                 item.quantity,
                 item.unitPrice,
                 item.totalPrice,
+                item.productId === null ? null : inventoryLocationId,
             ],
         );
     }
+
+    await client.query('SELECT record_order_stock_sale($1)', [order.order_id]);
 
     return order;
 }

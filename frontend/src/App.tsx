@@ -28,6 +28,12 @@ const DashboardHomePage = lazy(() =>
 const DashboardProductsPage = lazy(() =>
   import('./pages/DashboardProducts').then((module) => ({ default: module.DashboardProductsPage })),
 );
+const DashboardInventoryPage = lazy(() =>
+  import('./pages/DashboardInventory').then((module) => ({ default: module.DashboardInventoryPage })),
+);
+const DashboardWholesalePage = lazy(() =>
+  import('./pages/DashboardWholesale').then((module) => ({ default: module.DashboardWholesalePage })),
+);
 const DashboardServicesPage = lazy(() =>
   import('./pages/DashboardServices').then((module) => ({ default: module.DashboardServicesPage })),
 );
@@ -60,6 +66,9 @@ const ListYourBusinessPage = lazy(() =>
 );
 const AdminBusinessesPage = lazy(() =>
   import('./pages/AdminBusinesses').then((module) => ({ default: module.AdminBusinessesPage })),
+);
+const AdminWholesaleSuppliersPage = lazy(() =>
+  import('./pages/AdminWholesaleSuppliers').then((module) => ({ default: module.AdminWholesaleSuppliersPage })),
 );
 const ProductCreatePage = lazy(() =>
   import('./pages/ProductCreate').then((module) => ({ default: module.ProductCreatePage })),
@@ -498,6 +507,14 @@ function App() {
                </PlatformAdminRoute>
              }
            />
+           <Route
+             path="/admin/wholesale/suppliers"
+             element={
+               <PlatformAdminRoute>
+                 <MainLayout><AdminWholesaleSuppliersPage /></MainLayout>
+               </PlatformAdminRoute>
+             }
+           />
 
           {/* Linked from the auth screens, so they exist rather than falling
               through to the home page and looking broken. */}
@@ -531,6 +548,26 @@ function App() {
               <BusinessRoute>
                 <MainLayout withSidebar>
                   <DashboardProductsPage />
+                </MainLayout>
+              </BusinessRoute>
+            }
+          />
+          <Route
+            path="/dashboard/business/:businessId/inventory"
+            element={
+              <BusinessRoute>
+                <MainLayout withSidebar>
+                  <DashboardInventoryPage />
+                </MainLayout>
+              </BusinessRoute>
+            }
+          />
+          <Route
+            path="/dashboard/business/:businessId/wholesale"
+            element={
+              <BusinessRoute>
+                <MainLayout withSidebar>
+                  <DashboardWholesalePage />
                 </MainLayout>
               </BusinessRoute>
             }

@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS apply_inventory_stock_delta(BIGINT, BIGINT, INTEGER);

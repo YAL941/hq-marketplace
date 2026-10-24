@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS record_order_stock_sale(BIGINT);

@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 import { forbidden, notFound } from '../../db/errors.js';
 import type { TenantContext } from '../../db/tenant.js';
+import { recordOpeningStock } from '../inventory/inventory.repository.js';
 
 export interface ProductRow {
     product_id: string;
@@ -13,6 +14,9 @@ export interface ProductRow {
     discount_price: string | null;
     currency: string;
     sku: string | null;
+    barcode: string | null;
+    unit_of_measure: string;
+    minimum_stock: number;
     image_url: string | null;
     stock_quantity: number;
     is_stock_tracked: boolean;
@@ -95,6 +99,9 @@ export interface CreateProductInput {
     price: number;
     currency?: string;
     sku?: string | null;
+    barcode?: string | null;
+    unitOfMeasure?: string;
+    minimumStock?: number;
     imageUrl?: string | null;
     stockQuantity?: number;
     status?: string;
@@ -111,9 +118,10 @@ export async function createProduct(
     }
     const { rows } = await client.query<ProductRow>(
         `INSERT INTO products
-            (business_id, category_id, product_name, description, ingredients, price, currency, sku, image_url,
-             stock_quantity, status)
-         VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::char(3), 'USD'), $8, $9, $10, COALESCE($11::catalog_status, 'draft'::catalog_status))
+            (business_id, category_id, product_name, description, ingredients, price, currency, sku, barcode,
+             unit_of_measure, minimum_stock, image_url, stock_quantity, status)
+         VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::char(3), 'USD'), $8, $9, COALESCE($10, 'piece'),
+                 COALESCE($11, 0), $12, 0, COALESCE($13::catalog_status, 'draft'::catalog_status))
          RETURNING *`,
         [
             businessId,
@@ -124,12 +132,20 @@ export async function createProduct(
             input.price,
             input.currency ?? null,
             input.sku ?? null,
+            input.barcode?.trim() || null,
+            input.unitOfMeasure?.trim() || null,
+            input.minimumStock ?? 0,
             input.imageUrl ?? null,
-            input.stockQuantity ?? 0,
             input.status ?? null,
         ],
     );
-    return rows[0]!;
+    const created = rows[0]!;
+    await recordOpeningStock(ctx, client, businessId, Number(created.product_id), input.stockQuantity ?? 0);
+    const { rows: currentRows } = await client.query<ProductRow>(
+        'SELECT * FROM products WHERE product_id = $1 AND business_id = $2',
+        [created.product_id, businessId],
+    );
+    return currentRows[0]!;
 }
 
 export async function updateProduct(
@@ -146,8 +162,10 @@ export async function updateProduct(
         price: 'price',
         currency: 'currency',
         sku: 'sku',
+        barcode: 'barcode',
+        unitOfMeasure: 'unit_of_measure',
+        minimumStock: 'minimum_stock',
         imageUrl: 'image_url',
-        stockQuantity: 'stock_quantity',
         status: 'status',
     };
     const sets: string[] = [];

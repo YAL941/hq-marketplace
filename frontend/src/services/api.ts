@@ -20,6 +20,10 @@ import type {
   CreateLocationInput,
   CustomerOrderSummary,
   Id,
+  InventoryDashboardData,
+  InventoryListQuery,
+  InAppNotification,
+  InAppNotificationPage,
   Location,
   LoginResponse,
   NearbyBusiness,
@@ -46,8 +50,16 @@ import type {
   ServiceInput,
   ServiceListQuery,
   SettableOrderStatus,
+  StockMovement,
+  StockMovementQuery,
+  StockRestockRequest,
   StaffBusinessProfile,
   VerificationInput,
+  WholesaleDashboardData,
+  WholesaleOffer,
+  WholesalePurchaseOrder,
+  WholesaleRfq,
+  WholesaleSupplierApplication,
 } from '../types';
 
 /**
@@ -395,6 +407,127 @@ export const productApi = {
    */
   archive: (businessId: Id, productId: Id) =>
     api.delete(`/business/${businessId}/products/${productId}`),
+};
+
+export const inventoryApi = {
+  dashboard: (businessId: Id, params?: InventoryListQuery) =>
+    api.get<ApiResponse<InventoryDashboardData>>(`/business/${businessId}/inventory`, { params }),
+  movements: (businessId: Id, params?: StockMovementQuery) =>
+    api.get<ApiResponse<StockMovement[]>>(`/business/${businessId}/inventory/movements`, { params }),
+  createMovement: (businessId: Id, data: {
+    productId: number;
+    locationId?: number | null;
+    movementType: 'purchase' | 'return' | 'adjustment_in' | 'adjustment_out';
+    quantity: number;
+    idempotencyKey?: string;
+    note?: string | null;
+  }) => api.post<ApiResponse<StockMovement>>(`/business/${businessId}/inventory/movements`, data),
+  restockRequests: (businessId: Id, limit = 25) =>
+    api.get<ApiResponse<StockRestockRequest[]>>(`/business/${businessId}/inventory/restock-requests`, { params: { limit } }),
+  createRestockRequest: (businessId: Id, data: {
+    productId: number;
+    locationId?: number | null;
+    requestedQuantity: number;
+    note?: string | null;
+  }) => api.post<ApiResponse<StockRestockRequest>>(`/business/${businessId}/inventory/restock-requests`, data),
+  updateRestockRequest: (businessId: Id, requestId: Id, status: 'acknowledged' | 'fulfilled' | 'cancelled') =>
+    api.patch<ApiResponse<StockRestockRequest>>(
+      `/business/${businessId}/inventory/restock-requests/${requestId}`,
+      { status },
+    ),
+  report: (businessId: Id, report: 'stock' | 'low-stock' | 'movements' | 'sales', params?: InventoryListQuery & StockMovementQuery) =>
+    api.get<ApiResponse<Array<Record<string, string | number | null>>>>(
+      `/business/${businessId}/inventory/reports/${report}`,
+      { params },
+    ),
+  downloadReport: (businessId: Id, report: 'stock' | 'low-stock' | 'movements' | 'sales', params?: InventoryListQuery & StockMovementQuery) =>
+    api.get<Blob>(`/business/${businessId}/inventory/reports/${report}`, {
+      params: { ...params, format: 'csv' },
+      responseType: 'blob',
+    }),
+};
+
+export const wholesaleApi = {
+  offers: (params?: { search?: string; supplierBusinessId?: Id; limit?: number; offset?: number }) =>
+    api.get<ApiResponse<WholesaleOffer[]>>('/wholesale/offers', { params }),
+  dashboard: (businessId: Id) =>
+    api.get<ApiResponse<WholesaleDashboardData>>(`/business/${businessId}/wholesale`),
+  applySupplier: (businessId: Id, description?: string) =>
+    api.post<ApiResponse<NonNullable<WholesaleDashboardData['supplier']>>>(
+      `/business/${businessId}/wholesale/supplier-application`,
+      { description },
+    ),
+  saveOffer: (businessId: Id, data: {
+    productId: number;
+    wholesalePrice: number;
+    currency: string;
+    minimumOrderQuantity: number;
+    availableQuantity: number;
+    status?: 'active' | 'inactive';
+    tiers: Array<{ minimumQuantity: number; maximumQuantity: number | null; unitPrice: number }>;
+  }) => api.post<ApiResponse<WholesaleOffer>>(`/business/${businessId}/wholesale/offers`, data),
+  updateOffer: (businessId: Id, offerId: Id, data: {
+    productId: number;
+    wholesalePrice: number;
+    currency: string;
+    minimumOrderQuantity: number;
+    availableQuantity: number;
+    status: 'active' | 'inactive';
+    tiers: Array<{ minimumQuantity: number; maximumQuantity: number | null; unitPrice: number }>;
+  }) => api.patch<ApiResponse<WholesaleOffer>>(`/business/${businessId}/wholesale/offers/${offerId}`, data),
+  createRfq: (businessId: Id, data: {
+    supplierBusinessId: number;
+    items: Array<{ offerId: number; buyerProductId: number; quantity: number }>;
+    deliveryLocationId?: number;
+  }) => api.post<ApiResponse<WholesaleRfq>>(`/business/${businessId}/wholesale/rfqs`, data),
+  quoteRfq: (businessId: Id, rfqId: Id, data: {
+    items: Array<{ rfqItemId: number; unitPrice: number }>;
+    validUntil?: string;
+  }) => api.post<ApiResponse<WholesaleRfq>>(`/business/${businessId}/wholesale/rfqs/${rfqId}/quote`, data),
+  decideRfq: (businessId: Id, rfqId: Id, decision: 'accepted' | 'rejected' | 'cancelled') =>
+    api.patch<ApiResponse<WholesaleRfq>>(`/business/${businessId}/wholesale/rfqs/${rfqId}`, { decision }),
+  createPurchaseOrder: (businessId: Id, data: {
+    rfqId?: number;
+    items?: Array<{ offerId: number; buyerProductId: number; quantity: number }>;
+    deliveryLocationId?: number;
+  }) => api.post<ApiResponse<WholesalePurchaseOrder>>(`/business/${businessId}/wholesale/purchase-orders`, data),
+  transitionPurchaseOrder: (businessId: Id, orderId: Id, status: 'confirmed' | 'processing' | 'shipped' | 'cancelled') =>
+    api.patch<ApiResponse<WholesalePurchaseOrder>>(
+      `/business/${businessId}/wholesale/purchase-orders/${orderId}`,
+      { status },
+    ),
+  receivePurchaseOrder: (businessId: Id, orderId: Id, data: {
+    locationId: number;
+    idempotencyKey: string;
+    items: Array<{ purchaseOrderItemId: number; quantity: number }>;
+  }) => api.post<ApiResponse<Record<string, unknown>>>(
+    `/business/${businessId}/wholesale/purchase-orders/${orderId}/receipts`,
+    data,
+  ),
+  receiptAttempts: (businessId: Id, orderId: Id) =>
+    api.get<ApiResponse<import('../types').WholesaleReceiptAttempt[]>>(
+      `/business/${businessId}/wholesale/purchase-orders/${orderId}/receipt-attempts`,
+    ),
+};
+
+export const inAppNotificationApi = {
+  list: (businessId: Id, params?: { limit?: number; offset?: number }) =>
+    api.get<ApiResponse<InAppNotificationPage>>(`/business/${businessId}/notifications`, { params }),
+  unreadCount: (businessId: Id) =>
+    api.get<ApiResponse<{ unreadCount: number }>>(`/business/${businessId}/notifications/unread-count`),
+  get: (businessId: Id, notificationId: Id) =>
+    api.get<ApiResponse<InAppNotification>>(`/business/${businessId}/notifications/${notificationId}`),
+  markRead: (businessId: Id, notificationId: Id) =>
+    api.patch<ApiResponse<InAppNotification>>(
+      `/business/${businessId}/notifications/${notificationId}/read`,
+    ),
+};
+
+export const wholesaleAdminApi = {
+  applications: (status: 'pending' | 'approved' | 'rejected' | 'suspended' = 'pending') =>
+    api.get<ApiResponse<WholesaleSupplierApplication[]>>('/admin/wholesale/suppliers', { params: { status } }),
+  reviewApplication: (businessId: Id, status: 'approved' | 'rejected', reason?: string) =>
+    api.patch<ApiResponse<WholesaleSupplierApplication>>(`/admin/wholesale/suppliers/${businessId}`, { status, reason }),
 };
 
 // Services API

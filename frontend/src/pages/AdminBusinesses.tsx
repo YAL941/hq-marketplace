@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { CheckCircle, XCircle, Clock, RefreshCw, ChevronDown, Bell, Search } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
@@ -402,7 +403,12 @@ export function AdminBusinessesPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-navy-900">{t('admin.title')}</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold text-navy-900">{t('admin.title')}</h1>
+          <Link to="/admin/wholesale/suppliers" className="text-sm font-medium text-primary-700 hover:text-primary-900">
+            {t('admin.wholesaleSuppliers')}
+          </Link>
+        </div>
         <div className="flex items-center gap-2">
           <div className="relative" ref={notificationRef}>
             <Button

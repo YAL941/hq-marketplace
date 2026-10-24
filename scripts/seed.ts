@@ -210,6 +210,9 @@ async function removeOwnedBusinesses(client: import('pg').PoolClient): Promise<n
     await client.query('DELETE FROM reviews WHERE business_id = ANY($1::bigint[])', [ids]);
     await client.query('DELETE FROM order_items WHERE business_id = ANY($1::bigint[])', [ids]);
     await client.query('DELETE FROM orders WHERE business_id = ANY($1::bigint[])', [ids]);
+    await client.query('DELETE FROM stock_restock_requests WHERE business_id = ANY($1::bigint[])', [ids]);
+    await client.query('DELETE FROM stock_movements WHERE business_id = ANY($1::bigint[])', [ids]);
+    await client.query('DELETE FROM inventory_balances WHERE business_id = ANY($1::bigint[])', [ids]);
     await client.query('DELETE FROM products WHERE business_id = ANY($1::bigint[])', [ids]);
     await client.query('DELETE FROM services WHERE business_id = ANY($1::bigint[])', [ids]);
     await client.query('DELETE FROM business_locations WHERE business_id = ANY($1::bigint[])', [ids]);

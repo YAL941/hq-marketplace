@@ -166,6 +166,136 @@ deliveries and earnings, grouped by currency. Completion clears the customer's
 coordinates. Active delivery status changes are recorded separately from the
 existing order status history.
 
+### HQ Stock inventory
+
+Migrations `040_hq_stock` through `048_idempotent_manual_returns` add inventory
+metadata, per-location balances, an append-only stock movement ledger, restock
+request records, an idempotent order-sale recorder, deterministic multi-product
+order locks, a deferred aggregate/balance consistency invariant, and a narrowly
+permission-checked stock-delta function. Apply them with the normal migration runner:
+
+```powershell
+npm.cmd run db:migrate
+npm.cmd run db:grants
+```
+
+Open **Dashboard → Inventory** for the current business. Owners and managers
+can receive purchases, record physical returns and adjustments, and create,
+cancel, or fulfill restock requests. Employees can view stock and reports. Products retain
+their existing `products.stock_quantity` aggregate for catalogue compatibility;
+all new quantity changes go through the inventory movement workflow. SKU is
+business-unique; barcode is business-unique; minimum stock is configured per
+product. Balances are tracked by active branch, defaulting to the primary branch
+when an order or movement does not specify a location. If a business has no
+active branch, its balance stays in the unassigned business stock bucket.
+
+The inventory endpoints are business-scoped and require the corresponding
+`inventory.view` or `inventory.manage` permission:
+
+```
+GET   /api/business/:businessId/inventory
+GET   /api/business/:businessId/inventory/movements
+POST  /api/business/:businessId/inventory/movements
+GET   /api/business/:businessId/inventory/restock-requests
+POST  /api/business/:businessId/inventory/restock-requests
+PATCH /api/business/:businessId/inventory/restock-requests/:requestId
+GET   /api/business/:businessId/inventory/reports/:report[?format=csv]
+```
+
+Product stock is reserved atomically when the order is created, the existing
+checkout stock-deduction state. A unique order/product movement reference makes
+the sale ledger idempotent. Cancelling or rejecting an order restores the
+reserved stock once, in the same database transaction. Completing an order does
+not change stock again. A payment refund by itself does not prove that goods
+were physically returned, so it does not restock inventory; record a `return`
+movement when goods are actually received. Current sales reports use retained
+order-item snapshots, so history before HQ Stock deployment remains reportable.
+Multi-product checkout locks products in sorted order to avoid opposite-line
+order deadlocks. PostgreSQL checks at transaction commit that the product's
+legacy aggregate quantity still equals the sum of its location balances.
+
+Low-stock means a tracked active product has a positive quantity at or below
+its configured minimum; zero is reported separately as out of stock. One
+unresolved restock request is allowed per product and branch. Requests are
+stored with integration key `hq_wholesale`. **Find suppliers** opens HQ Wholesale
+with the requested product, quantity, and branch preselected; a buyer still
+chooses an offer and requests a quotation. CSV reports require
+`inventory.view` and are capped at 25,000 rows.
+
+Manually submitted physical `return` movements require an idempotency key in
+the request body or `Idempotency-Key` header. A repeated key and identical
+payload returns the original movement; reusing it for a different return is
+rejected. Other manual movement types retain their existing request contract.
+
+### HQ Wholesale B2B marketplace
+
+Migrations `046_hq_wholesale` through `048_idempotent_manual_returns` add
+supplier applications and review, supplier-owned wholesale offers and
+quantity-price tiers, private RFQs and quotations, purchase orders, partial
+receipts, audit events, buyer product mapping, and idempotency for manual stock
+returns. Run the migrations through the configured local/staging database only
+after verifying the connection target:
+
+```powershell
+npm.cmd run db:migrate
+npm.cmd run db:grants
+```
+
+Business owners and managers can apply to sell wholesale after their business
+has been verified. Platform administrators review applications at
+`/admin/wholesale/suppliers`. Approved suppliers publish offers for their
+existing active products. Buyers can discover and compare offers, choose their
+own stock-tracked product as the inventory mapping, request a quote, accept a
+quotation, and create a purchase order. Suppliers confirm, process, and ship
+orders. Open orders reserve offer quantity; cancellation before shipment
+releases that reservation, and shipment consumes the supplier's available offer
+quantity. Only the buyer's authorized physical receipt increases buyer stock; each
+partial receipt is written with a stock movement at the selected buyer
+location. Replayed receipt keys are checked against the original payload, even
+after final delivery, and cannot apply stock twice.
+
+Offer and order APIs are business-scoped and enforce `wholesale.view` or
+`wholesale.manage`; receipts also require `inventory.manage`:
+
+```
+GET    /api/wholesale/offers
+GET    /api/business/:businessId/wholesale
+POST   /api/business/:businessId/wholesale/supplier-application
+POST   /api/business/:businessId/wholesale/offers
+PATCH  /api/business/:businessId/wholesale/offers/:offerId
+POST   /api/business/:businessId/wholesale/rfqs
+POST   /api/business/:businessId/wholesale/rfqs/:rfqId/quote
+PATCH  /api/business/:businessId/wholesale/rfqs/:rfqId
+POST   /api/business/:businessId/wholesale/purchase-orders
+PATCH  /api/business/:businessId/wholesale/purchase-orders/:orderId
+POST   /api/business/:businessId/wholesale/purchase-orders/:orderId/receipts
+GET    /api/admin/wholesale/suppliers
+PATCH  /api/admin/wholesale/suppliers/:businessId
+```
+
+`047_wholesale_buyer_product_mapping` adds composite foreign keys that bind
+the supplier's offer product and the buyer's inventory product to the correct
+businesses. Purchase-order items preserve both identities without exposing the
+buyer's inventory product to suppliers. Receipt stock movements reference the
+receipt and order line for reconciliation. Creating, accepting, or shipping
+an order does not change buyer stock.
+
+Migrations `041`–`045` have focused rollback scripts for their functions,
+triggers, and data updates. Rolling back `040_hq_stock` drops inventory balances, movements,
+restock requests, and added product metadata, so it requires
+`npm.cmd run db:rollback -- --allow-data-loss`. It preserves product, order,
+and payment records and leaves final aggregate `stock_quantity` untouched.
+Rolling back `046_hq_wholesale` is destructive to wholesale applications,
+offers, RFQs, orders, receipts, and events; do not use its rollback script
+against a database containing wholesale activity.
+
+Run the inventory integration tests with:
+
+```powershell
+npm.cmd run pretest
+npx cross-env DOTENV_CONFIG_PATH=.env.test node --import tsx --test --test-concurrency=1 tests/inventory.test.ts
+```
+
 Rolling back migrations 024 and 025 requires
 `npm.cmd run db:rollback -- --allow-data-loss`: it removes courier assignments
 and delivery workflow fields, including recorded courier earnings. User

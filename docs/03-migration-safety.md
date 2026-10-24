@@ -15,6 +15,42 @@
 6. **Destructive rollbacks are opt-in.** `npm run db:rollback` refuses to drop
    anything without `--allow-data-loss`.
 
+Known exception: migration `039_monetization.sql` has no rollback script.
+`migrateDown` refuses to roll it back. Do not add a data-dropping rollback
+without reviewing the stored subscription rows and `businesses.featured_until`;
+use a reviewed forward migration or a verified backup restore instead.
+
+Migration `049_wholesale_receipt_attempts.sql` adds the server-side receipt
+retry ledger. Its reviewed down migration drops that ledger but leaves the
+receipt rows, receipt lines, stock movements, and inventory balances intact.
+The rollback is nevertheless destructive because it removes recovery history,
+so the migration runner requires `--allow-data-loss`. If rolled back, clients
+lose server-backed attempt recovery and must not assume a retry token can be
+reconstructed from the ledger.
+
+Migration `050_wholesale_receipt_manager_read.sql` adds the buyer-side
+Wholesale-manager read policy needed to return saved and legacy receipt
+results. Its down migration removes only that policy and does not remove data.
+
+Migration `051_wholesale_in_app_notifications.sql` adds persistent in-app
+Wholesale notification history and a guarded function that creates recipient
+rows in the same transaction as the Wholesale event. Its reviewed down
+migration drops only the notification function and table; it preserves
+Wholesale event and business records, but permanently removes notification
+history and read state. It is marked destructive and requires
+`--allow-data-loss`. Prefer a forward correction if notification behavior must
+change after the migration has been applied.
+
+Migration `052_wholesale_notification_deduplication.sql` hardens the guarded
+writer so a conflict on either the source event or the stable recipient-level
+deduplication key is safely ignored. It also backfills the key only if an older
+notification row lacks one. Its rollback preserves notification rows, their
+keys, and read state, and retains conflict-tolerant insertion so duplicate
+requests cannot turn a uniqueness conflict into a failed business operation.
+The rollback does not remove migration 052's deduplication column or constraint;
+both are retained to avoid data loss and keep existing notification safety
+invariants.
+
 ## Running a migration
 
 ```bash

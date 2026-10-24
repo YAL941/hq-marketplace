@@ -1,4 +1,4 @@
-import { LayoutDashboard, MoreHorizontal, Package, ShoppingBag, Star } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, MoreHorizontal, Package, ShoppingBag, Star, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -16,6 +16,8 @@ export function MobileOwnerBottomNav() {
     { path: '', label: t('sidebar.overview'), Icon: LayoutDashboard },
     { path: '/orders', label: t('sidebar.orders'), Icon: ShoppingBag },
     { path: '/products', label: t('sidebar.products'), Icon: Package },
+    { path: '/inventory', label: t('sidebar.inventory'), Icon: ClipboardList },
+    { path: '/wholesale', label: t('sidebar.wholesale'), Icon: Warehouse },
     { path: '/reviews', label: t('sidebar.reviews'), Icon: Star },
     { path: '/dashboard/settings', label: t('sidebar.settings'), Icon: MoreHorizontal },
   ];
@@ -23,7 +25,7 @@ export function MobileOwnerBottomNav() {
   return (
     <nav
       aria-label={t('nav.dashboardNavigation')}
-      className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-navy-200 bg-white/95 shadow-[0_-4px_20px_rgba(11,42,74,0.08)] backdrop-blur-lg md:hidden"
+      className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 border-t border-navy-200 bg-white/95 shadow-[0_-4px_20px_rgba(11,42,74,0.08)] backdrop-blur-lg md:hidden"
     >
       {items.map(({ path, label, Icon }) => {
         const to = dashboardNavigationHref(path, businessId);

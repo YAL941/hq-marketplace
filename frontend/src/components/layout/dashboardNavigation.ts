@@ -1,5 +1,5 @@
 import {
-  BarChart3, LayoutDashboard, MapPin, Package, Settings, ShoppingBag, Star, Truck, Users,
+  BarChart3, ClipboardList, LayoutDashboard, MapPin, Package, Settings, ShoppingBag, Star, Truck, Users, Warehouse,
 } from 'lucide-react';
 
 export const dashboardNavigation = [
@@ -8,6 +8,8 @@ export const dashboardNavigation = [
     heading: 'sidebar.management',
     items: [
       { key: 'sidebar.products', path: '/products', icon: Package },
+      { key: 'sidebar.inventory', path: '/inventory', icon: ClipboardList },
+      { key: 'sidebar.wholesale', path: '/wholesale', icon: Warehouse },
       { key: 'sidebar.services', path: '/services', icon: Truck },
       { key: 'sidebar.locations', path: '/locations', icon: MapPin },
     ],
