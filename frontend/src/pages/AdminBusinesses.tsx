@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { CheckCircle, XCircle, Clock, RefreshCw, ChevronDown, Bell, Search } from 'lucide-react';
@@ -103,12 +103,12 @@ function DetailsPanel({ row }: { row: AdminBusinessRow }) {
   }
 
   return (
-    <Card padding="md" className="bg-navy-50">
+    <Card padding="md" className="min-w-0 max-w-full overflow-hidden bg-navy-50">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
         {fields.map(([label, value]) => (
-          <div key={label} className="flex gap-2">
-            <span className="font-medium text-navy-600">{label}:</span>
-            <span className="text-navy-600 break-words">{value ?? '—'}</span>
+          <div key={label} className="flex min-w-0 flex-wrap gap-x-2">
+            <span className="shrink-0 font-medium text-navy-600">{label}:</span>
+            <span className="min-w-0 break-all text-navy-600">{value ?? '—'}</span>
           </div>
         ))}
       </div>
@@ -551,41 +551,43 @@ export function AdminBusinessesPage() {
               </thead>
               <tbody className="divide-y divide-navy-200">
                 {businesses.map((row) => (
-                  <tr key={row.business_id}>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-navy-900">{row.business_name}</div>
-                      <div className="text-xs text-navy-500">{row.business_slug}</div>
-                    </td>
-                    <td className="px-4 py-3">{row.category_name ?? t('admin.noCategory')}</td>
-                    <td className="px-4 py-3">
-                      {[row.city, row.district].filter(Boolean).join(', ') || t('admin.noCity')}
-                    </td>
-                    <td className="px-4 py-3">
-                      {row.email ?? row.phone ?? row.whatsapp_number ?? t('admin.noContact')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={statusBadgeVariant(row.status)}>{getStatusLabel(row.status)}</Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={verificationBadgeVariant(row.verification_status)}>
-                        {getStatusLabel(row.verification_status)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      {row.owner_full_name
-                        ? `${row.owner_full_name}${row.owner_email ? ` (${row.owner_email})` : ''}`
-                        : t('admin.noOwner')}
-                    </td>
-                    <td className="px-4 py-3">{formatDate(row.created_at)}</td>
-                    <td className="px-4 py-3">{renderActionCell(row)}</td>
+                  <Fragment key={row.business_id}>
+                    <tr>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-navy-900">{row.business_name}</div>
+                        <div className="text-xs text-navy-500">{row.business_slug}</div>
+                      </td>
+                      <td className="px-4 py-3">{row.category_name ?? t('admin.noCategory')}</td>
+                      <td className="px-4 py-3">
+                        {[row.city, row.district].filter(Boolean).join(', ') || t('admin.noCity')}
+                      </td>
+                      <td className="px-4 py-3">
+                        {row.email ?? row.phone ?? row.whatsapp_number ?? t('admin.noContact')}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={statusBadgeVariant(row.status)}>{getStatusLabel(row.status)}</Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={verificationBadgeVariant(row.verification_status)}>
+                          {getStatusLabel(row.verification_status)}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        {row.owner_full_name
+                          ? `${row.owner_full_name}${row.owner_email ? ` (${row.owner_email})` : ''}`
+                          : t('admin.noOwner')}
+                      </td>
+                      <td className="px-4 py-3">{formatDate(row.created_at)}</td>
+                      <td className="px-4 py-3">{renderActionCell(row)}</td>
+                    </tr>
                     {selectedId === row.business_id && (
                       <tr>
-                        <td colSpan={9} className="px-4 py-3">
+                        <td colSpan={9} className="w-full px-4 py-3">
                           <DetailsPanel row={row} />
                         </td>
                       </tr>
                     )}
-                  </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
