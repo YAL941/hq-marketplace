@@ -2,7 +2,7 @@ import { HTMLAttributes, forwardRef, useCallback, useEffect, useRef, useState } 
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
-import { ShoppingBag, ChevronRight, Minus, Plus } from 'lucide-react';
+import { PanelLeftOpen, ShoppingBag } from 'lucide-react';
 import { SmartImage } from '../common/SmartImage';
 import { useAuth } from '../../context/useAuth';
 import type { Id } from '../../types';
@@ -20,13 +20,12 @@ import type { BusinessInboxCounts } from '../../types';
 // the account owns more than one.
 interface SidebarProps extends HTMLAttributes<HTMLElement> {
   width: number;
-  collapsed: boolean;
   onWidthChange: (width: number) => void;
-  onToggleCollapsed: () => void;
+  onRestore: () => void;
 }
 
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
-  ({ className, width, collapsed, onWidthChange, onToggleCollapsed, ...props }, ref) => {
+  ({ className, width, onWidthChange, onRestore, ...props }, ref) => {
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
@@ -85,227 +84,167 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
         ref={ref}
         className={cn(
           'dashboard-sidebar fixed top-16 bottom-0 start-0 z-40 hidden border-e border-navy-200 bg-white transition-[width] duration-150 md:block',
+          width === 0 && 'border-transparent bg-transparent',
           className
         )}
-        style={{ width: collapsed ? 80 : width }}
+        style={{ width: width === 0 ? 8 : width }}
         {...props}
       >
-        <div className="flex flex-col h-full">
-          <div className={cn('flex h-10 items-center justify-end gap-1 px-3', collapsed && 'justify-center')}>
-            {!collapsed && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onWidthChange(width - 24)}
-                  className="rounded-button p-1.5 text-navy-500 transition-colors hover:bg-navy-100 hover:text-navy-900"
-                  aria-label={t('sidebar.decreaseWidth')}
-                  title={t('sidebar.decreaseWidth')}
-                >
-                  <Minus className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onWidthChange(width + 24)}
-                  className="rounded-button p-1.5 text-navy-500 transition-colors hover:bg-navy-100 hover:text-navy-900"
-                  aria-label={t('sidebar.increaseWidth')}
-                  title={t('sidebar.increaseWidth')}
-                >
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </>
-            )}
+        <div className="flex h-full flex-col">
+          {width === 0 && (
             <button
               type="button"
-              onClick={onToggleCollapsed}
-              className="rounded-button p-1.5 text-navy-500 transition-colors hover:bg-navy-100 hover:text-navy-900"
-              aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-              aria-expanded={!collapsed}
+              onClick={onRestore}
+              className="fixed start-2 top-[4.5rem] z-50 rounded-button border border-navy-200 bg-white p-2 text-navy-600 shadow-sm transition-colors hover:bg-navy-100 hover:text-navy-900"
+              aria-label={t('sidebar.expand')}
+              title={t('sidebar.expand')}
             >
-              <ChevronRight
-                className={cn(
-                  'w-5 h-5 text-navy-500 transition-transform',
-                  // The chevron points at the side the drawer collapses toward,
-                  // which flips with the writing direction.
-                  collapsed ? 'rotate-180' : ''
-                )}
-              />
+              <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
             </button>
-          </div>
-          {!collapsed && (
-            <div
-              role="separator"
-              aria-label={t('sidebar.resize')}
-              aria-orientation="vertical"
-              aria-valuemin={200}
-              aria-valuemax={400}
-              aria-valuenow={width}
-              tabIndex={0}
-              className="absolute inset-y-0 end-0 z-50 w-1 cursor-col-resize bg-transparent transition-colors hover:bg-primary-300 focus-visible:bg-primary-400"
-              onPointerDown={(event) => {
-                resizeStart.current = { x: event.clientX, width };
-                event.currentTarget.setPointerCapture(event.pointerId);
-              }}
-              onPointerMove={(event) => {
-                if (!resizeStart.current) return;
-                const direction = document.documentElement.dir === 'rtl' ? -1 : 1;
-                const delta = (event.clientX - resizeStart.current.x) * direction;
-                onWidthChange(resizeStart.current.width + delta);
-              }}
-              onPointerUp={() => {
-                resizeStart.current = null;
-              }}
-              onPointerCancel={() => {
-                resizeStart.current = null;
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
-                  event.preventDefault();
-                  onWidthChange(width - 16);
-                } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
-                  event.preventDefault();
-                  onWidthChange(width + 16);
-                }
-              }}
-            />
           )}
-
-          {/*
-            The workspace picker. It only becomes a control when there is a
-            choice to make: one business means there is nothing to switch to, so
-            it stays a label. Collapsed, the card is replaced by a link to the
-            business the person is already in, because a select has nowhere to
-            put its options in 80 pixels.
-          */}
-          {currentBusiness && !collapsed && (
-            <div className="px-4 py-3 border-b border-navy-100">
-              <label
-                htmlFor="sidebar-current-business"
-                className="block text-xs font-medium text-navy-500 uppercase tracking-wide mb-1"
-              >
-                {businesses.length > 1 ? t('sidebar.switchBusiness') : t('sidebar.currentBusiness')}
-              </label>
-              <div className="flex items-center gap-3">
-                {/* 32px here: the row has room for it, and it is the only place
-                    the logo is shown at a size a person can recognise. */}
-                <div className="w-8 h-8 rounded-sg bg-primary-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  <SmartImage
-                    value={currentBusinessLogo}
-                    width={32}
-                    height={32}
-                    className="w-8 h-8 object-cover"
-                    fallback={<ShoppingBag className="w-4 h-4 text-primary-600" aria-hidden="true" />}
-                  />
-                </div>
-                {businesses.length > 1 ? (
-                  <select
-                    id="sidebar-current-business"
-                    value={currentBusiness.business_id}
-                    onChange={(event) => switchBusiness(event.target.value)}
-                    className="flex-1 min-w-0 rounded-button border border-navy-300 bg-white px-2 py-1.5 text-sm font-medium text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          {width >= 200 && (
+            <>
+              {currentBusiness && (
+                <div className="px-4 py-3 border-b border-navy-100">
+                  <label
+                    htmlFor="sidebar-current-business"
+                    className="block text-xs font-medium text-navy-500 uppercase tracking-wide mb-1"
                   >
-                    {businesses.map((business) => (
-                      <option key={business.business_id} value={business.business_id}>
-                        {business.business_name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-navy-900 truncate">{currentBusiness.business_name}</p>
-                    <p className="text-xs text-navy-500 truncate">{currentBusiness.role_name}</p>
+                    {businesses.length > 1 ? t('sidebar.switchBusiness') : t('sidebar.currentBusiness')}
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-sg bg-primary-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      <SmartImage
+                        value={currentBusinessLogo}
+                        width={32}
+                        height={32}
+                        className="w-8 h-8 object-cover"
+                        fallback={<ShoppingBag className="w-4 h-4 text-primary-600" aria-hidden="true" />}
+                      />
+                    </div>
+                    {businesses.length > 1 ? (
+                      <select
+                        id="sidebar-current-business"
+                        value={currentBusiness.business_id}
+                        onChange={(event) => switchBusiness(event.target.value)}
+                        className="flex-1 min-w-0 rounded-button border border-navy-300 bg-white px-2 py-1.5 text-sm font-medium text-navy-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        {businesses.map((business) => (
+                          <option key={business.business_id} value={business.business_id}>
+                            {business.business_name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-navy-900 truncate">{currentBusiness.business_name}</p>
+                        <p className="text-xs text-navy-500 truncate">{currentBusiness.role_name}</p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              {businesses.length > 1 && (
-                <p className="mt-1.5 text-xs text-navy-500 truncate">
-                  {t('sidebar.currentBusiness')}: {currentBusiness.business_name}
-                </p>
+                  {businesses.length > 1 && (
+                    <p className="mt-1.5 text-xs text-navy-500 truncate">
+                      {t('sidebar.currentBusiness')}: {currentBusiness.business_name}
+                    </p>
+                  )}
+                </div>
               )}
-            </div>
-          )}
 
-          {currentBusiness && collapsed && (
-            <div className="px-3 py-3 border-b border-navy-100 flex justify-center">
-              <NavLink
-                to={businessDashboardPath(currentBusiness.business_id)}
-                title={currentBusiness.business_name}
-                aria-label={`${t('sidebar.currentBusiness')}: ${currentBusiness.business_name}`}
-                className="w-10 h-10 rounded-sg bg-primary-100 flex items-center justify-center overflow-hidden"
-              >
-                <SmartImage
-                  value={currentBusinessLogo}
-                  width={40}
-                  height={40}
-                  className="w-10 h-10 object-cover"
-                  fallback={<ShoppingBag className="w-4 h-4 text-primary-600" aria-hidden="true" />}
-                />
-              </NavLink>
-            </div>
-          )}
-
-          <nav className="dashboard-sidebar-nav min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3" aria-label={t('nav.dashboardNavigation')}>
-            {dashboardNavigation.map((group) => (
-              <div key={group.heading ?? 'overview'} className="space-y-1">
-                {group.heading && !collapsed && (
-                  <h2 className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-navy-500">
-                    {t(group.heading)}
-                  </h2>
-                )}
-                {group.items.map((item) => {
-                  const href = dashboardNavigationHref(
-                    item.path,
-                    activeBusinessId ?? currentBusiness?.business_id ?? '',
-                  );
-                  const [hrefPath, hrefHash] = href.split('#');
-                  const isActive =
-                    item.path.startsWith('/dashboard/')
-                      ? location.pathname === hrefPath && (hrefHash ? location.hash === `#${hrefHash}` : true)
-                      : item.path === ''
-                      ? location.pathname === href
-                      : location.pathname.startsWith(href);
-                  const label = t(item.key);
-                  const count = item.path === '/orders'
-                    ? inboxCounts?.pending_orders ?? 0
-                    : item.path === '/reviews'
-                    ? inboxCounts?.pending_reviews ?? 0
-                    : 0;
-                  const badgeLabel = item.path === '/orders'
-                    ? t('sidebar.pendingOrdersBadge', { count })
-                    : t('sidebar.pendingReviewsBadge', { count });
-                  return (
-                    <NavLink
-                      key={item.key}
-                      to={href}
-                      className={() => cn(
-                        'dashboard-nav-link relative flex items-center gap-3 rounded-xl border-s-4 px-3 py-2.5 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-                        isActive
-                          ? 'border-s-primary-600 bg-primary-50 text-primary-700 shadow-sm'
-                          : 'border-s-transparent text-navy-600 hover:bg-navy-50 hover:text-navy-900',
-                        collapsed && 'justify-center'
-                      )}
-                      title={collapsed ? (count > 0 ? `${label} (${count})` : label) : undefined}
-                      aria-current={isActive ? 'page' : undefined}
-                    >
-                      <item.icon className="w-5 h-5 flex-shrink-0 opacity-80" aria-hidden="true" />
-                      {!collapsed && <span>{label}</span>}
-                      {count > 0 && (
-                        <span
-                          aria-label={badgeLabel}
-                          className={cn(
-                            'ms-auto inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white',
-                            collapsed && 'absolute end-1 top-1 min-w-4 px-1 text-[10px]'
+              <nav className="dashboard-sidebar-nav min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3" aria-label={t('nav.dashboardNavigation')}>
+                {dashboardNavigation.map((group) => (
+                  <div key={group.heading ?? 'overview'} className="space-y-1">
+                    {group.heading && (
+                      <h2 className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-navy-500">
+                        {t(group.heading)}
+                      </h2>
+                    )}
+                    {group.items.map((item) => {
+                      const href = dashboardNavigationHref(
+                        item.path,
+                        activeBusinessId ?? currentBusiness?.business_id ?? '',
+                      );
+                      const [hrefPath, hrefHash] = href.split('#');
+                      const isActive =
+                        item.path.startsWith('/dashboard/')
+                          ? location.pathname === hrefPath && (hrefHash ? location.hash === `#${hrefHash}` : true)
+                          : item.path === ''
+                          ? location.pathname === href
+                          : location.pathname.startsWith(href);
+                      const label = t(item.key);
+                      const count = item.path === '/orders'
+                        ? inboxCounts?.pending_orders ?? 0
+                        : item.path === '/reviews'
+                        ? inboxCounts?.pending_reviews ?? 0
+                        : 0;
+                      const badgeLabel = item.path === '/orders'
+                        ? t('sidebar.pendingOrdersBadge', { count })
+                        : t('sidebar.pendingReviewsBadge', { count });
+                      return (
+                        <NavLink
+                          key={item.key}
+                          to={href}
+                          className={() => cn(
+                            'dashboard-nav-link relative flex items-center gap-3 rounded-xl border-s-4 px-3 py-2.5 text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                            isActive
+                              ? 'border-s-primary-600 bg-primary-50 text-primary-700 shadow-sm'
+                              : 'border-s-transparent text-navy-600 hover:bg-navy-50 hover:text-navy-900'
                           )}
+                          aria-current={isActive ? 'page' : undefined}
                         >
-                          {count > 99 ? '99+' : count}
-                        </span>
-                      )}
-                    </NavLink>
-                  );
-                })}
-              </div>
-            ))}
-          </nav>
-
+                          <item.icon className="w-5 h-5 flex-shrink-0 opacity-80" aria-hidden="true" />
+                          <span>{label}</span>
+                          {count > 0 && (
+                            <span
+                              aria-label={badgeLabel}
+                              className="ms-auto inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white"
+                            >
+                              {count > 99 ? '99+' : count}
+                            </span>
+                          )}
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                ))}
+              </nav>
+            </>
+          )}
+          <div
+            role="separator"
+            aria-label={t('sidebar.resize')}
+            aria-orientation="vertical"
+            aria-valuemin={0}
+            aria-valuemax={400}
+            aria-valuenow={width}
+            tabIndex={0}
+            className="absolute inset-y-0 end-0 z-50 w-2 cursor-col-resize bg-transparent transition-colors hover:bg-primary-300 focus-visible:bg-primary-400"
+            onPointerDown={(event) => {
+              resizeStart.current = { x: event.clientX, width };
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              if (!resizeStart.current) return;
+              const direction = document.documentElement.dir === 'rtl' ? -1 : 1;
+              const delta = (event.clientX - resizeStart.current.x) * direction;
+              onWidthChange(resizeStart.current.width + delta);
+            }}
+            onPointerUp={() => {
+              resizeStart.current = null;
+            }}
+            onPointerCancel={() => {
+              resizeStart.current = null;
+            }}
+            onKeyDown={(event) => {
+              const direction = document.documentElement.dir === 'rtl' ? -1 : 1;
+              if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                onWidthChange(width - 16 * direction);
+              } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                onWidthChange(width + 16 * direction);
+              }
+            }}
+          />
         </div>
       </aside>
     );

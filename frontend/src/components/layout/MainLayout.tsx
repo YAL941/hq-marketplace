@@ -19,9 +19,19 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
     const [sidebarWidth, setSidebarWidth] = useState(() => {
       if (typeof window === 'undefined') return 224;
       const savedWidth = Number(window.localStorage.getItem('dashboard-sidebar-width'));
+      return savedWidth === 0 || (Number.isFinite(savedWidth) && savedWidth >= 200 && savedWidth <= 400)
+        ? savedWidth
+        : 224;
+    });
+    const [lastExpandedSidebarWidth, setLastExpandedSidebarWidth] = useState(() => {
+      if (typeof window === 'undefined') return 224;
+      const savedWidth = Number(window.localStorage.getItem('dashboard-sidebar-width'));
+      const savedExpandedWidth = Number(window.localStorage.getItem('dashboard-sidebar-last-width'));
+      if (Number.isFinite(savedExpandedWidth) && savedExpandedWidth >= 200 && savedExpandedWidth <= 400) {
+        return savedExpandedWidth;
+      }
       return Number.isFinite(savedWidth) && savedWidth >= 200 && savedWidth <= 400 ? savedWidth : 224;
     });
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const showSidebar = withSidebar && isAuthenticated && currentBusiness;
     const dashboardRoute =
       location.pathname.startsWith('/dashboard') ||
@@ -36,11 +46,18 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
     const showMobileBottomNav = !dashboardRoute && !authenticationRoute;
     const showMobileOwnerBottomNav = dashboardRoute && !!showSidebar;
 
-    const effectiveSidebarWidth = sidebarCollapsed ? 80 : sidebarWidth;
-
     useEffect(() => {
       window.localStorage.setItem('dashboard-sidebar-width', String(sidebarWidth));
+      if (sidebarWidth >= 200) {
+        window.localStorage.setItem('dashboard-sidebar-last-width', String(sidebarWidth));
+      }
     }, [sidebarWidth]);
+
+    const updateSidebarWidth = (requestedWidth: number) => {
+      const nextWidth = requestedWidth < 200 ? 0 : Math.min(400, requestedWidth);
+      setSidebarWidth(nextWidth);
+      if (nextWidth >= 200) setLastExpandedSidebarWidth(nextWidth);
+    };
 
     return (
       <div
@@ -58,9 +75,8 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
           {showSidebar && (
             <Sidebar
               width={sidebarWidth}
-              collapsed={sidebarCollapsed}
-              onWidthChange={(width) => setSidebarWidth(Math.min(400, Math.max(200, width)))}
-              onToggleCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              onWidthChange={updateSidebarWidth}
+              onRestore={() => updateSidebarWidth(lastExpandedSidebarWidth)}
             />
           )}
           <div
@@ -71,7 +87,7 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
             )}
             style={{
               minHeight: 'calc(100vh - 4rem)',
-              '--dashboard-sidebar-width': `${effectiveSidebarWidth}px`,
+              '--dashboard-sidebar-width': `${sidebarWidth}px`,
             } as CSSProperties}
           >
             <main className="flex-1">
