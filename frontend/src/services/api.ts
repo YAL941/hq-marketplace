@@ -742,7 +742,7 @@ export const adminApi = {
   markBusinessNotificationsSeen: () =>
     api.post<ApiResponse<{ success: boolean }>>('/admin/businesses/notifications/mark-seen'),
 
-  setBusinessStatus: (businessId: Id, data: { status: 'active' | 'rejected'; reason?: string }) =>
+  setBusinessStatus: (businessId: Id, data: { status: 'active' | 'pending' | 'rejected'; reason?: string }) =>
     api.patch<AdminBusinessDecisionResponse>(`/admin/businesses/${businessId}/status`, data),
 
   decideVerification: (businessId: Id, data: VerificationInput) =>

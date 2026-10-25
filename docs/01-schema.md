@@ -73,6 +73,8 @@ is the unique public handle. A check constraint keeps `is_verified` consistent w
 When an owner edits a rejected business profile, the update returns it to
 `pending` review and clears the previous rejection reason. It remains hidden
 from the public directory until an administrator reviews it again.
+An administrator may also explicitly return a rejected profile to `pending`;
+the owner is notified by email when delivery is configured.
 
 **business_users** — `business_user_id`, `business_id`, `user_id`, `role_id`, `status`,
 `joined_at`, `invited_by`, `created_at`. `UNIQUE (business_id, user_id, role_id)`

@@ -75,7 +75,7 @@ const decisionSchema = z.object({
 });
 
 const statusDecisionSchema = z.object({
-    status: z.enum(['active', 'rejected']),
+    status: z.enum(['active', 'pending', 'rejected']),
     reason: z.string().max(500).nullish(),
 });
 
@@ -300,7 +300,7 @@ const reviewBusiness: RequestHandler = async (req, res, next) => {
         const adminId = req.user!.id;
         const businessId = z.coerce.number().int().positive().parse(req.params['businessId']);
         const isStatusApi = req.path.endsWith('/status');
-        let nextStatus: 'active' | 'rejected';
+        let nextStatus: 'active' | 'pending' | 'rejected';
         let reason: string;
         if (isStatusApi) {
             const decision = statusDecisionSchema.parse(req.body);
@@ -325,15 +325,19 @@ const reviewBusiness: RequestHandler = async (req, res, next) => {
                         is_verified = ($2 = 'active'),
                         verification_status = CASE
                             WHEN $2 = 'active' THEN 'verified'::verification_status
-                            ELSE 'rejected'::verification_status
+                            WHEN $2 = 'rejected' THEN 'rejected'::verification_status
+                            ELSE 'pending'::verification_status
                         END,
                         verified_at = CASE WHEN $2 = 'active' THEN now() ELSE NULL END,
-                        verified_by = $3,
+                        verified_by = CASE WHEN $2 = 'active' THEN $3::bigint ELSE NULL::bigint END,
                         rejection_reason = CASE WHEN $2 = 'rejected' THEN NULLIF($4, '') ELSE NULL END,
                         reviewed_by = $3,
                         reviewed_at = now()
                   WHERE business_id = $1
-                    AND status = 'pending'
+                    AND (
+                        (status = 'pending' AND $2 IN ('active', 'rejected'))
+                        OR ($2 = 'pending' AND status = 'rejected')
+                    )
                     AND deleted_at IS NULL
                   RETURNING business_id, business_name, business_slug, status,
                             verification_status, is_verified, verified_at, rejection_reason,

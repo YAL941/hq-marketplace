@@ -620,6 +620,49 @@ describe('resubmitting a rejected business', () => {
     });
 });
 
+describe('returning a rejected business to review', () => {
+    it('moves a rejected business back to pending and notifies its owner', async () => {
+        const businessId = await requestBusiness('Business Reopened For Review', {});
+        const rejected = await request(app)
+            .patch(`/api/admin/businesses/${businessId}/status`)
+            .set('Authorization', `Bearer ${admin.token}`)
+            .send({ status: 'rejected', reason: 'Please provide more business details.' });
+        assert.equal(rejected.status, 200, JSON.stringify(rejected.body));
+
+        const reopened = await request(app)
+            .patch(`/api/admin/businesses/${businessId}/status`)
+            .set('Authorization', `Bearer ${admin.token}`)
+            .send({ status: 'pending' });
+
+        assert.equal(reopened.status, 200, JSON.stringify(reopened.body));
+        assert.equal(reopened.body.data.status, 'pending');
+        assert.equal(reopened.body.data.verification_status, 'pending');
+        assert.equal(reopened.body.data.is_verified, false);
+        assert.equal(reopened.body.data.rejection_reason, null);
+        assert.equal(typeof reopened.body.email.sent, 'boolean');
+
+        const row = await businessRow(businessId);
+        assert.equal(row['status'], 'pending');
+        assert.equal(row['verification_status'], 'pending');
+        assert.equal(row['verified_by'], null);
+        assert.equal(row['rejection_reason'], null);
+
+        const pending = await request(app)
+            .get('/api/admin/businesses?status=pending')
+            .set('Authorization', `Bearer ${admin.token}`);
+        assert.ok(
+            pending.body.data.some((business: { business_id: string }) => business.business_id === String(businessId)),
+            'the reopened business must appear in the pending queue',
+        );
+
+        const reopenedAgain = await request(app)
+            .patch(`/api/admin/businesses/${businessId}/status`)
+            .set('Authorization', `Bearer ${admin.token}`)
+            .send({ status: 'pending' });
+        assert.equal(reopenedAgain.status, 409, 'only rejected businesses may be returned to review');
+    });
+});
+
 /** Registers a business for the anonymous actor and returns its id. */
 async function requestBusiness(name: string, body: Record<string, unknown>): Promise<number> {
     const res = await registerBusiness(anonymousOwner.token, { businessName: name, ...body });

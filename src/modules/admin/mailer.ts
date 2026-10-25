@@ -4,7 +4,7 @@ import { config } from '../../config.js';
 export interface BusinessDecisionEmail {
     businessName: string;
     recipient: string | null;
-    status: 'active' | 'rejected';
+    status: 'active' | 'pending' | 'rejected';
     reason?: string | null;
 }
 
@@ -95,6 +95,14 @@ function decisionHtml(status: BusinessDecisionEmail['status'], businessName: str
           <p>Your business has been approved and is now listed in the OmniHQ directory.</p>
         </div>`;
     }
+    if (status === 'pending') {
+        return `<div style="font-family:Arial,sans-serif;line-height:1.7;color:#172554">
+          <h2>تمت إعادة طلب نشاطك للمراجعة</h2><p>مرحباً ${safeName}،</p>
+          <p>أُعيد طلب إدراج نشاطك إلى قائمة المراجعة. سيبقى غير ظاهر في الدليل حتى انتهاء المراجعة.</p>
+          <hr><h2>Your business is back under review</h2><p>Hello ${safeName},</p>
+          <p>Your business listing has been returned to the review queue. It will remain hidden until the review is complete.</p>
+        </div>`;
+    }
     return `<div style="font-family:Arial,sans-serif;line-height:1.7;color:#172554">
       <h2>تحديث طلب إدراج نشاطك</h2><p>مرحباً ${safeName}،</p>
       <p>نأسف لإبلاغك بأنه لم تتم الموافقة على طلب الإدراج حالياً.</p>
@@ -117,7 +125,9 @@ export async function sendBusinessDecisionEmail(
         to: decision.recipient,
         subject: decision.status === 'active'
             ? 'تم اعتماد نشاطك | Your business is approved'
-            : 'تحديث طلبك | Business listing update',
+            : decision.status === 'pending'
+                ? 'طلبك قيد المراجعة | Your business is under review'
+                : 'تحديث طلبك | Business listing update',
         html: decisionHtml(decision.status, decision.businessName, decision.reason ?? ''),
     });
     return { sent: true };

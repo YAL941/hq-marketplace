@@ -29,7 +29,7 @@ interface Toast {
   kind: 'success' | 'error' | 'warning';
 }
 
-type Decision = 'approve' | 'reject';
+type Decision = 'approve' | 'reject' | 'reopen';
 
 interface RowAction {
   row: AdminBusinessRow;
@@ -287,6 +287,9 @@ export function AdminBusinessesPage() {
   const beginReject = (row: AdminBusinessRow) => {
     setAction({ row, decision: 'reject', reason: '', committing: false, error: null });
   };
+  const beginReopen = (row: AdminBusinessRow) => {
+    setAction({ row, decision: 'reopen', reason: '', committing: false, error: null });
+  };
 
   const updateRow = (row: AdminBusinessRow, decision: Decision, reason: string) => {
     setBusinesses((current) =>
@@ -302,13 +305,21 @@ export function AdminBusinessesPage() {
                 verified_at: new Date().toISOString(),
                 rejection_reason: null,
               }
-            : {
+            : decision === 'reject'
+              ? {
                 status: 'rejected',
                 verification_status: 'rejected',
                 is_verified: false,
                 verified_at: null,
                 rejection_reason: reason,
-              }),
+              }
+              : {
+                  status: 'pending',
+                  verification_status: 'pending',
+                  is_verified: false,
+                  verified_at: null,
+                  rejection_reason: null,
+                }),
         };
       }),
     );
@@ -320,15 +331,20 @@ export function AdminBusinessesPage() {
     setAction((prev) => prev && { ...prev, committing: true, error: null });
     try {
       const result = await adminApi.setBusinessStatus(row.business_id, {
-        status: decision === 'approve' ? 'active' : 'rejected',
+        status: decision === 'approve' ? 'active' : decision === 'reject' ? 'rejected' : 'pending',
         reason,
       });
       updateRow(row, decision, reason);
       showToast(
-        t(result.data.email.sent ? 'admin.successEmailSent' : 'admin.successEmailFailed', {
+        t(
+          decision === 'reopen'
+            ? result.data.email.sent ? 'admin.successReopenEmailSent' : 'admin.successReopenEmailFailed'
+            : result.data.email.sent ? 'admin.successEmailSent' : 'admin.successEmailFailed',
+          {
           name: row.business_name,
-        }),
-        result.data.email.sent ? 'success' : 'warning',
+          },
+        ),
+        decision === 'reopen' || result.data.email.sent ? 'success' : 'warning',
       );
       setAction(null);
       void load();
@@ -352,7 +368,11 @@ export function AdminBusinessesPage() {
             prev && {
               ...prev,
               committing: false,
-              error: decision === 'approve' ? t('admin.errorApprove') : t('admin.errorReject'),
+              error: decision === 'approve'
+                ? t('admin.errorApprove')
+                : decision === 'reopen'
+                  ? t('admin.errorReopen')
+                  : t('admin.errorReject'),
             },
           );
           return;
@@ -377,12 +397,20 @@ export function AdminBusinessesPage() {
     if (!open) {
       return (
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => beginApprove(row)}>
-            {t('admin.approve')}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => beginReject(row)}>
-            {t('admin.reject')}
-          </Button>
+          {row.status === 'pending' ? (
+            <>
+              <Button size="sm" variant="outline" onClick={() => beginApprove(row)}>
+                {t('admin.approve')}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => beginReject(row)}>
+                {t('admin.reject')}
+              </Button>
+            </>
+          ) : row.status === 'rejected' ? (
+            <Button size="sm" variant="outline" onClick={() => beginReopen(row)}>
+              {t('admin.reopenReview')}
+            </Button>
+          ) : null}
           <button
             type="button"
             onClick={() => setSelectedId(selectedId === row.business_id ? null : row.business_id)}
@@ -683,12 +711,20 @@ export function AdminBusinessesPage() {
             onMouseDown={(event) => event.stopPropagation()}
           >
             <h2 id="business-review-title" className="text-lg font-semibold text-navy-900">
-              {t(action.decision === 'approve' ? 'admin.approveConfirm' : 'admin.rejectConfirm')}
+              {t(
+                action.decision === 'approve'
+                  ? 'admin.approveConfirm'
+                  : action.decision === 'reject'
+                    ? 'admin.rejectConfirm'
+                    : 'admin.reopenConfirm',
+              )}
             </h2>
             <p className="mt-2 text-sm text-navy-600">
               {action.decision === 'approve'
                 ? t('admin.approveConfirmBody')
-                : action.row.business_name}
+                : action.decision === 'reopen'
+                  ? t('admin.reopenConfirmBody')
+                  : action.row.business_name}
             </p>
             {action.decision === 'reject' && (
               <div className="mt-4">
@@ -716,12 +752,18 @@ export function AdminBusinessesPage() {
               </Button>
               <Button
                 size="sm"
-                variant={action.decision === 'approve' ? 'primary' : 'danger'}
+                variant={action.decision === 'reject' ? 'danger' : 'primary'}
                 loading={action.committing}
                 onClick={() => void commit()}
-                autoFocus={action.decision === 'approve'}
+                autoFocus={action.decision !== 'reject'}
               >
-                {t(action.decision === 'approve' ? 'admin.approveConfirmAction' : 'admin.rejectConfirmAction')}
+                {t(
+                  action.decision === 'approve'
+                    ? 'admin.approveConfirmAction'
+                    : action.decision === 'reject'
+                      ? 'admin.rejectConfirmAction'
+                      : 'admin.reopenConfirmAction',
+                )}
               </Button>
             </div>
           </div>
