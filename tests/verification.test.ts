@@ -25,6 +25,7 @@ import assertModule from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
+import { createBusinessApprovalNotifications } from '../src/modules/notifications/in-app-notification.repository.js';
 
 const assert: typeof assertModule = assertModule;
 
@@ -386,6 +387,33 @@ describe('admin business search and notifications', () => {
             .get('/api/admin/businesses/notifications')
             .set('Authorization', `Bearer ${admin.token}`)
         assert.equal(after.body.data.unreadCount, 0);
+    });
+});
+
+describe('business approval notification schema compatibility', () => {
+    it('records an approval notification when the legacy table has no approved_at column', async () => {
+        const client = await adminPool.connect();
+        let transactionOpen = false;
+        try {
+            await client.query('BEGIN');
+            transactionOpen = true;
+            const { rows: before } = await client.query<{ count: string }>(
+                'SELECT count(*)::TEXT AS count FROM business_approval_notifications WHERE business_id = $1',
+                [ownerA.businessId],
+            );
+            await client.query('ALTER TABLE business_approval_notifications DROP COLUMN approved_at CASCADE');
+
+            await createBusinessApprovalNotifications(client, ownerA.businessId!, new Date());
+
+            const { rows: afterInsert } = await client.query<{ count: string }>(
+                'SELECT count(*)::TEXT AS count FROM business_approval_notifications WHERE business_id = $1',
+                [ownerA.businessId],
+            );
+            assert.equal(Number(afterInsert[0]!.count), Number(before[0]!.count) + 1);
+        } finally {
+            if (transactionOpen) await client.query('ROLLBACK');
+            client.release();
+        }
     });
 });
 

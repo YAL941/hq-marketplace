@@ -18,9 +18,56 @@ export interface BusinessApprovalNotificationRow {
     business_id: string;
     recipient_user_id: string;
     business_slug: string;
-    approved_at: Date;
     created_at: Date;
     read_at: Date | null;
+}
+
+export async function createBusinessApprovalNotifications(
+    client: PoolClient,
+    businessId: number | string,
+    approvedAt: Date,
+): Promise<void> {
+    const { rows } = await client.query<{ has_approved_at: boolean }>(
+        `SELECT EXISTS (
+             SELECT 1
+               FROM pg_attribute
+              WHERE attrelid = 'business_approval_notifications'::regclass
+                AND attname = 'approved_at'
+                AND NOT attisdropped
+         ) AS has_approved_at`,
+    );
+    if (rows[0]?.has_approved_at) {
+        await client.query(
+            `INSERT INTO business_approval_notifications (business_id, recipient_user_id, approved_at)
+             SELECT $1, bu.user_id, $2
+               FROM business_users bu
+               JOIN users u ON u.user_id = bu.user_id AND u.status = 'active'
+               JOIN roles r ON r.role_id = bu.role_id
+              WHERE bu.business_id = $1
+                AND bu.status = 'active'
+                AND r.scope = 'business'
+                AND r.role_key = 'business_owner'
+                AND r.is_active
+             ON CONFLICT DO NOTHING`,
+            [businessId, approvedAt],
+        );
+        return;
+    }
+
+    await client.query(
+        `INSERT INTO business_approval_notifications (business_id, recipient_user_id)
+         SELECT $1, bu.user_id
+           FROM business_users bu
+           JOIN users u ON u.user_id = bu.user_id AND u.status = 'active'
+           JOIN roles r ON r.role_id = bu.role_id
+          WHERE bu.business_id = $1
+            AND bu.status = 'active'
+            AND r.scope = 'business'
+            AND r.role_key = 'business_owner'
+            AND r.is_active
+         ON CONFLICT DO NOTHING`,
+        [businessId],
+    );
 }
 
 export async function listBusinessApprovalNotifications(
@@ -33,7 +80,7 @@ export async function listBusinessApprovalNotifications(
     const [{ rows: notifications }, { rows: count }] = await Promise.all([
         client.query<BusinessApprovalNotificationRow>(
             `SELECT n.notification_id, n.business_id, n.recipient_user_id, b.business_slug,
-                    n.approved_at, n.created_at, n.read_at
+                    n.created_at, n.read_at
                FROM business_approval_notifications n
                JOIN businesses b ON b.business_id = n.business_id
               WHERE n.recipient_user_id = $1 AND n.business_id = $2
@@ -70,7 +117,7 @@ export async function markBusinessApprovalNotificationRead(
         `UPDATE business_approval_notifications
             SET read_at = COALESCE(read_at, now())
           WHERE notification_id = $1 AND recipient_user_id = $2 AND business_id = $3
-        RETURNING notification_id, business_id, recipient_user_id, approved_at, created_at, read_at`,
+        RETURNING notification_id, business_id, recipient_user_id, created_at, read_at`,
         [notificationId, userId, businessId],
     );
     const notification = rows[0];

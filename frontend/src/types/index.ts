@@ -718,7 +718,6 @@ export interface BusinessApprovalNotification {
   business_id: Id;
   recipient_user_id: Id;
   business_slug: string;
-  approved_at: string;
   created_at: string;
   read_at: string | null;
 }
