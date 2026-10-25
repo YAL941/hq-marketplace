@@ -150,7 +150,10 @@
     "currentBusiness": "Current Business",
     "switchBusiness": "Switch Business",
     "expand": "Expand sidebar",
-    "collapse": "Collapse sidebar"
+    "collapse": "Collapse sidebar",
+    "increaseWidth": "Increase sidebar width",
+    "decreaseWidth": "Decrease sidebar width",
+    "resize": "Resize sidebar"
   },
   "inventory": {
     "title": "Inventory",
@@ -889,6 +892,12 @@
     "liveBody": "Customers can find your business in the directory.",
     "viewPublic": "View public listing",
     "otherTitle": "Business status"
+  },
+  "approvalNotice": {
+    "title": "Your business has been approved",
+    "body": "Your business page is now visible in the public directory.",
+    "accessSummary": "Owners and managers can manage wholesale offers, quote requests, quotations and purchase orders. Employees can view the wholesale marketplace but cannot create or change wholesale records.",
+    "publicPage": "View public business page"
   },
   "dashboard": {
     "title": "Dashboard",

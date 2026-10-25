@@ -18,6 +18,16 @@
   transform: rotate(-45deg);
 }
 
+.dashboard-layout-content {
+  transition: margin-inline-start 200ms ease;
+}
+
+@media (min-width: 768px) {
+  .dashboard-layout-content {
+    margin-inline-start: var(--dashboard-sidebar-width);
+  }
+}
+
 @layer base {
   html {
     @apply scroll-smooth;

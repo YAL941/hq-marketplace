@@ -150,7 +150,10 @@
     "currentBusiness": "Ganacsiga hadda",
     "switchBusiness": "Beddel ganacsiga",
     "expand": "Balleeey tiirka",
-    "collapse": "Xiri tiirka"
+    "collapse": "Xiri tiirka",
+    "increaseWidth": "Kordhi ballaca tiirka",
+    "decreaseWidth": "Yaree ballaca tiirka",
+    "resize": "Beddel ballaca tiirka"
   },
   "inventory": {
     "title": "Kaydka alaabta",
@@ -889,6 +892,12 @@
     "liveBody": "Macaamiishu waxay ganacsigaaga ka heli karaan diiwaanka.",
     "viewPublic": "Eeg bogga dadweynaha",
     "otherTitle": "Xaaladda ganacsiga"
+  },
+  "approvalNotice": {
+    "title": "Ganacsigaaga waa la ansixiyay",
+    "body": "Bogga ganacsigaagu hadda wuxuu ka muuqdaa diiwaanka dadweynaha.",
+    "accessSummary": "Milkiilayaasha iyo maamulayaashu waxay maamuli karaan dalabyada jumlada, codsiyada qiimaha, qiimayaasha iyo amarada iibka. Shaqaaluhu waxay arki karaan suuqa jumlada balse ma abuuri karaan mana beddeli karaan xogta jumlada.",
+    "publicPage": "Eeg bogga ganacsiga dadweynaha"
   },
   "dashboard": {
     "title": "Korma",

@@ -713,6 +713,25 @@ export interface InAppNotificationPage {
   hasMore: boolean;
 }
 
+export interface BusinessApprovalNotification {
+  notification_id: Id;
+  business_id: Id;
+  recipient_user_id: Id;
+  business_slug: string;
+  approved_at: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+export interface BusinessApprovalNotificationPage {
+  notifications: BusinessApprovalNotification[];
+  unreadCount: number;
+  limit: number;
+  offset: number;
+  total: number;
+  hasMore: boolean;
+}
+
 export interface WholesaleDashboardData {
   supplier: ({ status: WholesaleSupplierStatus; description: string | null } & Record<string, unknown>) | null;
   canManageWholesale: boolean;

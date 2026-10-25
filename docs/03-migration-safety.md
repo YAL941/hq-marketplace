@@ -59,6 +59,14 @@ removes only those mappings while preserving any grants that predated it. Apply
 it with the normal migration runner after confirming the target database and
 taking the standard pre-migration backup.
 
+Migration `054_business_approval_notifications.sql` adds durable approval
+notifications for active business owners. Approval records are written in the
+same transaction as the admin's approval decision, and recipients can list and
+mark their own notifications as read through business-scoped, tenant-isolated
+routes. Its down migration drops the notification table and therefore loses
+approval notification history and read state; it is marked destructive and
+requires `--allow-data-loss`.
+
 ## Running a migration
 
 ```bash

@@ -1,8 +1,8 @@
-import { HTMLAttributes, forwardRef, useCallback, useEffect, useState } from 'react';
+import { HTMLAttributes, forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
-import { ShoppingBag, ChevronRight } from 'lucide-react';
+import { ShoppingBag, ChevronRight, Minus, Plus } from 'lucide-react';
 import { SmartImage } from '../common/SmartImage';
 import { useAuth } from '../../context/useAuth';
 import type { Id } from '../../types';
@@ -18,16 +18,21 @@ import type { BusinessInboxCounts } from '../../types';
 // link that left the id out would resolve to the dashboard index, which
 // forwards to whichever business happens to be first — the wrong one whenever
 // the account owns more than one.
-interface SidebarProps extends HTMLAttributes<HTMLElement> {}
+interface SidebarProps extends HTMLAttributes<HTMLElement> {
+  width: number;
+  collapsed: boolean;
+  onWidthChange: (width: number) => void;
+  onToggleCollapsed: () => void;
+}
 
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, width, collapsed, onWidthChange, onToggleCollapsed, ...props }, ref) => {
     const { t } = useTranslation();
     const location = useLocation();
     const navigate = useNavigate();
     const { businesses, currentBusiness, currentBusinessLogo, setCurrentBusiness } = useAuth();
-    const [collapsed, setCollapsed] = useState(false);
     const [inboxCounts, setInboxCounts] = useState<BusinessInboxCounts | null>(null);
+    const resizeStart = useRef<{ x: number; width: number } | null>(null);
 
     /**
      * Which business the links point at.
@@ -79,16 +84,39 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
       <aside
         ref={ref}
         className={cn(
-          'dashboard-sidebar fixed top-16 bottom-0 start-0 z-40 hidden border-e border-navy-200 bg-white transition-all duration-300 md:block',
-          collapsed ? 'w-20' : 'w-56',
+          'dashboard-sidebar fixed top-16 bottom-0 start-0 z-40 hidden border-e border-navy-200 bg-white transition-[width] duration-150 md:block',
           className
         )}
+        style={{ width: collapsed ? 80 : width }}
         {...props}
       >
         <div className="flex flex-col h-full">
-          <div className={cn('flex h-10 items-center justify-end px-4', collapsed && 'justify-center')}>
+          <div className={cn('flex h-10 items-center justify-end gap-1 px-3', collapsed && 'justify-center')}>
+            {!collapsed && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onWidthChange(width - 24)}
+                  className="rounded-button p-1.5 text-navy-500 transition-colors hover:bg-navy-100 hover:text-navy-900"
+                  aria-label={t('sidebar.decreaseWidth')}
+                  title={t('sidebar.decreaseWidth')}
+                >
+                  <Minus className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onWidthChange(width + 24)}
+                  className="rounded-button p-1.5 text-navy-500 transition-colors hover:bg-navy-100 hover:text-navy-900"
+                  aria-label={t('sidebar.increaseWidth')}
+                  title={t('sidebar.increaseWidth')}
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </>
+            )}
             <button
-              onClick={() => setCollapsed(!collapsed)}
+              type="button"
+              onClick={onToggleCollapsed}
               className="rounded-button p-1.5 text-navy-500 transition-colors hover:bg-navy-100 hover:text-navy-900"
               aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
               aria-expanded={!collapsed}
@@ -103,6 +131,43 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
               />
             </button>
           </div>
+          {!collapsed && (
+            <div
+              role="separator"
+              aria-label={t('sidebar.resize')}
+              aria-orientation="vertical"
+              aria-valuemin={200}
+              aria-valuemax={400}
+              aria-valuenow={width}
+              tabIndex={0}
+              className="absolute inset-y-0 end-0 z-50 w-1 cursor-col-resize bg-transparent transition-colors hover:bg-primary-300 focus-visible:bg-primary-400"
+              onPointerDown={(event) => {
+                resizeStart.current = { x: event.clientX, width };
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                if (!resizeStart.current) return;
+                const direction = document.documentElement.dir === 'rtl' ? -1 : 1;
+                const delta = (event.clientX - resizeStart.current.x) * direction;
+                onWidthChange(resizeStart.current.width + delta);
+              }}
+              onPointerUp={() => {
+                resizeStart.current = null;
+              }}
+              onPointerCancel={() => {
+                resizeStart.current = null;
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  onWidthChange(width - 16);
+                } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  onWidthChange(width + 16);
+                }
+              }}
+            />
+          )}
 
           {/*
             The workspace picker. It only becomes a control when there is a

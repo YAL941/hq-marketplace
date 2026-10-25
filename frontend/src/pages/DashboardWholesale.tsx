@@ -8,7 +8,7 @@ import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { inAppNotificationApi, locationApi, productApi, toFieldIssue, wholesaleApi } from '../services/api';
 import type {
-  Id, InAppNotification, InAppNotificationPage, Location, Product, WholesaleDashboardData,
+  BusinessApprovalNotification, BusinessApprovalNotificationPage, Id, InAppNotification, InAppNotificationPage, Location, Product, WholesaleDashboardData,
   WholesaleOffer, WholesalePurchaseOrder, WholesaleReceiptAttempt,
 } from '../types';
 
@@ -24,6 +24,15 @@ const EMPTY_DASHBOARD: WholesaleDashboardData = {
 };
 
 const EMPTY_NOTIFICATIONS: InAppNotificationPage = {
+  notifications: [],
+  unreadCount: 0,
+  limit: 10,
+  offset: 0,
+  total: 0,
+  hasMore: false,
+};
+
+const EMPTY_APPROVAL_NOTIFICATIONS: BusinessApprovalNotificationPage = {
   notifications: [],
   unreadCount: 0,
   limit: 10,
@@ -154,6 +163,7 @@ export function DashboardWholesalePage() {
   const [receiptQuantities, setReceiptQuantities] = useState<Record<string, Record<string, string>>>({});
   const [receiptAttempts, setReceiptAttempts] = useState<Record<string, WholesaleReceiptAttempt[]>>({});
   const [notifications, setNotifications] = useState(EMPTY_NOTIFICATIONS);
+  const [approvalNotifications, setApprovalNotifications] = useState(EMPTY_APPROVAL_NOTIFICATIONS);
   const [notificationError, setNotificationError] = useState('');
   const [deliveryLocationId, setDeliveryLocationId] = useState('');
   const notificationRefreshRef = useRef<{ businessId: Id; promise: Promise<void> } | null>(null);
@@ -166,10 +176,14 @@ export function DashboardWholesalePage() {
       await notificationRefreshRef.current.promise;
       return;
     }
-    const refresh = inAppNotificationApi.list(businessId, { limit: 10, offset: 0 })
-      .then((response) => {
+    const refresh = Promise.all([
+      inAppNotificationApi.list(businessId, { limit: 10, offset: 0 }),
+      inAppNotificationApi.listApprovals(businessId, { limit: 10, offset: 0 }),
+    ])
+      .then(([response, approvalResponse]) => {
         if (activeBusinessIdRef.current !== businessId) return;
         setNotifications(response.data.data);
+        setApprovalNotifications(approvalResponse.data.data);
         setNotificationError('');
       })
       .catch((requestError: unknown) => {
@@ -301,6 +315,7 @@ export function DashboardWholesalePage() {
 
   useEffect(() => {
     setNotifications(EMPTY_NOTIFICATIONS);
+    setApprovalNotifications(EMPTY_APPROVAL_NOTIFICATIONS);
     setNotificationError('');
   }, [businessId]);
 
@@ -391,6 +406,44 @@ export function DashboardWholesalePage() {
       });
       if (activeBusinessIdRef.current !== businessId) return;
       setNotifications((current) => ({
+        ...response.data.data,
+        notifications: [...current.notifications, ...response.data.data.notifications],
+      }));
+      setNotificationError('');
+    } catch (requestError) {
+      if (activeBusinessIdRef.current !== businessId) return;
+      const issue = toFieldIssue(requestError);
+      setNotificationError(issue.message || t('notifications.loadError'));
+    }
+  };
+
+  const markApprovalNotificationRead = async (notification: BusinessApprovalNotification) => {
+    if (notification.read_at) return;
+    try {
+      const response = await inAppNotificationApi.markApprovalRead(businessId, notification.notification_id);
+      if (activeBusinessIdRef.current !== businessId) return;
+      setApprovalNotifications((current) => ({
+        ...current,
+        notifications: current.notifications.map((item) =>
+          item.notification_id === notification.notification_id ? response.data.data : item),
+        unreadCount: Math.max(0, current.unreadCount - 1),
+      }));
+      setNotificationError('');
+    } catch (requestError) {
+      if (activeBusinessIdRef.current !== businessId) return;
+      const issue = toFieldIssue(requestError);
+      setNotificationError(issue.message || t('notifications.loadError'));
+    }
+  };
+
+  const loadMoreApprovalNotifications = async () => {
+    try {
+      const response = await inAppNotificationApi.listApprovals(businessId, {
+        limit: approvalNotifications.limit,
+        offset: approvalNotifications.notifications.length,
+      });
+      if (activeBusinessIdRef.current !== businessId) return;
+      setApprovalNotifications((current) => ({
         ...response.data.data,
         notifications: [...current.notifications, ...response.data.data.notifications],
       }));
@@ -678,15 +731,41 @@ export function DashboardWholesalePage() {
             <Bell size={18} className="text-primary-600" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-navy-900">{t('notifications.title')}</h2>
           </div>
-          <Badge variant={notifications.unreadCount > 0 ? 'success' : 'default'}>
-            {t('notifications.unreadCount', { count: notifications.unreadCount })}
+          <Badge variant={notifications.unreadCount + approvalNotifications.unreadCount > 0 ? 'success' : 'default'}>
+            {t('notifications.unreadCount', { count: notifications.unreadCount + approvalNotifications.unreadCount })}
           </Badge>
         </div>
         {notificationError && <p role="alert" className="mb-3 text-sm text-error-700">{notificationError}</p>}
-        {notifications.notifications.length === 0 ? (
+        {notifications.notifications.length === 0 && approvalNotifications.notifications.length === 0 ? (
           <p className="text-sm text-navy-600">{t('notifications.empty')}</p>
         ) : (
           <ul className="divide-y divide-navy-100">
+            {approvalNotifications.notifications.map((notification) => (
+              <li key={`approval-${notification.notification_id}`} className={`flex flex-wrap items-center justify-between gap-3 py-3 ${notification.read_at ? '' : 'bg-success-50/60'}`}>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm ${notification.read_at ? 'text-navy-700' : 'font-semibold text-navy-900'}`}>
+                    {t('approvalNotice.title')}
+                  </p>
+                  <p className="text-sm text-navy-600">{t('approvalNotice.body')}</p>
+                  <p className="mt-1 text-sm text-navy-600">{t('approvalNotice.accessSummary')}</p>
+                  <time className="text-xs text-navy-500" dateTime={notification.created_at}>
+                    {new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(notification.created_at))}
+                  </time>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Link
+                    to={`/business/${encodeURIComponent(notification.business_slug)}`}
+                    onClick={() => void markApprovalNotificationRead(notification)}
+                    className="text-sm font-medium text-primary-700 hover:text-primary-900"
+                  >{t('approvalNotice.publicPage')}</Link>
+                  {!notification.read_at && <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void markApprovalNotificationRead(notification)}
+                  ><Check size={14} aria-hidden="true" />{t('notifications.markRead')}</Button>}
+                </div>
+              </li>
+            ))}
             {notifications.notifications.map((notification) => {
               const status = String(notification.metadata.status ?? '');
               const decision = String(notification.metadata.decision ?? '');
@@ -722,6 +801,9 @@ export function DashboardWholesalePage() {
             })}
           </ul>
         )}
+        {approvalNotifications.hasMore && <Button className="mt-3 me-2" size="sm" variant="outline" onClick={() => void loadMoreApprovalNotifications()}>
+          {t('notifications.loadMore')}
+        </Button>}
         {notifications.hasMore && <Button className="mt-3" size="sm" variant="outline" onClick={() => void loadMoreNotifications()}>
           {t('notifications.loadMore')}
         </Button>}

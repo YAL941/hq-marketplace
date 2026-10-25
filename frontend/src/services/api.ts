@@ -8,6 +8,8 @@ import type {
   ApiResponse,
   AuthMeResponse,
   BusinessMember,
+  BusinessApprovalNotification,
+  BusinessApprovalNotificationPage,
   BusinessCourier,
   CourierDeliveryList,
   BusinessInboxCounts,
@@ -520,6 +522,15 @@ export const inAppNotificationApi = {
   markRead: (businessId: Id, notificationId: Id) =>
     api.patch<ApiResponse<InAppNotification>>(
       `/business/${businessId}/notifications/${notificationId}/read`,
+    ),
+  listApprovals: (businessId: Id, params?: { limit?: number; offset?: number }) =>
+    api.get<ApiResponse<BusinessApprovalNotificationPage>>(
+      `/business/${businessId}/approval-notifications`,
+      { params },
+    ),
+  markApprovalRead: (businessId: Id, notificationId: Id) =>
+    api.patch<ApiResponse<BusinessApprovalNotification>>(
+      `/business/${businessId}/approval-notifications/${notificationId}/read`,
     ),
 };
 

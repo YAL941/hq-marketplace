@@ -1,4 +1,4 @@
-import { HTMLAttributes, forwardRef } from 'react';
+import { CSSProperties, HTMLAttributes, forwardRef, useEffect, useState } from 'react';
 import { cn } from '../../lib/utils';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Header } from './Header';
@@ -6,9 +6,7 @@ import { Footer } from './Footer';
 import { Sidebar } from './Sidebar';
 import { MobileBottomNav } from './MobileBottomNav';
 import { MobileOwnerBottomNav } from './MobileOwnerBottomNav';
-import { BusinessStatusBanner } from '../business/BusinessStatusBanner';
 import { useAuth } from '../../context/useAuth';
-import type { Id } from '../../types';
 
 interface MainLayoutProps extends HTMLAttributes<HTMLDivElement> {
   withSidebar?: boolean;
@@ -18,6 +16,12 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
   ({ className, withSidebar = false, children, ...props }, ref) => {
     const { isAuthenticated, currentBusiness } = useAuth();
     const location = useLocation();
+    const [sidebarWidth, setSidebarWidth] = useState(() => {
+      if (typeof window === 'undefined') return 224;
+      const savedWidth = Number(window.localStorage.getItem('dashboard-sidebar-width'));
+      return Number.isFinite(savedWidth) && savedWidth >= 200 && savedWidth <= 400 ? savedWidth : 224;
+    });
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const showSidebar = withSidebar && isAuthenticated && currentBusiness;
     const dashboardRoute =
       location.pathname.startsWith('/dashboard') ||
@@ -32,17 +36,11 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
     const showMobileBottomNav = !dashboardRoute && !authenticationRoute;
     const showMobileOwnerBottomNav = dashboardRoute && !!showSidebar;
 
-    /**
-     * The business the banner describes.
-     *
-     * Read from the path rather than from the remembered selection, for the same
-     * reason the sidebar does: opening a bookmarked link for another business
-     * would otherwise put one business's status above another business's screen.
-     * `/dashboard/settings` carries no id in its path, so it falls back to the
-     * selection, which is what that screen edits.
-     */
-    const pathBusinessId = location.pathname.match(/^\/dashboard\/business\/([^/]+)/)?.[1];
-    const bannerBusinessId: Id | '' = showSidebar ? (pathBusinessId ?? currentBusiness?.business_id ?? '') : '';
+    const effectiveSidebarWidth = sidebarCollapsed ? 80 : sidebarWidth;
+
+    useEffect(() => {
+      window.localStorage.setItem('dashboard-sidebar-width', String(sidebarWidth));
+    }, [sidebarWidth]);
 
     return (
       <div
@@ -57,21 +55,25 @@ export const MainLayout = forwardRef<HTMLDivElement, MainLayoutProps>(
       >
         <Header />
         <div className="flex-1 flex">
-          {showSidebar && <Sidebar />}
+          {showSidebar && (
+            <Sidebar
+              width={sidebarWidth}
+              collapsed={sidebarCollapsed}
+              onWidthChange={(width) => setSidebarWidth(Math.min(400, Math.max(200, width)))}
+              onToggleCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            />
+          )}
           <div
             className={cn(
-              'flex-1 flex flex-col transition-all duration-300',
+              'flex-1 min-w-0 flex flex-col transition-all duration-200',
               location.pathname === '/' ? 'min-w-0' : '',
-              showSidebar ? 'md:ms-56' : ''
+              showSidebar && 'dashboard-layout-content',
             )}
-            style={{ minHeight: 'calc(100vh - 4rem)' }}
+            style={{
+              minHeight: 'calc(100vh - 4rem)',
+              '--dashboard-sidebar-width': `${effectiveSidebarWidth}px`,
+            } as CSSProperties}
           >
-            {/*
-              Inside the scrolling column rather than above it, so the banner
-              travels with the content instead of staying pinned while the
-              sidebar scrolls beside it.
-            */}
-            {bannerBusinessId && <BusinessStatusBanner businessId={bannerBusinessId} />}
             <main className="flex-1">
               <Outlet />
               {children}

@@ -13,6 +13,75 @@ export interface InAppNotificationRow {
     read_at: Date | null;
 }
 
+export interface BusinessApprovalNotificationRow {
+    notification_id: string;
+    business_id: string;
+    recipient_user_id: string;
+    business_slug: string;
+    approved_at: Date;
+    created_at: Date;
+    read_at: Date | null;
+}
+
+export async function listBusinessApprovalNotifications(
+    client: PoolClient,
+    userId: number,
+    businessId: number,
+    limit: number,
+    offset: number,
+) {
+    const [{ rows: notifications }, { rows: count }] = await Promise.all([
+        client.query<BusinessApprovalNotificationRow>(
+            `SELECT n.notification_id, n.business_id, n.recipient_user_id, b.business_slug,
+                    n.approved_at, n.created_at, n.read_at
+               FROM business_approval_notifications n
+               JOIN businesses b ON b.business_id = n.business_id
+              WHERE n.recipient_user_id = $1 AND n.business_id = $2
+              ORDER BY n.created_at DESC, n.notification_id DESC
+              LIMIT $3 OFFSET $4`,
+            [userId, businessId, limit, offset],
+        ),
+        client.query<{ unread_count: string; total_count: string }>(
+            `SELECT count(*)::TEXT AS total_count,
+                    count(*) FILTER (WHERE read_at IS NULL)::TEXT AS unread_count
+               FROM business_approval_notifications
+              WHERE recipient_user_id = $1 AND business_id = $2`,
+            [userId, businessId],
+        ),
+    ]);
+    const total = Number(count[0]?.total_count ?? 0);
+    return {
+        notifications,
+        unreadCount: Number(count[0]?.unread_count ?? 0),
+        limit,
+        offset,
+        total,
+        hasMore: offset + notifications.length < total,
+    };
+}
+
+export async function markBusinessApprovalNotificationRead(
+    client: PoolClient,
+    userId: number,
+    businessId: number,
+    notificationId: number,
+): Promise<BusinessApprovalNotificationRow> {
+    const { rows } = await client.query<BusinessApprovalNotificationRow>(
+        `UPDATE business_approval_notifications
+            SET read_at = COALESCE(read_at, now())
+          WHERE notification_id = $1 AND recipient_user_id = $2 AND business_id = $3
+        RETURNING notification_id, business_id, recipient_user_id, approved_at, created_at, read_at`,
+        [notificationId, userId, businessId],
+    );
+    const notification = rows[0];
+    if (!notification) throw notFound('Notification not found');
+    const { rows: businesses } = await client.query<{ business_slug: string }>(
+        'SELECT business_slug FROM businesses WHERE business_id = $1',
+        [businessId],
+    );
+    return { ...notification, business_slug: businesses[0]!.business_slug };
+}
+
 export async function listInAppNotifications(
     client: PoolClient,
     userId: number,

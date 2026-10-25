@@ -18,6 +18,17 @@ IDs. Notifications include event type, target, creation time, and read state.
 Their links are internal dashboard links with a fragment for the corresponding
 RFQ or purchase order.
 
+Platform approval notifications are stored separately from Wholesale activity
+events, but appear in the same dashboard notification center. The approval
+decision and its notification for each active business owner are committed in
+one transaction. The recipient-scoped API checks membership on every list and
+mark-as-read request, while row-level security limits reads and updates to the
+current business and recipient. Notifications persist across browser sessions,
+include the approved business page link, support unread/read state, and are
+paginated with a load-more action. Rolling back migration 054 drops these
+notifications and their read state; see the migration-safety guide before
+considering that destructive rollback.
+
 Each notification is inserted synchronously in the same database transaction as
 its Wholesale audit/business event. A notification persistence failure aborts
 the business transaction rather than silently dropping the notification. The

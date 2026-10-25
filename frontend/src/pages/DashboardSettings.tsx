@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation } from 'react-router-dom';
-import { AlertCircle, Building2, ExternalLink, Globe, Save, Shield, Users, XCircle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { AlertCircle, Building2, Save, Shield, Users, XCircle } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -110,24 +110,7 @@ function BusinessStatusBanner({ profile }: BusinessStatusBannerProps) {
   const isLive = profile.status === 'active' && profile.is_verified && profile.verification_status === 'verified';
 
   if (isLive) {
-    return (
-      <div className="settings-public-listing flex flex-col items-start gap-3 rounded-button border border-success-200 bg-success-50 p-4 sm:flex-row sm:items-center">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/80">
-          <Globe className="h-5 w-5 text-success-600" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="settings-public-listing-title font-semibold">{t('settings.bannerLive')}</p>
-          <p className="settings-public-listing-description mt-0.5 text-sm">{t('settings.bannerLiveBody')}</p>
-        </div>
-        <Link
-          to={`/business/${profile.business_slug}`}
-          className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-button border border-success-600/20 bg-white px-4 text-sm font-semibold text-success-700 transition-colors hover:bg-success-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success-600 sm:ms-auto sm:w-auto"
-        >
-          {t('settings.bannerLiveLink')}
-          <ExternalLink className="h-4 w-4" aria-hidden="true" />
-        </Link>
-      </div>
-    );
+    return null;
   }
 
   if (profile.status === 'rejected') {

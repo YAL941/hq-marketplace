@@ -339,7 +339,25 @@ const reviewBusiness: RequestHandler = async (req, res, next) => {
                 [businessId, nextStatus, adminId, reason],
             );
             const updated = rows[0];
-            if (updated) return updated;
+            if (updated) {
+                if (nextStatus === 'active') {
+                    await client.query(
+                        `INSERT INTO business_approval_notifications (business_id, recipient_user_id, approved_at)
+                         SELECT $1, bu.user_id, $2
+                           FROM business_users bu
+                           JOIN users u ON u.user_id = bu.user_id AND u.status = 'active'
+                           JOIN roles r ON r.role_id = bu.role_id
+                          WHERE bu.business_id = $1
+                            AND bu.status = 'active'
+                            AND r.scope = 'business'
+                            AND r.role_key = 'business_owner'
+                            AND r.is_active
+                         ON CONFLICT DO NOTHING`,
+                        [updated.business_id, updated.reviewed_at],
+                    );
+                }
+                return updated;
+            }
 
             const { rows: current } = await client.query<{ status: string }>(
                 'SELECT status FROM businesses WHERE business_id = $1 AND deleted_at IS NULL',

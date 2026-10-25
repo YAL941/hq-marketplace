@@ -414,6 +414,32 @@ describe('PATCH /api/admin/businesses/:id/verification: approve', () => {
         const row = await businessRow(ownerA.businessId!);
         assert.equal(String(row['verified_by']), String(admin.id), 'the admin must be recorded');
 
+        const ownerNotifications = await request(app)
+            .get(`/api/business/${ownerA.businessId}/approval-notifications`)
+            .set('Authorization', `Bearer ${ownerA.token}`)
+        assert.equal(ownerNotifications.status, 200, JSON.stringify(ownerNotifications.body));
+        assert.equal(ownerNotifications.body.data.notifications.length, 1);
+        assert.equal(ownerNotifications.body.data.unreadCount, 1);
+        const approvalNotificationId = ownerNotifications.body.data.notifications[0].notification_id;
+        assert.equal(ownerNotifications.body.data.notifications[0].business_slug, slug);
+
+        const otherOwnerNotifications = await request(app)
+            .get(`/api/business/${ownerA.businessId}/approval-notifications`)
+            .set('Authorization', `Bearer ${ownerB.token}`);
+        assert.equal(otherOwnerNotifications.status, 403);
+
+        const markedRead = await request(app)
+            .patch(`/api/business/${ownerA.businessId}/approval-notifications/${approvalNotificationId}/read`)
+            .set('Authorization', `Bearer ${ownerA.token}`);
+        assert.equal(markedRead.status, 200, JSON.stringify(markedRead.body));
+        assert.ok(markedRead.body.data.read_at);
+
+        const persistedNotifications = await request(app)
+            .get(`/api/business/${ownerA.businessId}/approval-notifications`)
+            .set('Authorization', `Bearer ${ownerA.token}`);
+        assert.equal(persistedNotifications.body.data.notifications.length, 1);
+        assert.equal(persistedNotifications.body.data.unreadCount, 0);
+
         const list = await request(app).get('/api/businesses?limit=50');
         assert.ok(
             list.body.data.some((b: { business_id: string }) => b.business_id === String(ownerA.businessId)),
@@ -436,6 +462,11 @@ describe('PATCH /api/admin/businesses/:id/verification: approve', () => {
 
         assert.equal(res.status, 409);
         assert.equal(res.body.error.details.current_status, 'active');
+        const notifications = await request(app)
+            .get(`/api/business/${ownerA.businessId}/approval-notifications`)
+            .set('Authorization', `Bearer ${ownerA.token}`);
+        assert.equal(notifications.status, 200, JSON.stringify(notifications.body));
+        assert.equal(notifications.body.data.notifications.length, 1);
     });
 
     it('does not let the legacy force flag bypass the pending-only transition', async () => {
