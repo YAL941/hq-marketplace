@@ -28,6 +28,10 @@ include the approved business page link, support unread/read state, and are
 paginated with a load-more action. Rolling back migration 054 drops these
 notifications and their read state; see the migration-safety guide before
 considering that destructive rollback.
+Migrations 055 and 056 add the numeric application-user recipient key needed
+when an existing installation has a UUID `recipient_user_id`, and ensure RLS
+is enabled. Apply them before deploying code that reads or creates approval
+notifications.
 
 Each notification is inserted synchronously in the same database transaction as
 its Wholesale audit/business event. A notification persistence failure aborts

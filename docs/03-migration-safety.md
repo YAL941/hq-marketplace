@@ -67,6 +67,20 @@ routes. Its down migration drops the notification table and therefore loses
 approval notification history and read state; it is marked destructive and
 requires `--allow-data-loss`.
 
+Migration `055_business_approval_notification_app_user.sql` adds an internal
+`BIGINT` recipient key for installations where the pre-existing approval
+notification table used a UUID recipient column. It preserves that legacy
+column and its values, backfills the internal key when the old column is
+already a `BIGINT`, and moves row-level security to the internal key. Its
+rollback removes the new recipient mapping and is destructive; do not roll it
+back on an installation that has written approval notifications through the
+new key.
+
+Migration `056_business_approval_notification_rls.sql` ensures row-level
+security is enabled for approval notification installations that predated the
+application-owned table. Its rollback keeps RLS enabled so it cannot
+accidentally expose tenant notification rows.
+
 ## Running a migration
 
 ```bash

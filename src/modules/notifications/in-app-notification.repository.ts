@@ -27,19 +27,31 @@ export async function createBusinessApprovalNotifications(
     businessId: number | string,
     approvedAt: Date,
 ): Promise<void> {
-    const { rows } = await client.query<{ has_approved_at: boolean }>(
-        `SELECT EXISTS (
-             SELECT 1
-               FROM pg_attribute
-              WHERE attrelid = 'business_approval_notifications'::regclass
-                AND attname = 'approved_at'
-                AND NOT attisdropped
-         ) AS has_approved_at`,
+    const { rows } = await client.query<{ recipient_type: string | null; has_approved_at: boolean }>(
+        `SELECT
+             (SELECT format_type(atttypid, atttypmod)
+                FROM pg_attribute
+               WHERE attrelid = 'business_approval_notifications'::regclass
+                 AND attname = 'recipient_user_id'
+                 AND NOT attisdropped) AS recipient_type,
+             EXISTS (
+                 SELECT 1
+                   FROM pg_attribute
+                  WHERE attrelid = 'business_approval_notifications'::regclass
+                    AND attname = 'approved_at'
+                    AND NOT attisdropped
+             ) AS has_approved_at`,
     );
-    if (rows[0]?.has_approved_at) {
+    const recipientType = rows[0]?.recipient_type;
+    if (recipientType === 'bigint') {
+        const approvedAtColumn = rows[0]?.has_approved_at ? ', approved_at' : '';
+        const approvedAtValue = rows[0]?.has_approved_at ? ', $2' : '';
+        const params = rows[0]?.has_approved_at ? [businessId, approvedAt] : [businessId];
         await client.query(
-            `INSERT INTO business_approval_notifications (business_id, recipient_user_id, approved_at)
-             SELECT $1, bu.user_id, $2
+            `INSERT INTO business_approval_notifications (
+                business_id, recipient_user_id, recipient_app_user_id${approvedAtColumn}
+             )
+             SELECT $1, bu.user_id, bu.user_id${approvedAtValue}
                FROM business_users bu
                JOIN users u ON u.user_id = bu.user_id AND u.status = 'active'
                JOIN roles r ON r.role_id = bu.role_id
@@ -48,15 +60,28 @@ export async function createBusinessApprovalNotifications(
                 AND r.scope = 'business'
                 AND r.role_key = 'business_owner'
                 AND r.is_active
+                AND NOT EXISTS (
+                    SELECT 1
+                      FROM business_approval_notifications existing
+                     WHERE existing.business_id = $1
+                       AND existing.recipient_app_user_id = bu.user_id
+                )
              ON CONFLICT DO NOTHING`,
-            [businessId, approvedAt],
+            params,
         );
         return;
     }
 
+    if (recipientType !== 'uuid') {
+        throw new Error(`Unsupported approval notification recipient_user_id type: ${recipientType ?? 'missing'}`);
+    }
+
+    const approvedAtColumn = rows[0]?.has_approved_at ? ', approved_at' : '';
+    const approvedAtValue = rows[0]?.has_approved_at ? ', $2' : '';
+    const params = rows[0]?.has_approved_at ? [businessId, approvedAt] : [businessId];
     await client.query(
-        `INSERT INTO business_approval_notifications (business_id, recipient_user_id)
-         SELECT $1, bu.user_id
+        `INSERT INTO business_approval_notifications (business_id, recipient_app_user_id${approvedAtColumn})
+         SELECT $1, bu.user_id${approvedAtValue}
            FROM business_users bu
            JOIN users u ON u.user_id = bu.user_id AND u.status = 'active'
            JOIN roles r ON r.role_id = bu.role_id
@@ -65,8 +90,14 @@ export async function createBusinessApprovalNotifications(
             AND r.scope = 'business'
             AND r.role_key = 'business_owner'
             AND r.is_active
+            AND NOT EXISTS (
+                SELECT 1
+                  FROM business_approval_notifications existing
+                 WHERE existing.business_id = $1
+                   AND existing.recipient_app_user_id = bu.user_id
+            )
          ON CONFLICT DO NOTHING`,
-        [businessId],
+        params,
     );
 }
 
@@ -79,11 +110,12 @@ export async function listBusinessApprovalNotifications(
 ) {
     const [{ rows: notifications }, { rows: count }] = await Promise.all([
         client.query<BusinessApprovalNotificationRow>(
-            `SELECT n.notification_id, n.business_id, n.recipient_user_id, b.business_slug,
+            `SELECT n.notification_id, n.business_id,
+                    n.recipient_app_user_id AS recipient_user_id, b.business_slug,
                     n.created_at, n.read_at
                FROM business_approval_notifications n
                JOIN businesses b ON b.business_id = n.business_id
-              WHERE n.recipient_user_id = $1 AND n.business_id = $2
+              WHERE n.recipient_app_user_id = $1 AND n.business_id = $2
               ORDER BY n.created_at DESC, n.notification_id DESC
               LIMIT $3 OFFSET $4`,
             [userId, businessId, limit, offset],
@@ -92,7 +124,7 @@ export async function listBusinessApprovalNotifications(
             `SELECT count(*)::TEXT AS total_count,
                     count(*) FILTER (WHERE read_at IS NULL)::TEXT AS unread_count
                FROM business_approval_notifications
-              WHERE recipient_user_id = $1 AND business_id = $2`,
+              WHERE recipient_app_user_id = $1 AND business_id = $2`,
             [userId, businessId],
         ),
     ]);
@@ -116,8 +148,8 @@ export async function markBusinessApprovalNotificationRead(
     const { rows } = await client.query<BusinessApprovalNotificationRow>(
         `UPDATE business_approval_notifications
             SET read_at = COALESCE(read_at, now())
-          WHERE notification_id = $1 AND recipient_user_id = $2 AND business_id = $3
-        RETURNING notification_id, business_id, recipient_user_id, created_at, read_at`,
+          WHERE notification_id = $1 AND recipient_app_user_id = $2 AND business_id = $3
+        RETURNING notification_id, business_id, recipient_app_user_id AS recipient_user_id, created_at, read_at`,
         [notificationId, userId, businessId],
     );
     const notification = rows[0];

@@ -391,25 +391,29 @@ describe('admin business search and notifications', () => {
 });
 
 describe('business approval notification schema compatibility', () => {
-    it('records an approval notification when the legacy table has no approved_at column', async () => {
+    it('records notifications for UUID legacy recipient columns using the app user id', async () => {
         const client = await adminPool.connect();
         let transactionOpen = false;
         try {
             await client.query('BEGIN');
             transactionOpen = true;
-            const { rows: before } = await client.query<{ count: string }>(
-                'SELECT count(*)::TEXT AS count FROM business_approval_notifications WHERE business_id = $1',
-                [ownerA.businessId],
-            );
-            await client.query('ALTER TABLE business_approval_notifications DROP COLUMN approved_at CASCADE');
-
+            await client.query(`
+                CREATE TEMP TABLE business_approval_notifications (
+                    notification_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    business_id BIGINT NOT NULL,
+                    recipient_user_id UUID,
+                    recipient_app_user_id BIGINT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    read_at TIMESTAMPTZ
+                )
+            `);
             await createBusinessApprovalNotifications(client, ownerA.businessId!, new Date());
 
-            const { rows: afterInsert } = await client.query<{ count: string }>(
-                'SELECT count(*)::TEXT AS count FROM business_approval_notifications WHERE business_id = $1',
+            const { rows } = await client.query<{ recipient_app_user_id: string }>(
+                'SELECT recipient_app_user_id FROM business_approval_notifications WHERE business_id = $1',
                 [ownerA.businessId],
             );
-            assert.equal(Number(afterInsert[0]!.count), Number(before[0]!.count) + 1);
+            assert.deepEqual(rows.map((row) => Number(row.recipient_app_user_id)), [ownerA.id]);
         } finally {
             if (transactionOpen) await client.query('ROLLBACK');
             client.release();
