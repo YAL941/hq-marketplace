@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { AlertCircle, Building2, Save, Shield, Users, XCircle } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -95,6 +95,7 @@ const EMPTY: FormState = {
 
 interface BusinessStatusBannerProps {
   profile: StaffBusinessProfile | null;
+  businessId: string;
 }
 
 /**
@@ -103,7 +104,7 @@ interface BusinessStatusBannerProps {
  * spelled out; anything else only reports the raw status label, with no claim
  * about what a visitor can see.
  */
-function BusinessStatusBanner({ profile }: BusinessStatusBannerProps) {
+function BusinessStatusBanner({ profile, businessId }: BusinessStatusBannerProps) {
   const { t } = useTranslation();
   if (!profile) return null;
 
@@ -125,6 +126,12 @@ function BusinessStatusBanner({ profile }: BusinessStatusBannerProps) {
               <span className="font-medium">{t('settings.bannerRejectionReason')}</span> {profile.rejection_reason}
             </p>
           )}
+          <Link
+            to={`/list-your-business?complete=${businessId}`}
+            className="mt-3 inline-flex rounded-button bg-white px-3 py-2 text-sm font-semibold text-error-700 ring-1 ring-inset ring-error-300 hover:bg-error-100"
+          >
+            {t('settings.editAndResubmit')}
+          </Link>
         </div>
       </div>
     );
@@ -527,7 +534,7 @@ export function DashboardSettingsPage() {
         </div>
       )}
 
-      <BusinessStatusBanner profile={profile} />
+      <BusinessStatusBanner profile={profile} businessId={businessId} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">

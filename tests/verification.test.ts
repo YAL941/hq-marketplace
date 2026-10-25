@@ -586,6 +586,40 @@ describe('PATCH /api/admin/businesses/:id/verification: reject', () => {
     });
 });
 
+describe('resubmitting a rejected business', () => {
+    it('lets the owner edit a rejected business and returns it to the review queue', async () => {
+        const businessId = await requestBusiness('Business To Resubmit', {});
+        const rejected = await request(app)
+            .patch(`/api/admin/businesses/${businessId}/verification`)
+            .set('Authorization', `Bearer ${admin.token}`)
+            .send({ decision: 'reject', reason: 'Please add more details about the products.' });
+        assert.equal(rejected.status, 200, JSON.stringify(rejected.body));
+
+        const updated = await request(app)
+            .patch(`/api/business/${businessId}`)
+            .set('Authorization', `Bearer ${anonymousOwner.token}`)
+            .send({ businessDescription: 'We sell locally sourced products.' });
+
+        assert.equal(updated.status, 200, JSON.stringify(updated.body));
+        assert.equal(updated.body.data.status, 'pending');
+        assert.equal(updated.body.data.verification_status, 'pending');
+        assert.equal(updated.body.data.is_verified, false);
+
+        const row = await businessRow(businessId);
+        assert.equal(row['status'], 'pending');
+        assert.equal(row['verification_status'], 'pending');
+        assert.equal(row['rejection_reason'], null);
+
+        const pending = await request(app)
+            .get('/api/admin/businesses?status=pending')
+            .set('Authorization', `Bearer ${admin.token}`);
+        assert.ok(
+            pending.body.data.some((business: { business_id: string }) => business.business_id === String(businessId)),
+            'the updated business must return to the admin review queue',
+        );
+    });
+});
+
 /** Registers a business for the anonymous actor and returns its id. */
 async function requestBusiness(name: string, body: Record<string, unknown>): Promise<number> {
     const res = await registerBusiness(anonymousOwner.token, { businessName: name, ...body });

@@ -169,7 +169,12 @@ adminRoutes.get(
                              OR b.business_name ILIKE $2 ESCAPE '\\'
                              OR COALESCE(b.email::text, '') ILIKE $2 ESCAPE '\\'
                              OR COALESCE(u.email::text, '') ILIKE $2 ESCAPE '\\')
-                      ORDER BY b.created_at DESC, b.business_id DESC
+                      ORDER BY CASE
+                                   WHEN $1 IN ('pending', 'all') AND b.status = 'pending'
+                                   THEN b.updated_at
+                                   ELSE b.created_at
+                               END DESC,
+                               b.business_id DESC
                       LIMIT $3 OFFSET $4`,
                     [query.status, pattern, query.limit, offset],
                 );

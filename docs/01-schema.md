@@ -70,6 +70,10 @@ installation, §6 describes the order of work and the checks required first.
 is the unique public handle. A check constraint keeps `is_verified` consistent with
 `verification_status` and `verified_at`.
 
+When an owner edits a rejected business profile, the update returns it to
+`pending` review and clears the previous rejection reason. It remains hidden
+from the public directory until an administrator reviews it again.
+
 **business_users** — `business_user_id`, `business_id`, `user_id`, `role_id`, `status`,
 `joined_at`, `invited_by`, `created_at`. `UNIQUE (business_id, user_id, role_id)`
 prevents duplicates while allowing several distinct roles in one business, and a

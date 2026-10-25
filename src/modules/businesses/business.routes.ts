@@ -350,7 +350,18 @@ businessRoutes.patch('/business/:businessId', authenticate, resolveBusiness, asy
                 return rows[0];
             }
             const { rows } = await client.query<BusinessRow>(
-                `UPDATE businesses SET ${sets.join(', ')} WHERE business_id = $1 RETURNING *`,
+                `UPDATE businesses
+                    SET ${sets.join(', ')},
+                        status = CASE WHEN status = 'rejected' THEN 'pending'::business_status ELSE status END,
+                        verification_status = CASE
+                            WHEN status = 'rejected' THEN 'pending'::verification_status
+                            ELSE verification_status
+                        END,
+                        is_verified = CASE WHEN status = 'rejected' THEN false ELSE is_verified END,
+                        verified_at = CASE WHEN status = 'rejected' THEN NULL ELSE verified_at END,
+                        rejection_reason = CASE WHEN status = 'rejected' THEN NULL ELSE rejection_reason END
+                  WHERE business_id = $1
+                  RETURNING *`,
                 params,
             );
             if (!rows[0]) throw notFound('Business not found');
