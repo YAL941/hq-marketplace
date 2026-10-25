@@ -51,6 +51,14 @@ The rollback does not remove migration 052's deduplication column or constraint;
 both are retained to avoid data loss and keep existing notification safety
 invariants.
 
+Migration `053_repair_wholesale_owner_permissions.sql` restores the
+`wholesale.view` and `wholesale.manage` role mappings for the active
+business-scoped `business_owner` role. It does not alter users, memberships, or
+business data, and records only newly inserted mappings so its down migration
+removes only those mappings while preserving any grants that predated it. Apply
+it with the normal migration runner after confirming the target database and
+taking the standard pre-migration backup.
+
 ## Running a migration
 
 ```bash
