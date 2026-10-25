@@ -387,7 +387,7 @@
     "loadMore": "Keen wax dheeraad ah",
     "loadError": "Ogeysiisyada lama soo dejin ama lama cusboonaysiin. Mar kale isku day.",
     "events": {
-      "purchaseOrderCreated": "Dalabka iibka #{{id}} waa la helay.",
+      "purchaseOrderCreated": "Dalab iibsi cusub #{{id}} ayaa la sameeyey.",
       "purchaseOrderStatusChanged": "Dalabka iibka #{{id}} hadda waa {{status}}.",
       "rfqCreated": "Codsi qiime cusub #{{id}}.",
       "rfqQuoted": "Alaab-qeybiyuhu wuxuu qiime u diray codsiga #{{id}}.",

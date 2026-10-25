@@ -387,7 +387,7 @@
     "loadMore": "تحميل المزيد",
     "loadError": "تعذر تحميل الإشعارات أو تحديثها. حاول مرة أخرى.",
     "events": {
-      "purchaseOrderCreated": "تم استلام أمر الشراء رقم {{id}}.",
+      "purchaseOrderCreated": "تم إنشاء أمر شراء جديد رقم {{id}}.",
       "purchaseOrderStatusChanged": "أصبح أمر الشراء رقم {{id}} {{status}}.",
       "rfqCreated": "طلب تسعير جديد رقم {{id}}.",
       "rfqQuoted": "أرسل المورد عرض سعر للطلب رقم {{id}}.",

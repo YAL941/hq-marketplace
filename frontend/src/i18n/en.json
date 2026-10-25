@@ -387,7 +387,7 @@
     "loadMore": "Load more",
     "loadError": "Notifications could not be loaded or updated. Please try again.",
     "events": {
-      "purchaseOrderCreated": "Purchase order #{{id}} was received.",
+      "purchaseOrderCreated": "New purchase order #{{id}} was placed.",
       "purchaseOrderStatusChanged": "Purchase order #{{id}} is now {{status}}.",
       "rfqCreated": "New quotation request #{{id}}.",
       "rfqQuoted": "A supplier sent a quotation for request #{{id}}.",
