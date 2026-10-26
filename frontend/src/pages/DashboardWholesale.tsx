@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
-import { Activity, BadgeCheck, Bell, Boxes, Check, PackagePlus, Pencil, Plus, RefreshCw, Send, Store, Truck, X } from 'lucide-react';
+import { useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { Activity, BadgeCheck, Boxes, PackagePlus, Pencil, Plus, RefreshCw, Send, Store, Truck, X } from 'lucide-react';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
-import { inAppNotificationApi, locationApi, productApi, toFieldIssue, wholesaleApi } from '../services/api';
+import { locationApi, productApi, toFieldIssue, wholesaleApi } from '../services/api';
 import type {
-  BusinessApprovalNotification, BusinessApprovalNotificationPage, Id, InAppNotification, InAppNotificationPage, Location, Product, WholesaleDashboardData,
+  Id, Location, Product, WholesaleDashboardData,
   WholesaleOffer, WholesalePurchaseOrder, WholesaleReceiptAttempt,
 } from '../types';
 
@@ -22,46 +22,6 @@ const EMPTY_DASHBOARD: WholesaleDashboardData = {
   events: [],
   stats: { incoming_orders: 0, placed_orders: 0, supplier_sales_by_currency: {} },
 };
-
-const EMPTY_NOTIFICATIONS: InAppNotificationPage = {
-  notifications: [],
-  unreadCount: 0,
-  limit: 10,
-  offset: 0,
-  total: 0,
-  hasMore: false,
-};
-
-const EMPTY_APPROVAL_NOTIFICATIONS: BusinessApprovalNotificationPage = {
-  notifications: [],
-  unreadCount: 0,
-  limit: 10,
-  offset: 0,
-  total: 0,
-  hasMore: false,
-};
-
-const notificationMessageKeys: Record<string, string> = {
-  'wholesale.purchase_order.created': 'notifications.events.purchaseOrderCreated',
-  'wholesale.purchase_order.status_changed': 'notifications.events.purchaseOrderStatusChanged',
-  'wholesale.rfq.created': 'notifications.events.rfqCreated',
-  'wholesale.rfq.quoted': 'notifications.events.rfqQuoted',
-  'wholesale.rfq.decided': 'notifications.events.rfqDecided',
-  'wholesale.receipt.recorded': 'notifications.events.receiptRecorded',
-};
-const notificationOrderStatuses = new Set([
-  'pending_confirmation', 'confirmed', 'processing', 'shipped', 'partially_delivered', 'delivered', 'cancelled',
-]);
-const notificationRfqDecisions = new Set(['accepted', 'rejected', 'cancelled']);
-
-function notificationLink(businessId: Id, notification: InAppNotification): string | null {
-  const targetId = Number(notification.target_id);
-  if (!Number.isSafeInteger(targetId) || targetId < 1) return null;
-  const section = notification.target_type === 'purchase_order' ? 'purchase-orders'
-    : notification.target_type === 'rfq' ? 'rfqs' : null;
-  if (!section) return null;
-  return `/dashboard/business/${encodeURIComponent(businessId)}/wholesale#${section}-${targetId}`;
-}
 
 interface OfferTierDraft {
   minimumQuantity: string;
@@ -162,41 +122,7 @@ export function DashboardWholesalePage() {
   const [quoteValidUntil, setQuoteValidUntil] = useState<Record<string, string>>({});
   const [receiptQuantities, setReceiptQuantities] = useState<Record<string, Record<string, string>>>({});
   const [receiptAttempts, setReceiptAttempts] = useState<Record<string, WholesaleReceiptAttempt[]>>({});
-  const [notifications, setNotifications] = useState(EMPTY_NOTIFICATIONS);
-  const [approvalNotifications, setApprovalNotifications] = useState(EMPTY_APPROVAL_NOTIFICATIONS);
-  const [notificationError, setNotificationError] = useState('');
   const [deliveryLocationId, setDeliveryLocationId] = useState('');
-  const notificationRefreshRef = useRef<{ businessId: Id; promise: Promise<void> } | null>(null);
-  const activeBusinessIdRef = useRef(businessId);
-  activeBusinessIdRef.current = businessId;
-
-  const refreshNotifications = useCallback(async () => {
-    if (!businessId) return;
-    if (notificationRefreshRef.current?.businessId === businessId) {
-      await notificationRefreshRef.current.promise;
-      return;
-    }
-    const refresh = Promise.all([
-      inAppNotificationApi.list(businessId, { limit: 10, offset: 0 }),
-      inAppNotificationApi.listApprovals(businessId, { limit: 10, offset: 0 }),
-    ])
-      .then(([response, approvalResponse]) => {
-        if (activeBusinessIdRef.current !== businessId) return;
-        setNotifications(response.data.data);
-        setApprovalNotifications(approvalResponse.data.data);
-        setNotificationError('');
-      })
-      .catch((requestError: unknown) => {
-        if (activeBusinessIdRef.current !== businessId) return;
-        const issue = toFieldIssue(requestError);
-        setNotificationError(issue.message || t('notifications.loadError'));
-      })
-      .finally(() => {
-        if (notificationRefreshRef.current?.promise === refresh) notificationRefreshRef.current = null;
-      });
-    notificationRefreshRef.current = { businessId, promise: refresh };
-    await refresh;
-  }, [businessId, t]);
 
   const load = useCallback(async (silent = false) => {
     if (!businessId) return;
@@ -219,7 +145,6 @@ export function DashboardWholesalePage() {
       setProducts(productResponse.data.data.filter((product) => product.is_stock_tracked));
       const activeLocations = locationResponse.data.data.filter((location) => location.is_active);
       setLocations(activeLocations);
-      await refreshNotifications();
       const attemptLists = nextDashboard.canManageInventory && nextDashboard.canManageWholesale
         ? await Promise.all(nextDashboard.purchaseOrders
           .filter((order) => order.buyer_business_id === businessId)
@@ -307,32 +232,21 @@ export function DashboardWholesalePage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [businessId, linkedLocationId, linkedProductId, refreshNotifications, requestedQuantity, search, t]);
+  }, [businessId, linkedLocationId, linkedProductId, requestedQuantity, search, t]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   useEffect(() => {
-    setNotifications(EMPTY_NOTIFICATIONS);
-    setApprovalNotifications(EMPTY_APPROVAL_NOTIFICATIONS);
-    setNotificationError('');
-  }, [businessId]);
-
-  useEffect(() => {
     const refreshWhenVisible = () => {
       if (document.visibilityState === 'visible') void load(true);
     };
-    const refreshNotificationsWhenVisible = () => {
-      if (document.visibilityState === 'visible') void refreshNotifications();
-    };
-    const interval = window.setInterval(refreshNotificationsWhenVisible, 30_000);
     window.addEventListener('focus', refreshWhenVisible);
     return () => {
-      window.clearInterval(interval);
       window.removeEventListener('focus', refreshWhenVisible);
     };
-  }, [load, refreshNotifications]);
+  }, [load]);
 
   useEffect(() => {
     if (!loading && location.hash) {
@@ -370,88 +284,6 @@ export function DashboardWholesalePage() {
       return false;
     } finally {
       setBusy('');
-    }
-  };
-
-  const markNotificationRead = async (notification: InAppNotification) => {
-    if (notification.read_at) return;
-    try {
-      const response = await inAppNotificationApi.markRead(businessId, notification.notification_id);
-      if (activeBusinessIdRef.current !== businessId) return;
-      setNotifications((current) => ({
-        ...current,
-        notifications: current.notifications.map((item) => {
-          if (item.notification_id !== notification.notification_id) return item;
-          if (item.read_at) return item;
-          return response.data.data;
-        }),
-        unreadCount: current.notifications.some((item) =>
-          item.notification_id === notification.notification_id && item.read_at === null)
-          ? Math.max(0, current.unreadCount - 1)
-          : current.unreadCount,
-      }));
-      setNotificationError('');
-    } catch (requestError) {
-      if (activeBusinessIdRef.current !== businessId) return;
-      const issue = toFieldIssue(requestError);
-      setNotificationError(issue.message || t('notifications.loadError'));
-    }
-  };
-
-  const loadMoreNotifications = async () => {
-    try {
-      const response = await inAppNotificationApi.list(businessId, {
-        limit: notifications.limit,
-        offset: notifications.notifications.length,
-      });
-      if (activeBusinessIdRef.current !== businessId) return;
-      setNotifications((current) => ({
-        ...response.data.data,
-        notifications: [...current.notifications, ...response.data.data.notifications],
-      }));
-      setNotificationError('');
-    } catch (requestError) {
-      if (activeBusinessIdRef.current !== businessId) return;
-      const issue = toFieldIssue(requestError);
-      setNotificationError(issue.message || t('notifications.loadError'));
-    }
-  };
-
-  const markApprovalNotificationRead = async (notification: BusinessApprovalNotification) => {
-    if (notification.read_at) return;
-    try {
-      const response = await inAppNotificationApi.markApprovalRead(businessId, notification.notification_id);
-      if (activeBusinessIdRef.current !== businessId) return;
-      setApprovalNotifications((current) => ({
-        ...current,
-        notifications: current.notifications.map((item) =>
-          item.notification_id === notification.notification_id ? response.data.data : item),
-        unreadCount: Math.max(0, current.unreadCount - 1),
-      }));
-      setNotificationError('');
-    } catch (requestError) {
-      if (activeBusinessIdRef.current !== businessId) return;
-      const issue = toFieldIssue(requestError);
-      setNotificationError(issue.message || t('notifications.loadError'));
-    }
-  };
-
-  const loadMoreApprovalNotifications = async () => {
-    try {
-      const response = await inAppNotificationApi.listApprovals(businessId, {
-        limit: approvalNotifications.limit,
-        offset: approvalNotifications.notifications.length,
-      });
-      if (activeBusinessIdRef.current !== businessId) return;
-      setApprovalNotifications((current) => ({
-        ...response.data.data,
-        notifications: [...current.notifications, ...response.data.data.notifications],
-      }));
-      setNotificationError('');
-    } catch (requestError) {
-      if (activeBusinessIdRef.current !== businessId) return;
-      const issue = toFieldIssue(requestError);
-      setNotificationError(issue.message || t('notifications.loadError'));
     }
   };
 
@@ -724,90 +556,6 @@ export function DashboardWholesalePage() {
       {error && <p role="alert" className="rounded-lg bg-error-50 p-3 text-sm text-error-700">{error}</p>}
       {notice && <p role="status" className="rounded-lg bg-success-50 p-3 text-sm text-success-700">{notice}</p>}
       {!dashboard.canManageWholesale && <p role="status" className="rounded-lg bg-navy-50 p-3 text-sm text-navy-700">{t('wholesale.readOnlyAccess')}</p>}
-
-      <Card>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Bell size={18} className="text-primary-600" aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-navy-900">{t('notifications.title')}</h2>
-          </div>
-          <Badge variant={notifications.unreadCount + approvalNotifications.unreadCount > 0 ? 'success' : 'default'}>
-            {t('notifications.unreadCount', { count: notifications.unreadCount + approvalNotifications.unreadCount })}
-          </Badge>
-        </div>
-        {notificationError && <p role="alert" className="mb-3 text-sm text-error-700">{notificationError}</p>}
-        {notifications.notifications.length === 0 && approvalNotifications.notifications.length === 0 ? (
-          <p className="text-sm text-navy-600">{t('notifications.empty')}</p>
-        ) : (
-          <ul className="divide-y divide-navy-100">
-            {approvalNotifications.notifications.map((notification) => (
-              <li key={`approval-${notification.notification_id}`} className={`flex flex-wrap items-center justify-between gap-3 py-3 ${notification.read_at ? '' : 'bg-success-50/60'}`}>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm ${notification.read_at ? 'text-navy-700' : 'font-semibold text-navy-900'}`}>
-                    {t('approvalNotice.title')}
-                  </p>
-                  <p className="text-sm text-navy-600">{t('approvalNotice.body')}</p>
-                  <p className="mt-1 text-sm text-navy-600">{t('approvalNotice.accessSummary')}</p>
-                  <time className="text-xs text-navy-500" dateTime={notification.created_at}>
-                    {new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(notification.created_at))}
-                  </time>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Link
-                    to={`/business/${encodeURIComponent(notification.business_slug)}`}
-                    onClick={() => void markApprovalNotificationRead(notification)}
-                    className="text-sm font-medium text-primary-700 hover:text-primary-900"
-                  >{t('approvalNotice.publicPage')}</Link>
-                  {!notification.read_at && <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void markApprovalNotificationRead(notification)}
-                  ><Check size={14} aria-hidden="true" />{t('notifications.markRead')}</Button>}
-                </div>
-              </li>
-            ))}
-            {notifications.notifications.map((notification) => {
-              const status = String(notification.metadata.status ?? '');
-              const decision = String(notification.metadata.decision ?? '');
-              const message = notificationMessageKeys[notification.event_type] ?? 'notifications.events.unknown';
-              const description = t(message, {
-                id: notification.target_id,
-                status: notificationOrderStatuses.has(status) ? t(`wholesale.orderStatus.${status}`) : '',
-                decision: notificationRfqDecisions.has(decision) ? t(`wholesale.rfqStatus.${decision}`) : '',
-              });
-              const href = notificationLink(businessId, notification);
-              return (
-                <li key={notification.notification_id} className={`flex flex-wrap items-center justify-between gap-3 py-3 ${notification.read_at ? '' : 'bg-primary-50/50'}`}>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm ${notification.read_at ? 'text-navy-700' : 'font-semibold text-navy-900'}`}>{description}</p>
-                    <time className="text-xs text-navy-500" dateTime={notification.created_at}>
-                      {new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(notification.created_at))}
-                    </time>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {href && <Link
-                      to={href}
-                      onClick={() => void markNotificationRead(notification)}
-                      className="text-sm font-medium text-primary-700 hover:text-primary-900"
-                    >{t('notifications.viewRelated')}</Link>}
-                    {!notification.read_at && <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void markNotificationRead(notification)}
-                    ><Check size={14} aria-hidden="true" />{t('notifications.markRead')}</Button>}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {approvalNotifications.hasMore && <Button className="mt-3 me-2" size="sm" variant="outline" onClick={() => void loadMoreApprovalNotifications()}>
-          {t('notifications.loadMore')}
-        </Button>}
-        {notifications.hasMore && <Button className="mt-3" size="sm" variant="outline" onClick={() => void loadMoreNotifications()}>
-          {t('notifications.loadMore')}
-        </Button>}
-      </Card>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Card className="flex items-center gap-3">

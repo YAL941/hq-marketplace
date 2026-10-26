@@ -382,9 +382,12 @@
     }
   },
   "notifications": {
-    "title": "Ogeysiisyada jumlada",
+    "title": "Ogeysiisyada",
+    "headerTitle": "Ogeysiisyada",
     "unreadCount": "{{count}} aan la akhrin",
     "empty": "Weli ogeysiis ma jiro.",
+    "signInPrompt": "Gal si aad u aragto ogeysiisyadaada.",
+    "viewAll": "Eeg dhammaan ogeysiisyada",
     "markRead": "Akhris ahaan u calaamadee",
     "viewRelated": "Eeg xogta la xiriirta",
     "loadMore": "Keen wax dheeraad ah",

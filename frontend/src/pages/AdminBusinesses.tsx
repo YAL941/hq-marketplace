@@ -1,7 +1,7 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
-import { CheckCircle, XCircle, Clock, RefreshCw, ChevronDown, Bell, Search } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { CheckCircle, XCircle, Clock, RefreshCw, ChevronDown, Search } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
@@ -14,7 +14,6 @@ import { isAxiosError } from 'axios';
 import type {
   AdminBusinessCounts,
   AdminBusinessFilter,
-  AdminBusinessNotifications,
   AdminBusinessRow,
   PageMeta,
 } from '../types';
@@ -59,24 +58,6 @@ function verificationBadgeVariant(status: string): 'success' | 'warning' | 'dang
 
 function capitalize(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
-}
-
-function relativeTime(value: string, language: string): string {
-  const ageSeconds = Math.round((new Date(value).getTime() - Date.now()) / 1000);
-  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-    ['year', 31_536_000],
-    ['month', 2_592_000],
-    ['week', 604_800],
-    ['day', 86_400],
-    ['hour', 3_600],
-    ['minute', 60],
-  ];
-  const locale = language.startsWith('ar') ? 'ar' : language.startsWith('so') ? 'so' : 'en';
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
-  for (const [unit, seconds] of units) {
-    if (Math.abs(ageSeconds) >= seconds) return formatter.format(Math.round(ageSeconds / seconds), unit);
-  }
-  return formatter.format(0, 'minute');
 }
 
 function DetailsPanel({ row }: { row: AdminBusinessRow }) {
@@ -142,7 +123,9 @@ function Toast({ toast, onRemove }: { toast: Toast; onRemove: () => void }) {
 }
 
 export function AdminBusinessesPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const notificationSearch = searchParams.get('search');
 
   const [activeTab, setActiveTab] = useState<AdminBusinessFilter>('pending');
   const [searchInput, setSearchInput] = useState('');
@@ -156,12 +139,6 @@ export function AdminBusinessesPage() {
   const [action, setAction] = useState<RowAction | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [notifications, setNotifications] = useState<AdminBusinessNotifications | null>(null);
-  const [notificationOpen, setNotificationOpen] = useState(false);
-  const [notificationError, setNotificationError] = useState(false);
-  const notificationRef = useRef<HTMLDivElement>(null);
-  const previousUnreadCount = useRef(0);
-  const [badgePulse, setBadgePulse] = useState(false);
 
   const showToast = useCallback((message: string, kind: Toast['kind']) => {
     const timer = window.setTimeout(() => {
@@ -195,60 +172,19 @@ export function AdminBusinessesPage() {
   }, [load]);
 
   useEffect(() => {
+    if (!notificationSearch) return;
+    setSearchInput(notificationSearch);
+    setActiveTab('all');
+    setPage(1);
+  }, [notificationSearch]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       setPage(1);
       setSearch(searchInput.trim());
     }, 350);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
-
-  const refreshNotifications = useCallback(async () => {
-    try {
-      const response = await adminApi.getBusinessNotifications();
-      setNotifications(response.data.data);
-      setNotificationError(false);
-      if (response.data.data.unreadCount > previousUnreadCount.current) {
-        setBadgePulse(true);
-        window.setTimeout(() => setBadgePulse(false), 700);
-      }
-      previousUnreadCount.current = response.data.data.unreadCount;
-    } catch {
-      setNotificationError(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshNotifications();
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void refreshNotifications();
-    }, 30_000);
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') void refreshNotifications();
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [refreshNotifications]);
-
-  useEffect(() => {
-    if (!notificationOpen) return;
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (event.target instanceof Node && !notificationRef.current?.contains(event.target)) {
-        setNotificationOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setNotificationOpen(false);
-    };
-    document.addEventListener('mousedown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [notificationOpen]);
 
   useEffect(() => {
     if (!action) return;
@@ -266,21 +202,6 @@ export function AdminBusinessesPage() {
   };
 
   const closeAction = () => setAction(null);
-  const openNotifications = async () => {
-    setNotificationOpen((isOpen) => !isOpen);
-    if (notificationOpen) return;
-    try {
-      await adminApi.markBusinessNotificationsSeen();
-      await refreshNotifications();
-    } catch {
-      setNotificationError(true);
-    }
-  };
-  const viewPending = () => {
-    setNotificationOpen(false);
-    switchTab('pending');
-  };
-
   const beginApprove = (row: AdminBusinessRow) => {
     setAction({ row, decision: 'approve', reason: '', committing: false, error: null });
   };
@@ -348,7 +269,6 @@ export function AdminBusinessesPage() {
       );
       setAction(null);
       void load();
-      void refreshNotifications();
     } catch (err) {
       if (isAxiosError(err)) {
         const status = err.response?.status;
@@ -438,74 +358,6 @@ export function AdminBusinessesPage() {
           </Link>
         </div>
         <div className="flex items-center gap-2">
-          <div className="relative" ref={notificationRef}>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => void openNotifications()}
-              aria-label={t('admin.notifications')}
-              aria-expanded={notificationOpen}
-              aria-haspopup="true"
-              className="relative"
-            >
-              <Bell className="w-5 h-5" />
-              {!!notifications?.unreadCount && (
-                <span
-                  className={cn(
-                    'absolute -top-1 -end-1 min-w-5 h-5 px-1 rounded-full bg-error-500 text-white text-xs flex items-center justify-center',
-                    badgePulse && 'animate-bounce',
-                  )}
-                >
-                  {notifications.unreadCount > 99 ? '99+' : notifications.unreadCount}
-                </span>
-              )}
-            </Button>
-            {notificationOpen && (
-              <div
-                className="absolute end-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-card border border-navy-200 bg-white p-3 shadow-card animate-slide-down"
-                role="dialog"
-                aria-label={t('admin.notifications')}
-              >
-                <div className="flex items-center justify-between gap-3 border-b border-navy-100 pb-2">
-                  <h2 className="font-semibold text-navy-900">{t('admin.recentRegistrations')}</h2>
-                  <span className="text-xs text-navy-500">{t('admin.unreadCount', { count: notifications?.unreadCount ?? 0 })}</span>
-                </div>
-                {notificationError ? (
-                  <p className="py-4 text-sm text-error-600" role="alert">{t('admin.notificationsError')}</p>
-                ) : notifications?.recent.length ? (
-                  <ul className="max-h-80 overflow-y-auto divide-y divide-navy-100">
-                    {notifications.recent.map((item) => (
-                      <li key={item.business_id}>
-                        <button
-                          type="button"
-                          className="flex w-full items-start gap-3 py-3 text-start hover:bg-navy-50"
-                          onClick={() => {
-                            setNotificationOpen(false);
-                            setSearchInput(item.business_name);
-                            setActiveTab('all');
-                            setPage(1);
-                          }}
-                        >
-                          <span className={cn('mt-2 h-2 w-2 shrink-0 rounded-full', item.is_new ? 'bg-primary-600' : 'bg-transparent')} />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-navy-900">{item.business_name}</span>
-                            <span className="block text-xs text-navy-500">
-                              {relativeTime(item.created_at, i18n.language)} · {getStatusLabel(item.status)}
-                            </span>
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="py-5 text-center text-sm text-navy-500">{t('admin.noNotifications')}</p>
-                )}
-                <Button variant="outline" size="sm" className="mt-2 w-full" onClick={viewPending}>
-                  {t('admin.viewAllPending')}
-                </Button>
-              </div>
-            )}
-          </div>
           <Button size="sm" variant="ghost" onClick={() => void load()} aria-label={t('common.retry')}>
             <RefreshCw className="w-4 h-4" />
           </Button>

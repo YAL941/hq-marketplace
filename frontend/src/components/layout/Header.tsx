@@ -9,6 +9,7 @@ import { Button } from '../common/Button';
 import { SearchBar } from '../common/SearchBar';
 import { SmartImage } from '../common/SmartImage';
 import { Avatar } from './Avatar';
+import { NotificationBell } from './NotificationBell';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useTheme } from '../../context/useTheme';
 import { businessDashboardPath, dashboardNavigation, dashboardNavigationHref } from './dashboardNavigation';
@@ -264,6 +265,7 @@ export const Header = forwardRef<HTMLElement, HeaderProps>(
 
             {!isLoginPage && (
               <div className="flex items-center gap-3">
+              <NotificationBell light={homeHeroVisible} />
               {isPublic && !isAuthenticated && (
                 <>
                   <Link to="/login" className={cn('hidden sm:block px-4 py-2 text-sm font-medium transition-colors', homeHeroVisible ? 'text-white hover:text-gold-300' : 'text-navy-700 hover:text-navy-900')}>

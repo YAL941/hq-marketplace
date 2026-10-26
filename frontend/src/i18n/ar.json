@@ -382,9 +382,12 @@
     }
   },
   "notifications": {
-    "title": "إشعارات الجملة",
+    "title": "الإشعارات",
+    "headerTitle": "الإشعارات",
     "unreadCount": "{{count}} غير مقروء",
     "empty": "لا توجد إشعارات بعد.",
+    "signInPrompt": "سجّل الدخول لعرض إشعاراتك.",
+    "viewAll": "عرض جميع الإشعارات",
     "markRead": "تحديد كمقروء",
     "viewRelated": "عرض العنصر المرتبط",
     "loadMore": "تحميل المزيد",

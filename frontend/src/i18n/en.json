@@ -382,9 +382,12 @@
     }
   },
   "notifications": {
-    "title": "Wholesale notifications",
+    "title": "Notifications",
+    "headerTitle": "Notifications",
     "unreadCount": "{{count}} unread",
     "empty": "No notifications yet.",
+    "signInPrompt": "Sign in to view your notifications.",
+    "viewAll": "View all notifications",
     "markRead": "Mark as read",
     "viewRelated": "View related item",
     "loadMore": "Load more",
