@@ -1,5 +1,6 @@
 import type { PoolClient } from 'pg';
 import { notFound } from '../../db/errors.js';
+import { realtimeService } from '../realtime/realtime.service.js';
 
 export interface InAppNotificationRow {
     notification_id: string;
@@ -244,5 +245,13 @@ export async function markInAppNotificationRead(
     );
     const notification = rows[0];
     if (!notification) throw notFound('Notification not found');
+    try {
+        realtimeService.broadcastToUser(businessId, userId, {
+            type: 'notification',
+            businessId,
+            userId,
+            data: { type: 'read', notificationId: notificationId.toString(), notification },
+        });
+    } catch {}
     return notification;
 }

@@ -1,4 +1,4 @@
-process.env['NODE_ENV'] = 'test';
+﻿process.env['NODE_ENV'] = 'test';
 process.env['PGDATABASE'] = process.env['TEST_PGDATABASE'] ?? 'hq_marketplace_test';
 process.env['JWT_SECRET'] = process.env['JWT_SECRET'] ?? 'test-secret-that-is-long-enough-123';
 
@@ -1057,3 +1057,181 @@ describe('HQ Wholesale supplier, offer, order and receipt workflow', () => {
         assert.equal(notificationDuplicates[0]!.duplicates, 0);
     });
 });
+
+    it('creates and delivers wholesale notification events for RFQ and purchase order lifecycle with proper recipients and unread counts', async () => {
+        // Clear existing notifications for clean test
+        await adminPool.query('TRUNCATE in_app_notifications RESTART IDENTITY CASCADE');
+
+        // Create a fresh supplier product and offer
+        const { rows: productRows } = await adminPool.query<{ product_id: string }>(
+            `INSERT INTO products (business_id, product_name, price, currency, status, is_stock_tracked)
+             VALUES ($1, 'Notification lifecycle test', 15, 'USD', 'active', TRUE)
+             RETURNING product_id`,
+            [sellerBusinessId],
+        );
+        const lifecycleProductId = Number(productRows[0]!.product_id);
+
+        const offer = await request(app)
+            .post(`/api/business/${sellerBusinessId}/wholesale/offers`)
+            .set('Authorization', authorization(sellerToken))
+            .send({
+                productId: lifecycleProductId,
+                wholesalePrice: 12,
+                currency: 'USD',
+                minimumOrderQuantity: 5,
+                availableQuantity: 100,
+                tiers: [],
+            });
+        assert.equal(offer.status, 201, JSON.stringify(offer.body));
+        const offerId2 = Number(offer.body.data.offer_id);
+
+        // 1. RFQ creation notification
+        const rfq = await request(app)
+            .post(`/api/business/${buyerBusinessId}/wholesale/rfqs`)
+            .set('Authorization', authorization(buyerToken))
+            .send({
+                supplierBusinessId: sellerBusinessId,
+                deliveryLocationId: buyerLocationId,
+                items: [{ offerId: offerId2, buyerProductId, quantity: 10 }],
+            });
+        assert.equal(rfq.status, 201, JSON.stringify(rfq.body));
+        const lifecycleRfqId = Number(rfq.body.data.rfq_id);
+        const lifecycleRfqItemId = Number(rfq.body.data.items[0].rfq_item_id);
+
+        // Check seller received rfq.created notification
+        let sellerInbox = await request(app)
+            .get(`/api/business/${sellerBusinessId}/notifications?limit=100`)
+            .set('Authorization', authorization(sellerToken));
+        assert.equal(sellerInbox.status, 200);
+        const rfqCreatedNotif = sellerInbox.body.data.notifications.find(
+            (n: { event_type: string; target_id: string }) => n.event_type === 'wholesale.rfq.created' && n.target_id === String(lifecycleRfqId),
+        );
+        assert.ok(rfqCreatedNotif, 'seller should receive rfq.created notification');
+
+        // 2. Quotation submission notification to correct buyer
+        const quote = await request(app)
+            .post(`/api/business/${sellerBusinessId}/wholesale/rfqs/${lifecycleRfqId}/quote`)
+            .set('Authorization', authorization(sellerToken))
+            .send({
+                items: [{ rfqItemId: lifecycleRfqItemId, unitPrice: 11 }],
+                validUntil: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+            });
+        assert.equal(quote.status, 200, JSON.stringify(quote.body));
+
+        let buyerInbox = await request(app)
+            .get(`/api/business/${buyerBusinessId}/notifications?limit=100`)
+            .set('Authorization', authorization(viewerToken));
+        assert.equal(buyerInbox.status, 200);
+        const quotedNotif = buyerInbox.body.data.notifications.find(
+            (n: { event_type: string; target_id: string }) => n.event_type === 'wholesale.rfq.quoted' && n.target_id === String(lifecycleRfqId),
+        );
+        assert.ok(quotedNotif, 'buyer should receive rfq.quoted notification');
+
+        // 3. Accept RFQ and create PO - purchase order created notification to supplier
+        await request(app)
+            .patch(`/api/business/${buyerBusinessId}/wholesale/rfqs/${lifecycleRfqId}`)
+            .set('Authorization', authorization(buyerToken))
+            .send({ decision: 'accepted' });
+
+        const po = await request(app)
+            .post(`/api/business/${buyerBusinessId}/wholesale/purchase-orders`)
+            .set('Authorization', authorization(buyerToken))
+            .send({ rfqId: lifecycleRfqId, deliveryLocationId: buyerLocationId });
+        assert.equal(po.status, 201, JSON.stringify(po.body));
+        const lifecyclePoId = Number(po.body.data.purchase_order_id);
+        const lifecyclePoItemId = Number(po.body.data.items[0].purchase_order_item_id);
+
+        sellerInbox = await request(app)
+            .get(`/api/business/${sellerBusinessId}/notifications?limit=100`)
+            .set('Authorization', authorization(sellerToken));
+        assert.equal(sellerInbox.status, 200);
+        const poCreatedNotif = sellerInbox.body.data.notifications.find(
+            (n: { event_type: string; target_id: string }) => n.event_type === 'wholesale.purchase_order.created' && n.target_id === String(lifecyclePoId),
+        );
+        assert.ok(poCreatedNotif, 'supplier should receive purchase_order.created notification');
+
+        // 4. Order status change notification
+        await request(app)
+            .patch(`/api/business/${sellerBusinessId}/wholesale/purchase-orders/${lifecyclePoId}`)
+            .set('Authorization', authorization(sellerToken))
+            .send({ status: 'confirmed' });
+
+        buyerInbox = await request(app)
+            .get(`/api/business/${buyerBusinessId}/notifications?limit=100`)
+            .set('Authorization', authorization(viewerToken));
+        assert.equal(buyerInbox.status, 200);
+        const statusChangedNotif = buyerInbox.body.data.notifications.find(
+            (n: { event_type: string; target_id: string }) => n.event_type === 'wholesale.purchase_order.status_changed' && n.target_id === String(lifecyclePoId),
+        );
+        assert.ok(statusChangedNotif, 'buyer should receive purchase_order.status_changed notification');
+
+        // 5. Receipt recorded notification
+        await request(app)
+            .patch(`/api/business/${sellerBusinessId}/wholesale/purchase-orders/${lifecyclePoId}`)
+            .set('Authorization', authorization(sellerToken))
+            .send({ status: 'processing' });
+        await request(app)
+            .patch(`/api/business/${sellerBusinessId}/wholesale/purchase-orders/${lifecyclePoId}`)
+            .set('Authorization', authorization(sellerToken))
+            .send({ status: 'shipped' });
+
+        const receipt = await request(app)
+            .post(`/api/business/${buyerBusinessId}/wholesale/purchase-orders/${lifecyclePoId}/receipts`)
+            .set('Authorization', authorization(buyerToken))
+            .send({
+                locationId: buyerLocationId,
+                idempotencyKey: 'lifecycle-receipt-1',
+                items: [{ purchaseOrderItemId: lifecyclePoItemId, quantity: 5 }],
+            });
+        assert.equal(receipt.status, 201, JSON.stringify(receipt.body));
+
+        buyerInbox = await request(app)
+            .get(`/api/business/${buyerBusinessId}/notifications?limit=100`)
+            .set('Authorization', authorization(viewerToken));
+        assert.equal(buyerInbox.status, 200);
+        const receiptNotif = buyerInbox.body.data.notifications.find(
+            (n: { event_type: string; target_id: string }) => n.event_type === 'wholesale.receipt.recorded' && n.target_id === String(lifecyclePoId),
+        );
+        assert.ok(receiptNotif, 'buyer should receive receipt.recorded notification');
+
+        // Test unread count and mark-as-read
+        const unreadCount = await request(app)
+            .get(`/api/business/${buyerBusinessId}/notifications/unread-count`)
+            .set('Authorization', authorization(viewerToken));
+        assert.equal(unreadCount.status, 200);
+        assert.ok(unreadCount.body.data.unreadCount >= 1);
+
+        if (statusChangedNotif) {
+            const markRead = await request(app)
+                .patch(`/api/business/${buyerBusinessId}/notifications/${statusChangedNotif.notification_id}/read`)
+                .set('Authorization', authorization(viewerToken));
+            assert.equal(markRead.status, 200);
+            assert.ok(markRead.body.data.read_at);
+        }
+
+        // Test pagination
+        const page1 = await request(app)
+            .get(`/api/business/${buyerBusinessId}/notifications?limit=2&offset=0`)
+            .set('Authorization', authorization(viewerToken));
+        assert.equal(page1.status, 200);
+        assert.equal(page1.body.data.limit, 2);
+        assert.ok(Array.isArray(page1.body.data.notifications));
+        assert.ok(page1.body.data.total >= 0);
+
+        // Test tenant isolation
+        const outsiderInbox = await request(app)
+            .get(`/api/business/${outsiderBusinessId}/notifications?limit=100`)
+            .set('Authorization', authorization(outsiderToken));
+        assert.equal(outsiderInbox.status, 200);
+        // Outsider should not see notifications from other businesses
+        const outsiderHasOtherBusinessNotif = outsiderInbox.body.data.notifications.some(
+            (n: { business_id: string }) => n.business_id === String(buyerBusinessId) || n.business_id === String(sellerBusinessId),
+        );
+        assert.equal(outsiderHasOtherBusinessNotif, false, 'outsider should not see other businesses notifications');
+
+        // Test unauthorized access
+        const noPerm = await request(app)
+            .get(`/api/business/${buyerBusinessId}/notifications?limit=100`)
+            .set('Authorization', authorization('Bearer invalid'));
+        assert.equal(noPerm.status, 401);
+    });

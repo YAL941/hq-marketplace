@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { badRequest, conflict, forbidden, notFound } from '../../db/errors.js';
 import type { TenantContext } from '../../db/tenant.js';
+import { realtimeService } from '../realtime/realtime.service.js';
 import {
     assertInventoryPermission,
     createStockMovement,
@@ -1120,5 +1121,18 @@ async function recordEvent(
             [rows[0]!.event_id, event.notification.eventType, event.notification.businessId,
                 event.notification.targetType, event.notification.targetId, JSON.stringify(event.notification.metadata)],
         );
+        // Broadcast real-time notification
+        try {
+            realtimeService.broadcastToBusiness(event.notification.businessId, {
+                type: 'notification',
+                businessId: event.notification.businessId,
+                data: {
+                    eventType: event.notification.eventType,
+                    targetType: event.notification.targetType,
+                    targetId: event.notification.targetId,
+                    metadata: event.notification.metadata,
+                },
+            });
+        } catch {}
     }
 }

@@ -20,6 +20,7 @@ import { courierRoutes } from './modules/couriers/courier.routes.js';
 import { inventoryRoutes } from './modules/inventory/inventory.routes.js';
 import { wholesaleRoutes } from './modules/wholesale/wholesale.routes.js';
 import { inAppNotificationRoutes } from './modules/notifications/in-app-notification.routes.js';
+import { realtimeRoutes } from './modules/realtime/realtime.routes.js';
 import { setUploadContentSecurityPolicy, withApiContentSecurityPolicy } from './middleware/csp.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 
@@ -245,6 +246,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
     app.use('/api', inventoryRoutes);
     app.use('/api', wholesaleRoutes);
     app.use('/api', inAppNotificationRoutes);
+    app.use('/api', realtimeRoutes);
     app.use('/api', reviewRoutes);
     app.use('/api', locationRoutes);
     app.use('/api', adminRoutes);
