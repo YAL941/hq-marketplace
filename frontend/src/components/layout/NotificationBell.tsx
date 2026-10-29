@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils';
 import { adminApi, inAppNotificationApi } from '../../services/api';
 import { useAuth } from '../../context/useAuth';
 import type { AdminBusinessNotifications, BusinessApprovalNotification, InAppNotification } from '../../types';
+import { SseClient } from '../../lib/sseClient';
 
 interface HeaderNotification {
   id: string;
@@ -48,7 +49,7 @@ export function NotificationBell({ light = false }: { light?: boolean }) {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, currentBusiness, hasPlatformRole } = useAuth();
+  const { isAuthenticated, currentBusiness, hasPlatformRole, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<HeaderNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -59,6 +60,11 @@ export function NotificationBell({ light = false }: { light?: boolean }) {
   const previousUnreadCount = useRef(0);
   const isPlatformAdmin = hasPlatformRole('platform_admin');
   const businessId = currentBusiness?.business_id;
+  const sseClientRef = useRef<SseClient | null>(null);
+  const useSSERef = useRef(true);
+  const lastEventIdRef = useRef<string | null>(null);
+  const pollingIntervalRef = useRef<number | null>(null);
+  const pollingVisibilityRef = useRef<(() => void) | null>(null);
 
   const refresh = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -149,21 +155,86 @@ export function NotificationBell({ light = false }: { light?: boolean }) {
     if (!isAuthenticated) {
       setItems([]);
       setUnreadCount(0);
+      sseClientRef.current?.stop();
+      sseClientRef.current = null;
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+      if (pollingVisibilityRef.current) {
+        document.removeEventListener('visibilitychange', pollingVisibilityRef.current);
+        pollingVisibilityRef.current = null;
+      }
       return;
     }
     void refresh();
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void refresh();
-    }, 30_000);
-    const refreshOnVisible = () => {
-      if (document.visibilityState === 'visible') void refresh();
+
+    const startPolling = () => {
+      if (pollingIntervalRef.current) return;
+      pollingIntervalRef.current = window.setInterval(() => {
+        if (document.visibilityState === 'visible') void refresh();
+      }, 30000);
+      pollingVisibilityRef.current = () => {
+        if (document.visibilityState === 'visible') void refresh();
+      };
+      document.addEventListener('visibilitychange', pollingVisibilityRef.current);
     };
-    document.addEventListener('visibilitychange', refreshOnVisible);
+
+    const stopPolling = () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      if (pollingVisibilityRef.current) {
+        document.removeEventListener('visibilitychange', pollingVisibilityRef.current);
+        pollingVisibilityRef.current = null;
+      }
+    };
+
+    const client = new SseClient({
+      url: `/api/business/${businessId}/notifications/stream`,
+      getToken: () => localStorage.getItem('hq_token') || sessionStorage.getItem('hq_token'),
+      getLastEventId: () => lastEventIdRef.current,
+      onUnauthorized: () => logout(),
+      onFrame: (frame) => {
+        if (frame.id) lastEventIdRef.current = frame.id;
+        if (frame.eventType === 'ping') return;
+        if (frame.eventType === 'notifications.reset') {
+          lastEventIdRef.current = null;
+        }
+        void refresh();
+      },
+      onPolling: (enabled) => {
+        useSSERef.current = !enabled;
+        if (enabled) startPolling();
+        else stopPolling();
+      },
+      onBeforeReconnect: () => refresh(),
+    });
+    sseClientRef.current = client;
+
+    if (!businessId || document.visibilityState === 'hidden') {
+      startPolling();
+    } else if (useSSERef.current) {
+      client.start();
+    } else {
+      startPolling();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        sseClientRef.current?.stop();
+      } else if (useSSERef.current) {
+        sseClientRef.current?.start();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
-      window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', refreshOnVisible);
+      sseClientRef.current?.stop();
+      sseClientRef.current = null;
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isAuthenticated, refresh]);
+  }, [isAuthenticated, refresh, businessId, logout]);
 
   useEffect(() => {
     if (!open) return;

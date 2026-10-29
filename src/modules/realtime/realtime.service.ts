@@ -5,16 +5,25 @@ export interface RealtimeClient {
     userId: number;
     businessId: number;
     res: Response;
-    lastEventId?: string;
+    catchingUp: boolean;
+    queuedEvents: RealtimeEvent[];
+    sentNotificationIds: Set<string>;
 }
 
-export interface RealtimeEvent {
-    type: 'notification' | 'wholesale.order_status' | 'ping';
-    businessId: number;
-    userId?: number;
-    data: unknown;
-    id?: string;
-}
+export type RealtimeEvent =
+    | {
+        type: 'notification';
+        businessId: number;
+        userId?: number;
+        data: unknown;
+        id: string;
+    }
+    | {
+        type: 'wholesale.order_status' | 'ping';
+        businessId: number;
+        userId?: number;
+        data: unknown;
+    };
 
 class RealtimeService {
     private clients = new Map<string, RealtimeClient>();
@@ -48,18 +57,13 @@ class RealtimeService {
         const clientIds = this.businessClients.get(key);
         if (!clientIds || clientIds.size === 0) return;
 
-        const message = this.formatSSE(event);
         for (const clientId of clientIds) {
             const client = this.clients.get(clientId);
             if (!client) {
                 clientIds.delete(clientId);
                 continue;
             }
-            try {
-                client.res.write(message);
-            } catch {
-                this.removeClient(clientId);
-            }
+            this.deliverOrQueue(client, event);
         }
     }
 
@@ -68,22 +72,61 @@ class RealtimeService {
         const clientIds = this.businessClients.get(key);
         if (!clientIds || clientIds.size === 0) return;
 
-        const message = this.formatSSE(event);
         for (const clientId of clientIds) {
             const client = this.clients.get(clientId);
             if (!client || client.userId !== userId) continue;
-            try {
-                client.res.write(message);
-            } catch {
-                this.removeClient(clientId);
-            }
+            this.deliverOrQueue(client, event);
+        }
+    }
+
+    sendReplayEvent(clientId: string, event: RealtimeEvent): void {
+        const client = this.clients.get(clientId);
+        if (client) this.writeEvent(client, event);
+    }
+
+    sendControlEvent(clientId: string, type: 'ping' | 'notifications.reset', data: unknown): void {
+        const client = this.clients.get(clientId);
+        if (!client) return;
+        const eventMessage = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
+        try {
+            client.res.write(eventMessage);
+        } catch {
+            this.removeClient(clientId);
+        }
+    }
+
+    finishCatchUp(clientId: string): void {
+        const client = this.clients.get(clientId);
+        if (!client) return;
+        client.catchingUp = false;
+        const queuedEvents = client.queuedEvents.splice(0);
+        for (const event of queuedEvents) this.writeEvent(client, event);
+    }
+
+    private deliverOrQueue(client: RealtimeClient, event: RealtimeEvent): void {
+        if (client.catchingUp) {
+            client.queuedEvents.push(event);
+            return;
+        }
+        this.writeEvent(client, event);
+    }
+
+    private writeEvent(client: RealtimeClient, event: RealtimeEvent): void {
+        if (event.type === 'notification') {
+            if (client.sentNotificationIds.has(event.id)) return;
+            client.sentNotificationIds.add(event.id);
+        }
+        try {
+            client.res.write(this.formatSSE(event));
+        } catch {
+            this.removeClient(client.id);
         }
     }
 
     private formatSSE(event: RealtimeEvent): string {
-        const id = event.id || Date.now().toString();
+        const idLine = event.type === 'notification' ? `id: ${event.id}\n` : '';
         const data = JSON.stringify(event.data);
-        return `id: ${id}\nevent: ${event.type}\ndata: ${data}\n\n`;
+        return `${idLine}event: ${event.type}\ndata: ${data}\n\n`;
     }
 
     private getBusinessKey(businessId: number): string {

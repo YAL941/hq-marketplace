@@ -245,8 +245,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
     app.use('/api', courierRoutes);
     app.use('/api', inventoryRoutes);
     app.use('/api', wholesaleRoutes);
-    app.use('/api', inAppNotificationRoutes);
     app.use('/api', realtimeRoutes);
+    app.use('/api', inAppNotificationRoutes);
     app.use('/api', reviewRoutes);
     app.use('/api', locationRoutes);
     app.use('/api', adminRoutes);

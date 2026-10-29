@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { badRequest, conflict, forbidden, notFound } from '../../db/errors.js';
 import type { TenantContext } from '../../db/tenant.js';
-import { realtimeService } from '../realtime/realtime.service.js';
+import { realtimeDispatcher } from '../realtime/realtime.dispatcher.js';
 import {
     assertInventoryPermission,
     createStockMovement,
@@ -1121,18 +1121,40 @@ async function recordEvent(
             [rows[0]!.event_id, event.notification.eventType, event.notification.businessId,
                 event.notification.targetType, event.notification.targetId, JSON.stringify(event.notification.metadata)],
         );
-        // Broadcast real-time notification
-        try {
-            realtimeService.broadcastToBusiness(event.notification.businessId, {
-                type: 'notification',
+        const { rows: recipients } = await client.query<{
+            notification_id: string;
+            recipient_user_id: string;
+            event_type: string;
+            target_type: string;
+            target_id: string;
+            metadata: Record<string, unknown>;
+        }>(
+            `SELECT notification_id::TEXT, recipient_user_id::TEXT, event_type, target_type,
+                    target_id::TEXT, metadata
+               FROM wholesale_notification_recipients_for_event($1, $2)`,
+            [rows[0]!.event_id, event.notification.businessId],
+        );
+
+        const dispatchKey = `tx:${(client as any).processID || randomUUID()}:${Date.now()}`;
+        for (const recipient of recipients) {
+            realtimeDispatcher.enqueue(dispatchKey, {
+                type: 'user',
                 businessId: event.notification.businessId,
-                data: {
-                    eventType: event.notification.eventType,
-                    targetType: event.notification.targetType,
-                    targetId: event.notification.targetId,
-                    metadata: event.notification.metadata,
+                userId: Number(recipient.recipient_user_id),
+                event: {
+                    type: 'notification',
+                    businessId: event.notification.businessId,
+                    userId: Number(recipient.recipient_user_id),
+                    id: recipient.notification_id,
+                    data: {
+                        eventType: recipient.event_type,
+                        targetType: recipient.target_type,
+                        targetId: Number(recipient.target_id),
+                        metadata: recipient.metadata,
+                    },
                 },
             });
-        } catch {}
+        }
+        (client as PoolClient & { _realtimeDispatchKey?: string })._realtimeDispatchKey = dispatchKey;
     }
 }

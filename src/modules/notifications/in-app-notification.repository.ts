@@ -250,6 +250,7 @@ export async function markInAppNotificationRead(
             type: 'notification',
             businessId,
             userId,
+            id: notificationId.toString(),
             data: { type: 'read', notificationId: notificationId.toString(), notification },
         });
     } catch {}

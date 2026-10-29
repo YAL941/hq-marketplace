@@ -1,5 +1,6 @@
 import type { PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { appPool } from './pool.js';
+import { realtimeDispatcher } from '../modules/realtime/realtime.dispatcher.js';
 
 /**
  * The tenant context is the single mechanism through which the backend
@@ -63,9 +64,26 @@ export async function withTenant<T>(
         await applyContext(client, ctx);
         const result = await fn(client);
         await client.query('COMMIT');
+        const dispatchKey = (client as any)._realtimeDispatchKey;
+        if (dispatchKey) {
+            try {
+                realtimeDispatcher.dispatch(dispatchKey);
+            } catch (error) {
+                console.error('[hq] realtime dispatch failed after transaction commit', error);
+                try {
+                    realtimeDispatcher.clear(dispatchKey);
+                } catch (clearError) {
+                    console.error('[hq] failed to clear realtime dispatch after commit', clearError);
+                }
+            }
+        }
         return result;
     } catch (error) {
         await client.query('ROLLBACK').catch(() => undefined);
+        const dispatchKey = (client as any)._realtimeDispatchKey;
+        if (dispatchKey) {
+            realtimeDispatcher.clear(dispatchKey);
+        }
         throw error;
     } finally {
         client.release();
