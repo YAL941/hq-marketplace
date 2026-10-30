@@ -74,6 +74,7 @@ export class SseClient {
   constructor(private readonly options: SseClientOptions) {}
 
   start(): void {
+    if (this.abortController !== null && !this.stopped) return;
     this.stopped = false;
     this.polling = false;
     this.failures = 0;
@@ -224,7 +225,6 @@ export class SseClient {
 
       this.setPolling(false);
       this.failures = 0;
-      this.reconnectAttempt = 0;
       this.lastBuffer = '';
       this.resetHeartbeat();
 
@@ -243,6 +243,9 @@ export class SseClient {
           this.resetHeartbeat();
           const parsed = parseSseFrames(this.lastBuffer, decoder.decode(value, { stream: true }));
           this.lastBuffer = parsed.remainder;
+          if (parsed.frames.length > 0) {
+            this.reconnectAttempt = 0;
+          }
           for (const frame of parsed.frames) this.options.onFrame(frame);
         }
       } catch (error) {

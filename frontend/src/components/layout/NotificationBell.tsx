@@ -223,6 +223,7 @@ export function NotificationBell({ light = false }: { light?: boolean }) {
       if (document.visibilityState === 'hidden') {
         sseClientRef.current?.stop();
       } else if (useSSERef.current) {
+        void refresh();
         sseClientRef.current?.start();
       }
     };
