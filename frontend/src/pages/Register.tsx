@@ -11,6 +11,7 @@ import { Logo } from '../components/branding/Logo';
 import { useAuth } from '../context/useAuth';
 import { toFieldIssue, type FieldIssue } from '../services/api';
 import { isEmailLike, normalisePhone, type PhoneProblem } from '../lib/phone';
+import { getSafeInternalRedirect } from '../lib/internalRedirect';
 import type { AccountRole } from '../types';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -138,7 +139,7 @@ export function RegisterPage() {
         navigate(`/list-your-business?complete=${outcome.businessId}`, { replace: true });
       } else {
         const next = searchParams.get('next');
-        const destination = next?.startsWith('/') && !next.startsWith('//') ? next : '/';
+        const destination = getSafeInternalRedirect(next);
         navigate(isBusiness ? '/dashboard' : destination, { replace: true });
       }
     } catch (error) {

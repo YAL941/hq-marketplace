@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '../common/Badge';
 import { RatingStars } from '../common/RatingStars';
@@ -19,14 +19,6 @@ interface BusinessCardProps {
   featured?: boolean;
 }
 
-/**
- * Renders one entry from the public directory.
- *
- * The card deliberately shows no trust badge. The public routes do not publish
- * verification state, and `is_featured` is an editorial pick, not a check that
- * anybody performed. `is_open_now` is the only status-like signal available,
- * and it is optional, so nothing is shown when the server omits it.
- */
 export function BusinessCard({ business, compact = false, featured = false }: BusinessCardProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -37,14 +29,14 @@ export function BusinessCard({ business, compact = false, featured = false }: Bu
   const [savingFavorite, setSavingFavorite] = useState(false);
   const isFavorite = ids.has(business.business_id);
   const hasRating = business.average_rating !== null && business.review_count > 0;
-  // Routing is by slug everywhere: it is stable across a rename and it is what
-  // the public URL is expected to look like.
-  const href = `/business/${business.business_slug}`;
+  const href = '/business/' + business.business_slug;
 
-  const handleFavorite = async () => {
+  const handleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (!isAuthenticated) {
-      const next = `${location.pathname}${location.search}`;
-      navigate(`/login?next=${encodeURIComponent(next)}`);
+      const next = location.pathname + location.search;
+      navigate('/login?next=' + encodeURIComponent(next));
       return;
     }
     setSavingFavorite(true);
@@ -60,20 +52,15 @@ export function BusinessCard({ business, compact = false, featured = false }: Bu
   return (
     <Card
       padding="none"
-      className={`flex h-full flex-col overflow-hidden ${featured ? 'rounded-2xl border-navy-100 shadow-[0_14px_38px_rgba(11,42,74,0.12)]' : ''}`}
+      className={'group flex h-full flex-col overflow-hidden transition-all duration-300 hover:shadow-card-hover ' + (featured ? 'rounded-2xl border-navy-100 shadow-[0_14px_38px_rgba(11,42,74,0.12)]' : '')}
     >
       <div className="relative aspect-video w-full bg-navy-100 overflow-hidden">
-        <Link to={href} className="absolute inset-0 block group" tabIndex={-1} aria-hidden="true">
-          {/*
-            16:9 is the frame's own ratio, so these intrinsic dimensions only
-            reserve the space until the bytes land. A card is not the first thing
-            on the page, so both of these stay lazy.
-          */}
+        <Link to={href} className="absolute inset-0 block" tabIndex={-1} aria-hidden="true">
           <SmartImage
             value={business.cover_image_url}
             width={640}
             height={360}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             fallback={
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-100 to-primary-200">
                 <Tag className="w-12 h-12 text-primary-400" />
@@ -99,11 +86,11 @@ export function BusinessCard({ business, compact = false, featured = false }: Bu
         </div>
         <button
           type="button"
-          onClick={() => void handleFavorite()}
+          onClick={handleFavorite}
           disabled={savingFavorite || (isAuthenticated && favoritesLoading)}
           aria-label={t(isFavorite ? 'favorites.remove' : 'favorites.save', { name: business.business_name })}
           aria-pressed={isFavorite}
-          className="absolute top-3 start-3 z-10 rounded-full bg-white/95 p-2 text-primary-600 shadow-soft transition-colors hover:bg-white disabled:opacity-60"
+          className="absolute top-3 start-3 z-10 rounded-full bg-white/95 p-2 text-primary-600 shadow-soft transition-all duration-200 hover:bg-white hover:scale-110 disabled:opacity-60"
         >
           <Heart className="h-5 w-5" fill={isFavorite ? 'currentColor' : 'none'} aria-hidden="true" />
         </button>
@@ -122,12 +109,8 @@ export function BusinessCard({ business, compact = false, featured = false }: Bu
         )}
       </div>
 
-      <div className={`flex flex-1 flex-col p-4 ${featured ? 'pt-11' : ''}`} style={{ minHeight: 0 }}>
+      <div className={'flex flex-1 flex-col p-4 ' + (featured ? 'pt-11' : '')} style={{ minHeight: 0 }}>
         <div className="mb-3 flex items-start gap-3">
-          {/*
-            The business name is on screen right beside this, so the logo is
-            decorative: an empty alt is the correct thing, not a missing one.
-          */}
           {!featured && (
             <SmartImage
               value={business.logo_url}
@@ -175,7 +158,7 @@ export function BusinessCard({ business, compact = false, featured = false }: Bu
                 {business.city}
               </span>
             )}
-            {business.district && business.city && <span aria-hidden="true">·</span>}
+            {business.district && business.city && <span aria-hidden="true">Â·</span>}
             {business.district && (
               <span className="flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5" />
@@ -188,10 +171,10 @@ export function BusinessCard({ business, compact = false, featured = false }: Bu
         <div className="mt-auto pt-3 border-t border-navy-100">
           <Link
             to={href}
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors group/link"
           >
             {t('business.viewDetails')}
-            <ArrowRight className="w-4 h-4 rtl:rotate-180" aria-hidden="true" />
+            <ArrowRight className="w-4 h-4 rtl:rotate-180 transition-transform group-hover/link:translate-x-1" aria-hidden="true" />
           </Link>
         </div>
       </div>

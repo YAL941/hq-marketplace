@@ -94,7 +94,11 @@ export function HomePage() {
               ))}
             </div>
           ) : error ? (
-            <ErrorState onRetry={() => void load()} />
+            <ErrorState 
+              title={t('home.loadErrorTitle')}
+              message={t('home.loadErrorDescription')}
+              onRetry={() => void load()} 
+            />
           ) : featured.length > 0 ? (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {featured.map((business) => (

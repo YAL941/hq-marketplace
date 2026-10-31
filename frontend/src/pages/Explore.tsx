@@ -366,7 +366,11 @@ export function ExplorePage() {
               {[...Array(6)].map((_, i) => <BusinessCardSkeleton key={i} />)}
             </div>
           ) : error ? (
-            <ErrorState onRetry={() => void load()} />
+            <ErrorState 
+              title={t('explore.loadErrorTitle')}
+              message={t('explore.loadErrorDescription')}
+              onRetry={() => void load()} 
+            />
           ) : (
             <>
               <ResultsGrid
