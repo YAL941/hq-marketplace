@@ -192,14 +192,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { role: payload.role, businessId };
   };
 
-  const logout = () => {
-    clearToken();
-    localStorage.removeItem(REMEMBER_KEY);
-    setUser(null);
-    setPlatformRoles([]);
-    setBusinesses([]);
-    setCourierBusinesses([]);
-    setCurrentBusiness(null);
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Clear the browser session even if the server is unreachable.
+    } finally {
+      clearToken();
+      localStorage.removeItem(REMEMBER_KEY);
+      setUser(null);
+      setPlatformRoles([]);
+      setBusinesses([]);
+      setCourierBusinesses([]);
+      setCurrentBusiness(null);
+    }
   };
 
   const setCurrentBusinessHandler = (business: BusinessMembership | null) => {

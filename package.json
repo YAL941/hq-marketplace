@@ -5,7 +5,7 @@
   "description": "OmniHQ - Phase 1: multi-business database architecture and data isolation",
   "type": "module",
   "engines": {
-    "node": ">=20.11"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "db:create": "tsx scripts/create-database.ts",
@@ -40,7 +40,7 @@
     "nodemailer": "^10.1.7",
     "pg": "^8.12.0",
     "sharp": "^0.35.5",
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

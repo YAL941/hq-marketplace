@@ -8,6 +8,7 @@ import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { useAuth } from '../context/useAuth';
 import { toFieldIssue, type FieldIssue } from '../services/api';
+import { getSafeInternalRedirect } from '../lib/internalRedirect';
 
 /**
  * The sign-in form.
@@ -77,9 +78,8 @@ export function LoginPage() {
       // A business owner has somewhere to work; a customer does not, and the
       // directory is the point of the account.
       const next = searchParams.get('next');
-      const destination = next?.startsWith('/') && !next.startsWith('//')
-        ? next
-        : role === 'courier' ? '/courier' : role === 'business_owner' ? '/dashboard' : '/';
+      const fallback = role === 'courier' ? '/courier' : role === 'business_owner' ? '/dashboard' : '/';
+      const destination = getSafeInternalRedirect(next, fallback);
       navigate(destination, { replace: true });
     } catch (error) {
       setIssue(toFieldIssue(error));

@@ -117,10 +117,14 @@ export function CategoryPage() {
             {[...Array(6)].map((_, i) => <BusinessCardSkeleton key={i} />)}
           </div>
         ) : pageError ? (
-          <ErrorState onRetry={() => {
-            retryCategories();
-            void load();
-          }} />
+          <ErrorState 
+            title={t('category.loadErrorTitle')}
+            message={t('category.loadErrorDescription')}
+            onRetry={() => {
+              retryCategories();
+              void load();
+            }} 
+          />
         ) : businesses.length > 0 ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

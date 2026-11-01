@@ -44,21 +44,30 @@ export function signAccessToken(user: AuthenticatedUser): string {
     return jwt.sign(payload, config.JWT_SECRET, { expiresIn: config.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] });
 }
 
+interface CurrentSession {
+    tokenVersionMatches: boolean;
+    authorized: boolean;
+}
+
 /**
- * One extra SELECT per authenticated request: the user's current token_version,
- * fetched by primary key with no joins so it hits the users_pkey index.
- * Runs on the existing appPool, not a new connection.
+ * One indexed SELECT per authenticated request verifies both session
+ * revocation and account authorization. No status comes from JWT claims.
  */
-async function tokenVersionMatches(userId: number, tokenVersion: number): Promise<boolean> {
+async function currentSessionMatches(userId: number, tokenVersion: number): Promise<CurrentSession> {
     const { rows } = await withTenant(
         { userId, isPlatformAdmin: false, businessId: null },
         (client) =>
-            client.query<{ token_version: number }>(
-                'SELECT token_version FROM users WHERE user_id = $1',
+            client.query<{ token_version: number; status: string }>(
+                'SELECT token_version, status FROM users WHERE user_id = $1',
                 [userId],
             ),
     );
-    return Number(rows[0]?.token_version) === tokenVersion;
+    const user = rows[0];
+    if (!user) return { tokenVersionMatches: false, authorized: false };
+    return {
+        tokenVersionMatches: Number(user.token_version) === tokenVersion,
+        authorized: user.status === 'active',
+    };
 }
 
 /**
@@ -98,7 +107,12 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
 
     try {
         const id = Number(decoded.sub);
-        if (!(await tokenVersionMatches(id, decoded.token_version ?? 0))) {
+        if (!Number.isSafeInteger(id) || id <= 0) {
+            next(unauthorized('Session revoked'));
+            return;
+        }
+        const session = await currentSessionMatches(id, decoded.token_version ?? 0);
+        if (!session.tokenVersionMatches || !session.authorized) {
             next(unauthorized('Session revoked'));
             return;
         }
@@ -132,7 +146,12 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
 
     try {
         const id = Number(decoded.sub);
-        if (await tokenVersionMatches(id, decoded.token_version ?? 0)) {
+        if (!Number.isSafeInteger(id) || id <= 0) {
+            next();
+            return;
+        }
+        const session = await currentSessionMatches(id, decoded.token_version ?? 0);
+        if (session.tokenVersionMatches && session.authorized) {
             req.user = {
                 id,
                 email: decoded.email,

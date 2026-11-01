@@ -1,10 +1,10 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { forbidden } from '../../db/errors.js';
 import { withTenant } from '../../db/tenant.js';
 import { authenticate, contextFor } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
-import { realtimeService } from './realtime.service.js';
+import { realtimeService, type RealtimeClient } from './realtime.service.js';
 
 const realtimeRoutes = Router();
 const MAX_REPLAY_EVENTS = 500;
@@ -57,18 +57,16 @@ realtimeRoutes.get('/business/:businessId/notifications/stream', authenticate, r
         res.flushHeaders();
 
         const clientId = randomUUID();
-        const client = {
+        const client: RealtimeClient = {
             id: clientId,
             userId,
             businessId,
+            tokenVersion: req.user!.token_version,
             res,
             catchingUp: lastEventId !== null,
             queuedEvents: [],
             sentNotificationIds: new Set<string>(),
         };
-
-        realtimeService.addClient(client);
-        realtimeService.sendControlEvent(clientId, 'ping', { connected: true });
 
         const pingInterval = setInterval(() => {
             realtimeService.sendControlEvent(clientId, 'ping', {});
@@ -77,11 +75,18 @@ realtimeRoutes.get('/business/:businessId/notifications/stream', authenticate, r
             clearInterval(pingInterval);
             realtimeService.removeClient(clientId);
         };
+        client.cleanup = removeClient;
         req.on('close', removeClient);
         req.on('aborted', removeClient);
 
+        realtimeService.addClient(client);
+        realtimeService.sendControlEvent(clientId, 'ping', { connected: true });
+
         if (lastEventId !== null) {
             try {
+                if (res.writableEnded) {
+                    return;
+                }
                 const notifications = await withTenant(contextFor(req, businessId), async (tenantClient) => {
                     const { rows } = await tenantClient.query<ReplayNotificationRow>(
                         `SELECT notification_id::TEXT, event_type, target_type, target_id::TEXT, metadata
@@ -96,12 +101,16 @@ realtimeRoutes.get('/business/:businessId/notifications/stream', authenticate, r
                     return rows;
                 });
 
+                if (res.writableEnded) {
+                    return;
+                }
                 if (notifications.length > MAX_REPLAY_EVENTS) {
                     realtimeService.sendControlEvent(clientId, 'notifications.reset', {
                         reason: 'replay_limit_exceeded',
                     });
                 } else {
                     for (const notification of notifications) {
+                        if (res.writableEnded) break;
                         realtimeService.sendReplayEvent(clientId, {
                             type: 'notification',
                             businessId,
@@ -118,11 +127,15 @@ realtimeRoutes.get('/business/:businessId/notifications/stream', authenticate, r
                 }
             } catch (error) {
                 console.error('[hq] realtime notification replay failed', error);
-                realtimeService.sendControlEvent(clientId, 'notifications.reset', {
-                    reason: 'replay_failed',
-                });
+                if (!res.writableEnded) {
+                    realtimeService.sendControlEvent(clientId, 'notifications.reset', {
+                        reason: 'replay_failed',
+                    });
+                }
             } finally {
-                realtimeService.finishCatchUp(clientId);
+                if (!res.writableEnded) {
+                    realtimeService.finishCatchUp(clientId);
+                }
             }
         }
     } catch (error) {

@@ -50,6 +50,10 @@ async function applyContext(client: PoolClient, ctx: TenantContext): Promise<voi
     ]);
 }
 
+interface RealtimeDispatchClient extends PoolClient {
+    _realtimeDispatchKey?: string;
+}
+
 /**
  * Runs `fn` in a transaction with the tenant context applied.
  * Every repository call in this project goes through this function.
@@ -64,7 +68,7 @@ export async function withTenant<T>(
         await applyContext(client, ctx);
         const result = await fn(client);
         await client.query('COMMIT');
-        const dispatchKey = (client as any)._realtimeDispatchKey;
+        const dispatchKey = (client as RealtimeDispatchClient)._realtimeDispatchKey;
         if (dispatchKey) {
             try {
                 realtimeDispatcher.dispatch(dispatchKey);
@@ -80,7 +84,7 @@ export async function withTenant<T>(
         return result;
     } catch (error) {
         await client.query('ROLLBACK').catch(() => undefined);
-        const dispatchKey = (client as any)._realtimeDispatchKey;
+        const dispatchKey = (client as RealtimeDispatchClient)._realtimeDispatchKey;
         if (dispatchKey) {
             realtimeDispatcher.clear(dispatchKey);
         }

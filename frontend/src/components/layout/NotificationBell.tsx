@@ -203,11 +203,10 @@ export function NotificationBell({ light = false }: { light?: boolean }) {
         void refresh();
       },
       onPolling: (enabled) => {
-        useSSERef.current = !enabled;
         if (enabled) startPolling();
         else stopPolling();
       },
-      onBeforeReconnect: () => refresh(),
+      onBeforeReconnect: () => undefined,
     });
     sseClientRef.current = client;
 

@@ -1,4 +1,4 @@
-import { cn } from '../../lib/utils';
+﻿import { cn } from '../../lib/utils';
 import { Card } from './Card';
 
 export interface SkeletonProps {
@@ -28,30 +28,41 @@ export function Skeleton({ className, variant = 'text', width, height }: Skeleto
 
 export function BusinessCardSkeleton() {
   return (
-    <Card padding="none" className="overflow-hidden">
-      <Skeleton variant="rectangular" className="aspect-video w-full" />
+    <Card padding="none" className="overflow-hidden animate-pulse">
+      <div className="aspect-video w-full bg-navy-200" />
       <div className="p-5 space-y-3">
         <div className="flex items-center gap-3">
-          <Skeleton variant="circular" width={48} height={48} />
+          <div className="h-12 w-12 rounded-sg bg-navy-200 flex-shrink-0" />
           <div className="flex-1 space-y-2">
-            <Skeleton variant="text" width="60%" />
-            <Skeleton variant="text" width="40%" />
+            <div className="h-4 bg-navy-200 rounded w-3/5" />
+            <div className="h-3 bg-navy-200 rounded w-2/5" />
           </div>
         </div>
-        <Skeleton variant="text" width="80%" />
+        <div className="h-3 bg-navy-200 rounded w-4/5" />
         <div className="flex items-center gap-2">
-          <Skeleton variant="circular" width={16} height={16} />
-          <Skeleton variant="text" width="40%" />
+          <div className="h-4 w-4 rounded-full bg-navy-200" />
+          <div className="h-3 bg-navy-200 rounded w-2/5" />
         </div>
-        <div className="flex items-center gap-2">
-          <Skeleton variant="text" width="20%" />
-          <Skeleton variant="text" width="30%" />
+        <div className="pt-3 border-t border-navy-100">
+          <div className="h-4 bg-navy-200 rounded w-1/4" />
         </div>
       </div>
     </Card>
   );
 }
 
+export function ProductCardSkeleton() {
+  return (
+    <Card padding="none" className="overflow-hidden animate-pulse">
+      <div className="aspect-square w-full bg-navy-200" />
+      <div className="p-4 space-y-2">
+        <div className="h-4 bg-navy-200 rounded w-3/4" />
+        <div className="h-3 bg-navy-200 rounded w-1/2" />
+        <div className="h-4 bg-navy-200 rounded w-1/3" />
+      </div>
+    </Card>
+  );
+}
 export function BusinessHeaderSkeleton() {
   return (
     <div className="space-y-4">
@@ -92,7 +103,7 @@ export function CategoryCardSkeleton() {
 export function DashboardStatsSkeleton() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {[1, 2, 3, 4].map((i) => (
+      {[1,2,3,4].map((i) => (
         <Card key={i} className="p-5">
           <Skeleton variant="text" width="40%" className="mb-2" />
           <Skeleton variant="text" width="60%" height={32} />
@@ -102,7 +113,6 @@ export function DashboardStatsSkeleton() {
   );
 }
 
-/** Placeholder rows for a staff list, so the page does not jump when data lands. */
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <div className="space-y-3" aria-hidden="true">

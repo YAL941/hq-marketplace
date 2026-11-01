@@ -450,6 +450,24 @@ authRoutes.post('/auth/password-reset/confirm', authLimiter, async (req, res, ne
     }
 });
 
+/** Revokes every JWT issued to the current account. */
+authRoutes.post('/auth/logout', authenticate, async (req, res, next) => {
+    try {
+        await withTenant(contextFor(req), async (client) => {
+            await client.query(
+                `UPDATE users
+                    SET token_version = token_version + 1,
+                        updated_at = now()
+                  WHERE user_id = $1`,
+                [req.user!.id],
+            );
+        });
+        res.json({ data: { message: 'Logged out successfully' } });
+    } catch (error) {
+        next(error);
+    }
+});
+
 /** The caller's profile plus every business they belong to. */
 authRoutes.get('/auth/me', authenticate, async (req, res, next) => {
     try {

@@ -225,6 +225,9 @@ export const authApi = {
   confirmPasswordReset: (data: { token: string; password: string }) =>
     api.post<ApiResponse<{ message: string }>>('/auth/password-reset/confirm', data),
 
+  logout: () =>
+    api.post<ApiResponse<{ message: string }>>('/auth/logout'),
+
   me: () => api.get<ApiResponse<AuthMeResponse>>('/auth/me'),
 
   /**

@@ -31,7 +31,7 @@ const createSchema = z.object({
     phone: z.string().max(20).nullish(),
     isPrimary: z.boolean().optional(),
     isActive: z.boolean().optional(),
-    workingHours: z.record(z.array(z.string())).nullish(),
+    workingHours: z.record(z.string(), z.array(z.string())).nullish(),
 });
 
 const updateSchema = createSchema.partial().refine((v) => Object.keys(v).length > 0, { message: 'Empty patch' });

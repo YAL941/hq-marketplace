@@ -61,6 +61,12 @@ describe('password recovery', () => {
             .send({ email, code: verificationCode });
         assert.equal(verification.status, 200, JSON.stringify(verification.body));
 
+        const oldLogin = await request(app)
+            .post('/api/auth/login')
+            .send({ identifier: email, password: oldPassword });
+        assert.equal(oldLogin.status, 200, JSON.stringify(oldLogin.body));
+        const oldToken = oldLogin.body.data.token;
+
         const rawToken = randomBytes(32).toString('hex');
         const tokenHash = createHash('sha256').update(rawToken).digest('hex');
         await adminPool.query(
@@ -74,19 +80,29 @@ describe('password recovery', () => {
             .send({ token: rawToken, password: newPassword });
         assert.equal(reset.status, 200, JSON.stringify(reset.body));
 
+        const revokedRegistrationToken = await request(app)
+            .get('/api/auth/me')
+            .set('Authorization', `Bearer ${oldToken}`);
+        assert.equal(revokedRegistrationToken.status, 401);
+
         const reused = await request(app)
             .post('/api/auth/password-reset/confirm')
             .send({ token: rawToken, password: 'ThirdPassword123!' });
         assert.equal(reused.status, 400);
 
-        const oldLogin = await request(app)
-            .post('/api/auth/login')
-            .send({ identifier: email, password: oldPassword });
-        assert.equal(oldLogin.status, 401);
-
         const newLogin = await request(app)
             .post('/api/auth/login')
             .send({ identifier: email, password: newPassword });
         assert.equal(newLogin.status, 200, JSON.stringify(newLogin.body));
+
+        const logout = await request(app)
+            .post('/api/auth/logout')
+            .set('Authorization', `Bearer ${newLogin.body.data.token}`);
+        assert.equal(logout.status, 200, JSON.stringify(logout.body));
+
+        const revokedLoginToken = await request(app)
+            .get('/api/auth/me')
+            .set('Authorization', `Bearer ${newLogin.body.data.token}`);
+        assert.equal(revokedLoginToken.status, 401);
     });
 });

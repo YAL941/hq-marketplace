@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import request from 'supertest';
 import { createServer } from 'http';
+import { randomUUID } from 'crypto';
 import type { PoolClient } from 'pg';
 import type { Response as ExpressResponse } from 'express';
 import jwt from 'jsonwebtoken';
@@ -44,10 +45,10 @@ before(async () => {
     const { prepareTestDatabase } = await import('./helpers/test-database.js');
     await prepareTestDatabase(adminPool);
 
-    const { rows: users } = await adminPool.query(
+    const { rows: users } = await adminPool.query<{ email: string; user_id: string }>(
         "INSERT INTO users (email, password_hash, full_name, status) VALUES ('sse-seller@hq.test','unused','SSE Seller','active'),('sse-buyer@hq.test','unused','SSE Buyer','active'),('sse-outsider@hq.test','unused','SSE Outsider','active'),('sse-noview@hq.test','unused','SSE NoView','active') RETURNING user_id, email",
     );
-    const userIds = new Map((users as any[]).map((row) => [row.email, Number(row.user_id)]));
+    const userIds = new Map(users.map((row) => [row.email, Number(row.user_id)]));
     sellerUserId = userIds.get('sse-seller@hq.test')!;
     buyerUserId = userIds.get('sse-buyer@hq.test')!;
     const { signAccessToken } = await import('../src/middleware/auth.js');
@@ -56,10 +57,10 @@ before(async () => {
     outsiderToken = signAccessToken({ id: userIds.get('sse-outsider@hq.test')!, email: 'sse-outsider@hq.test', isPlatformAdmin: false, token_version: 0 });
     noWholesaleViewToken = signAccessToken({ id: userIds.get('sse-noview@hq.test')!, email: 'sse-noview@hq.test', isPlatformAdmin: false, token_version: 0 });
 
-    const { rows: businesses } = await adminPool.query(
+    const { rows: businesses } = await adminPool.query<{ business_id: string; business_slug: string }>(
         "INSERT INTO businesses (business_name,business_slug,address,city,status,verification_status,is_verified,verified_at) VALUES ('SSE Seller','sse-seller','a','M','active','verified',TRUE,now()),('SSE Buyer','sse-buyer','a','M','active','verified',TRUE,now()),('SSE Outsider','sse-outsider','a','M','active','verified',TRUE,now()),('SSE NoView','sse-noview','a','M','active','verified',TRUE,now()) RETURNING business_id,business_slug",
     );
-    const businessIds = new Map((businesses as any[]).map((row) => [row.business_slug, Number(row.business_id)]));
+    const businessIds = new Map(businesses.map((row) => [row.business_slug, Number(row.business_id)]));
     sellerBusinessId = businessIds.get('sse-seller')!;
     buyerBusinessId = businessIds.get('sse-buyer')!;
     outsiderBusinessId = businessIds.get('sse-outsider')!;
@@ -68,10 +69,10 @@ before(async () => {
     await adminPool.query(
         "INSERT INTO roles (role_key, role_name, description, scope, rank, is_system) VALUES ('test_no_wholesale_view', 'Test No Wholesale View', 'Test role without Wholesale permissions', 'business', 1, FALSE) ON CONFLICT (role_key, scope) DO NOTHING",
     );
-    const { rows: roles } = await adminPool.query(
+    const { rows: roles } = await adminPool.query<{ role_id: string; role_key: string }>(
         "SELECT role_id, role_key FROM roles WHERE (scope='business' AND role_key IN ('business_owner', 'test_no_wholesale_view'))",
     );
-    const roleIds = new Map((roles as any[]).map((row) => [row.role_key, Number(row.role_id)]));
+    const roleIds = new Map(roles.map((row) => [row.role_key, Number(row.role_id)]));
     await adminPool.query(
         "INSERT INTO business_users (business_id,user_id,role_id,status,joined_at) VALUES ($1,$2,$3,'active',now()),($4,$5,$6,'active',now()),($7,$8,$9,'active',now()),($10,$11,$12,'active',now())",
         [sellerBusinessId, sellerUserId, roleIds.get('business_owner'), buyerBusinessId, buyerUserId, roleIds.get('business_owner'), outsiderBusinessId, userIds.get('sse-outsider@hq.test'), roleIds.get('business_owner'), noviewBusinessId, userIds.get('sse-noview@hq.test'), roleIds.get('test_no_wholesale_view')],
@@ -235,6 +236,58 @@ async function latestNotificationId(userId: number, businessId: number): Promise
         [userId, businessId],
     );
     return rows[0]!.notification_id;
+}
+
+async function createRevalidationFixture(label: string): Promise<{
+    userId: number;
+    token: string;
+}> {
+    const suffix = randomUUID();
+    const email = `sse-revalidation-${label}-${suffix}@hq.test`;
+    const { rows } = await adminPool.query<{ user_id: string }>(
+        `INSERT INTO users (email, password_hash, full_name, status, token_version)
+         VALUES ($1, 'unused', $2, 'active', 0)
+         RETURNING user_id`,
+        [email, `SSE Revalidation ${label}`],
+    );
+    const userId = Number(rows[0]!.user_id);
+    const { rows: managerRoles } = await adminPool.query<{ role_id: string }>(
+        `SELECT role_id FROM roles
+          WHERE role_key = 'business_manager' AND scope = 'business'
+          LIMIT 1`,
+    );
+    assert.ok(managerRoles[0], 'business_manager role is required by the test database');
+    await adminPool.query(
+        `INSERT INTO business_users (business_id, user_id, role_id, status, joined_at)
+         VALUES ($1, $2, $3, 'active', now())`,
+        [sellerBusinessId, userId, managerRoles[0]!.role_id],
+    );
+    const token = jwt.sign(
+        { sub: String(userId), email, pa: false, token_version: 0 },
+        config.JWT_SECRET,
+        { expiresIn: '1h' },
+    );
+    return { userId, token };
+}
+
+async function cleanupRevalidationFixture(userId: number): Promise<void> {
+    await adminPool.query(`DELETE FROM business_users WHERE user_id = $1`, [userId]);
+    await adminPool.query(`DELETE FROM users WHERE user_id = $1`, [userId]);
+}
+
+async function waitForSseClose(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<boolean> {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+        const result = await Promise.race([
+            reader.read().then((value) => value.done),
+            new Promise<false>((resolve) => {
+                timeout = setTimeout(() => resolve(false), 1500);
+            }),
+        ]);
+        return result === true;
+    } finally {
+        if (timeout) clearTimeout(timeout);
+    }
 }
 
 describe('SSE Phase A', () => {
@@ -460,6 +513,7 @@ describe('SSE Phase B - RFQ delivery', () => {
                     id: clientId,
                     businessId: sellerBusinessId,
                     userId: sellerUserId,
+                    tokenVersion: 0,
                     res: {
                         write: (chunk: string) => {
                             output.push(chunk);
@@ -648,6 +702,119 @@ describe('SSE Phase C - RFQ delivery isolation and permission', () => {
             await closeSse(outsiderConnection);
             await closeSse(supplierConnection);
             await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+        }
+    });
+});
+
+describe('SSE security revalidation', () => {
+    async function runOpenConnectionRevalidation(
+        label: string,
+        revokeAccess: (fixture: { userId: number; token: string }) => Promise<void>,
+        assertClientClosed: boolean,
+    ): Promise<void> {
+        const httpServer = createServer(app);
+        const baseUrl = await new Promise<string>((resolve) => {
+            httpServer.listen(0, '127.0.0.1', () => {
+                const addr = httpServer.address();
+                const port = typeof addr === 'object' && addr ? addr.port : 0;
+                resolve('http://127.0.0.1:' + port);
+            });
+        });
+
+        const fixture = await createRevalidationFixture(label);
+        let connection: SseConnection | undefined;
+        try {
+            realtimeService.configureRevalidationIntervalForTests(60_000);
+            connection = await openSse(baseUrl, sellerBusinessId, fixture.token);
+            await receivesTextWithContent(connection.reader, 'ping', 2000);
+            assert.ok(realtimeService.getClientCount(sellerBusinessId) >= 1);
+
+            await revokeAccess(fixture);
+            await realtimeService.revalidateClientsForTests();
+
+            const closed = await waitForSseClose(connection.reader);
+            if (assertClientClosed) assert.equal(closed, true);
+            assert.equal(realtimeService.getClientCount(sellerBusinessId), 0);
+
+            realtimeService.broadcastToUser(sellerBusinessId, fixture.userId, {
+                type: 'notification',
+                businessId: sellerBusinessId,
+                userId: fixture.userId,
+                id: `revalidation-${randomUUID()}`,
+                data: { eventType: 'revalidation.should_not_arrive' },
+            });
+            const frames = await receiveSseEvents(connection.reader, 'notification', 1, 300);
+            assert.deepEqual(frames, []);
+        } finally {
+            realtimeService.clearAllClientsForTests();
+            realtimeService.resetRevalidationIntervalForTests();
+            await closeSse(connection);
+            await cleanupRevalidationFixture(fixture.userId);
+            httpServer.closeAllConnections?.();
+            await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+        }
+    }
+
+    it('closes an open connection after wholesale.view is revoked', async () => {
+        await runOpenConnectionRevalidation('permission-revoke', async ({ userId }) => {
+            const { rows } = await adminPool.query<{ role_id: string }>(
+                `SELECT role_id FROM roles
+                  WHERE role_key = 'test_no_wholesale_view' AND scope = 'business'
+                  LIMIT 1`,
+            );
+            assert.ok(rows[0]);
+            await adminPool.query(
+                `UPDATE business_users SET role_id = $1 WHERE business_id = $2 AND user_id = $3`,
+                [rows[0]!.role_id, sellerBusinessId, userId],
+            );
+        }, true);
+    });
+
+    it('closes an open connection after company membership is deleted', async () => {
+        await runOpenConnectionRevalidation('membership-delete', async ({ userId }) => {
+            await adminPool.query(
+                `DELETE FROM business_users WHERE business_id = $1 AND user_id = $2`,
+                [sellerBusinessId, userId],
+            );
+        }, true);
+    });
+
+    it('closes an open connection after the account is suspended', async () => {
+        await runOpenConnectionRevalidation('account-suspended', async ({ userId }) => {
+            await adminPool.query(
+                `UPDATE users SET status = 'suspended' WHERE user_id = $1`,
+                [userId],
+            );
+        }, true);
+    });
+
+    it('closes an open connection after token_version changes', async () => {
+        await runOpenConnectionRevalidation('token-version', async ({ userId }) => {
+            await adminPool.query(
+                `UPDATE users SET token_version = token_version + 1 WHERE user_id = $1`,
+                [userId],
+            );
+        }, true);
+    });
+
+    it('closes an open connection and restores access after a real revalidation query failure', async () => {
+        const appRole = config.APP_DB_CONNECTION_USER ?? config.APP_DB_USER;
+        const { rows } = await adminPool.query<{ role_name: string }>(
+            'SELECT quote_ident($1) AS role_name',
+            [appRole],
+        );
+        const roleName = rows[0]!.role_name;
+        let revoked = false;
+        try {
+            await runOpenConnectionRevalidation('query-failure', async () => {
+                // The database revalidation SELECT fails for the real hq_app role.
+                await adminPool.query(`REVOKE SELECT ON TABLE users FROM ${roleName}`);
+                revoked = true;
+            }, true);
+        } finally {
+            if (revoked) {
+                await adminPool.query(`GRANT SELECT ON TABLE users TO ${roleName}`);
+            }
         }
     });
 });

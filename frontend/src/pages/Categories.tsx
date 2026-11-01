@@ -46,7 +46,11 @@ export function CategoriesPage() {
             {[...Array(6)].map((_, index) => <Skeleton key={index} className="h-28 rounded-card" />)}
           </div>
         ) : error ? (
-          <ErrorState onRetry={() => void retry()} />
+          <ErrorState 
+            title={t('categories.loadErrorTitle')}
+            message={t('categories.loadErrorDescription')}
+            onRetry={() => void retry()} 
+          />
         ) : categories.length === 0 ? (
           <EmptyState title={t('categories.emptyTitle')} description={t('categories.emptyDescription')} />
         ) : (
