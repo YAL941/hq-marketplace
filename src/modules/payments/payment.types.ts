@@ -50,6 +50,9 @@ export interface PaymentRecord {
     merchant_amount_minor: string | null;
     rate_used_bps: number | null;
     provider_data: Record<string, unknown>;
+    reconciliation_status: 'none' | 'refund_review_required';
+    reconciliation_reason: string | null;
+    reconciliation_at: Date | null;
     created_at: Date;
     updated_at: Date;
     paid_at: Date | null;

@@ -115,6 +115,7 @@ export async function applyVerifiedPaymentEvent(
         order_id: string;
         payment_status: string;
         duplicate: boolean;
+        reconciliation_required: boolean;
     }>(
         `SELECT * FROM apply_verified_payment_event($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
         [

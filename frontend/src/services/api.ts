@@ -644,7 +644,7 @@ export const paymentApi = {
       { headers: { 'Idempotency-Key': globalThis.crypto.randomUUID() } },
     ),
   completeMock: (paymentId: Id) =>
-    api.post<ApiResponse<{ payment_id: Id; order_id: Id; payment_status: string; duplicate: boolean }>>(
+    api.post<ApiResponse<{ payment_id: Id; order_id: Id; payment_status: string; duplicate: boolean; reconciliation_required: boolean }>>(
       `/payments/${paymentId}/mock-complete`,
     ),
 };

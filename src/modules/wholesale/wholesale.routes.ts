@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { conflict, forbidden, unauthorized } from '../../db/errors.js';
 import { withTenant } from '../../db/tenant.js';
-import { authenticate, contextFor, optionalAuth } from '../../middleware/auth.js';
+import { authenticate, contextFor, optionalAuth, requirePlatformAdmin } from '../../middleware/auth.js';
 import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import {
@@ -130,9 +130,8 @@ wholesaleRoutes.get('/wholesale/offers', optionalAuth, async (req, res, next) =>
     }
 });
 
-wholesaleRoutes.get('/admin/wholesale/suppliers', authenticate, async (req, res, next) => {
+wholesaleRoutes.get('/admin/wholesale/suppliers', authenticate, requirePlatformAdmin, async (req, res, next) => {
     try {
-        if (!req.user?.isPlatformAdmin) throw forbidden('Platform administration required');
         const status = z.enum(['pending', 'approved', 'rejected', 'suspended']).optional().parse(req.query['status']);
         const suppliers = await withTenant(contextFor(req), (client) => listSupplierApplications(client, status));
         res.json({ data: suppliers });
@@ -141,9 +140,13 @@ wholesaleRoutes.get('/admin/wholesale/suppliers', authenticate, async (req, res,
     }
 });
 
-wholesaleRoutes.patch('/admin/wholesale/suppliers/:businessId', authenticate, writeLimiter, async (req, res, next) => {
+wholesaleRoutes.patch(
+    '/admin/wholesale/suppliers/:businessId',
+    authenticate,
+    requirePlatformAdmin,
+    writeLimiter,
+    async (req, res, next) => {
     try {
-        if (!req.user?.isPlatformAdmin) throw forbidden('Platform administration required');
         const businessId = z.coerce.number().int().positive().parse(req.params['businessId']);
         const input = reviewSupplierSchema.parse(req.body);
         const supplier = await withTenant(contextFor(req), async (client) => {
@@ -158,7 +161,8 @@ wholesaleRoutes.patch('/admin/wholesale/suppliers/:businessId', authenticate, wr
     } catch (error) {
         next(error);
     }
-});
+    },
+);
 
 wholesaleRoutes.get('/business/:businessId/wholesale', authenticate, resolveBusiness, async (req, res, next) => {
     try {

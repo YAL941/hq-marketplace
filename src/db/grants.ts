@@ -1,5 +1,63 @@
 import type { Pool, PoolClient } from 'pg';
 
+export const HQ_APP_FUNCTION_ALLOWLIST = [
+    { signature: 'app_user_id()', description: 'RLS session helper' },
+    { signature: 'app_is_platform_admin()', description: 'Platform admin RLS helper' },
+    { signature: 'app_current_business_id()', description: 'Tenant session helper' },
+    { signature: 'app_is_business_member(BIGINT)', description: 'Business membership RLS helper' },
+    { signature: 'app_has_business_permission(BIGINT, TEXT)', description: 'Permission RLS and API helper' },
+    { signature: 'app_business_ids()', description: 'Business membership RLS helper' },
+    { signature: 'app_business_is_public(BIGINT)', description: 'Public business visibility helper' },
+    { signature: 'app_business_has_no_members(BIGINT)', description: 'Onboarding RLS helper' },
+    { signature: 'app_user_for_login(TEXT)', description: 'Login lookup' },
+    { signature: 'app_public_reviews(BIGINT, INTEGER, INTEGER)', description: 'Public review reader' },
+    { signature: 'app_public_product_reviews(BIGINT, INTEGER, INTEGER)', description: 'Public product review reader' },
+    { signature: 'user_email_is_verified(BIGINT)', description: 'Login email verification' },
+    { signature: 'issue_user_email_verification_code(CITEXT, TEXT, TIMESTAMPTZ)', description: 'Email verification issuance' },
+    { signature: 'verify_user_email_code(CITEXT, TEXT)', description: 'Email verification consumption' },
+    { signature: 'create_user_password_reset_token(CITEXT, TEXT, TIMESTAMPTZ)', description: 'Password reset issuance' },
+    { signature: 'consume_user_password_reset_token(TEXT, TEXT)', description: 'Password reset consumption' },
+    { signature: 'app_payment_notification_customer(BIGINT)', description: 'Payment notification lookup' },
+    { signature: 'increment_business_profile_views(BIGINT)', description: 'Profile view counters' },
+    { signature: 'refresh_business_statistics(BIGINT)', description: 'Business statistics refresh' },
+    { signature: 'reserve_order_product(BIGINT, BIGINT, INTEGER, BIGINT)', description: 'Checkout stock reservation' },
+    { signature: 'lock_order_inventory_products(BIGINT, BIGINT[])', description: 'Checkout inventory locking' },
+    { signature: 'record_order_stock_sale(BIGINT)', description: 'Order stock sale recording' },
+    { signature: 'apply_inventory_stock_delta(BIGINT, BIGINT, INTEGER)', description: 'Inventory adjustments' },
+    { signature: 'apply_verified_payment_event(TEXT, TEXT, TEXT, BIGINT, TEXT, BOOLEAN, INTEGER, JSONB)', description: 'Payment webhook processing' },
+    { signature: 'create_wholesale_event_notifications(BIGINT, TEXT, BIGINT, TEXT, BIGINT, JSONB)', description: 'Wholesale notification creation' },
+    { signature: 'wholesale_notification_recipients_for_event(BIGINT, BIGINT)', description: 'Wholesale notification replay' },
+] as const;
+
+const HQ_APP_FUNCTION_SIGNATURES = HQ_APP_FUNCTION_ALLOWLIST.map(({ signature }) => signature);
+
+const SENSITIVE_FUNCTION_SIGNATURES = [
+    'app_user_for_login(TEXT)',
+    'refresh_business_statistics(BIGINT)',
+    'increment_business_profile_views(BIGINT)',
+    'reserve_order_product(BIGINT, BIGINT, INTEGER, BIGINT)',
+    'lock_order_inventory_products(BIGINT, BIGINT[])',
+    'record_order_stock_sale(BIGINT)',
+    'apply_inventory_stock_delta(BIGINT, BIGINT, INTEGER)',
+    'issue_user_email_verification_code(CITEXT, TEXT, TIMESTAMPTZ)',
+    'verify_user_email_code(CITEXT, TEXT)',
+    'user_email_is_verified(BIGINT)',
+    'app_public_reviews(BIGINT, INTEGER, INTEGER)',
+    'app_public_product_reviews(BIGINT, INTEGER, INTEGER)',
+] as const;
+
+const TRIGGER_ONLY_FUNCTION_SIGNATURES = [
+    'set_updated_at()',
+    'assert_platform_role_scope()',
+    'assert_business_role_scope()',
+    'set_order_number()',
+    'append_order_status_history()',
+    'append_delivery_status_history()',
+    'restock_cancelled_order()',
+    'assert_inventory_product_total()',
+    'reconcile_terminal_order_payment()',
+] as const;
+
 /**
  * Grants for the application role.
  *
@@ -32,21 +90,66 @@ export async function applyGrants(
     await client.query(`GRANT USAGE ON SCHEMA public TO ${roleIdent}`);
     await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${roleIdent}`);
     await client.query(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${roleIdent}`);
-    await client.query(`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ${roleIdent}`);
-    await client.query(`GRANT EXECUTE ON ALL PROCEDURES IN SCHEMA public TO ${roleIdent}`);
+    await client.query('REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM ' + roleIdent);
+    await client.query('REVOKE ALL ON ALL PROCEDURES IN SCHEMA public FROM ' + roleIdent);
 
-    // future migrations keep granting automatically to the same role
+    // Remove any broad future-function grant from every role that owns
+    // default privileges in public. Migrations run through the admin pool, so
+    // its current role is the normal migration owner; other owner names are
+    // discovered explicitly as well.
     await client.query(`
         DO $do$
+        DECLARE
+            owner_name TEXT;
         BEGIN
-            EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public
-                GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', ${roleLiteral});
-            EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public
-                GRANT USAGE, SELECT ON SEQUENCES TO %I', ${roleLiteral});
-            EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public
-                GRANT EXECUTE ON FUNCTIONS TO %I', ${roleLiteral});
-        END $do$;
+            owner_name := current_user;
+            EXECUTE format(
+                'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public
+                 REVOKE EXECUTE ON FUNCTIONS FROM %I',
+                owner_name, ${roleLiteral}
+            );
+            EXECUTE format(
+                'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public
+                 REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC',
+                owner_name
+            );
+            FOR owner_name IN
+                SELECT DISTINCT r.rolname
+                  FROM pg_default_acl d
+                  JOIN pg_roles r ON r.oid = d.defaclrole
+                 WHERE d.defaclnamespace = 'public'::regnamespace
+                   AND d.defaclobjtype = 'f'
+            LOOP
+                EXECUTE format(
+                    'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public
+                     REVOKE EXECUTE ON FUNCTIONS FROM %I',
+                    owner_name, ${roleLiteral}
+                );
+                EXECUTE format(
+                    'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public
+                     REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC',
+                    owner_name
+                );
+            END LOOP;
+        END $do$
     `);
+
+    // Exact direct application and RLS dependencies.
+    for (const signature of HQ_APP_FUNCTION_SIGNATURES) {
+        await client.query(`GRANT EXECUTE ON FUNCTION ${signature} TO ${roleIdent}`);
+    }
+
+    // Sensitive project functions and explicitly PUBLIC-granted migration
+    // functions must not remain callable by PUBLIC.
+    for (const signature of SENSITIVE_FUNCTION_SIGNATURES) {
+        await client.query(`REVOKE ALL ON FUNCTION ${signature} FROM PUBLIC`);
+    }
+
+    // Trigger functions execute through triggers, not through hq_app SQL calls.
+    for (const signature of TRIGGER_ONLY_FUNCTION_SIGNATURES) {
+        await client.query(`REVOKE ALL ON FUNCTION ${signature} FROM ${roleIdent}`);
+        await client.query(`REVOKE ALL ON FUNCTION ${signature} FROM PUBLIC`);
+    }
 
     // the migration ledger belongs to the admin role only
     await client.query('DO $do$ BEGIN REVOKE ALL ON schema_migrations FROM PUBLIC; EXCEPTION WHEN undefined_table THEN NULL; END $do$');

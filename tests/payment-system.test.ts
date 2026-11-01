@@ -17,6 +17,7 @@ const mockProvider = new MockMobileMoneyProvider(webhookSecret);
 type App = import('express').Express;
 let app: App;
 let adminPool: import('pg').Pool;
+let appPool: import('pg').Pool;
 let closePools: () => Promise<void>;
 let customerToken: string;
 let businessId: number;
@@ -46,6 +47,7 @@ before(async () => {
     app = (await import('../src/app.js')).createApp();
     const poolModule = await import('../src/db/pool.js');
     adminPool = poolModule.adminPool;
+    appPool = poolModule.appPool;
     closePools = poolModule.closePools;
     const { prepareTestDatabase } = await import('./helpers/test-database.js');
     await prepareTestDatabase(adminPool);
@@ -76,6 +78,85 @@ before(async () => {
 after(async () => {
     await closePools?.();
 });
+
+let phase4dSequence = 0;
+
+async function createPhase4dPayment(options: {
+    orderStatus?: 'pending' | 'cancelled' | 'rejected' | 'refunded';
+    paymentStatus?: 'pending' | 'paid' | 'failed' | 'refunded';
+    businessId?: number;
+} = {}): Promise<{ orderId: number; paymentId: number; providerReference: string; customerId: number }> {
+    phase4dSequence += 1;
+    const { rows: customerRows } = await adminPool.query<{ user_id: string }>(
+        `SELECT user_id FROM users WHERE email = 'payments-customer@hq.test'`,
+    );
+    const customerId = Number(customerRows[0]!.user_id);
+    const orderStatus = options.orderStatus ?? 'pending';
+    const paymentStatus = options.paymentStatus ?? 'pending';
+    const orderBusinessId = options.businessId ?? businessId;
+    const orderNumber = `PHASE4D-${phase4dSequence}-${Date.now()}`;
+    const { rows: orderRows } = await adminPool.query<{ order_id: string }>(
+        `INSERT INTO orders
+            (order_number, business_id, customer_id, order_type, order_status, subtotal,
+             delivery_fee, discount_amount, tax_amount, total_amount, currency,
+             payment_method, payment_status, cancelled_at)
+         VALUES ($1, $2, $3, 'product', $4::order_status, 10, 0, 0, 0, 10, 'USD',
+                 'mock_mobile_money', $5, CASE WHEN $4::order_status = 'cancelled' THEN now() ELSE NULL END)
+         RETURNING order_id`,
+        [orderNumber, orderBusinessId, customerId, orderStatus, paymentStatus],
+    );
+    const orderId = Number(orderRows[0]!.order_id);
+    const providerReference = `phase4d-ref-${phase4dSequence}-${Date.now()}`;
+    const { rows: paymentRows } = await adminPool.query<{ payment_id: string }>(
+        `INSERT INTO payments
+            (order_id, customer_id, provider, payment_method, status, amount_minor,
+             currency, provider_reference, idempotency_key)
+         VALUES ($1, $2, 'mock_mobile_money', 'mock_mobile_money', 'pending',
+                 1000, 'USD', $3, $4)
+         RETURNING payment_id`,
+        [orderId, customerId, providerReference, `phase4d-key-${phase4dSequence}`],
+    );
+    return {
+        orderId,
+        paymentId: Number(paymentRows[0]!.payment_id),
+        providerReference,
+        customerId,
+    };
+}
+
+async function applyLateSuccess(
+    providerReference: string,
+    eventId: string,
+    payload: Record<string, unknown> = { phase: '4d', result: 'success' },
+) {
+    const { rows } = await adminPool.query<{
+        payment_id: string;
+        order_id: string;
+        payment_status: string;
+        duplicate: boolean;
+        reconciliation_required: boolean;
+    }>(
+        `SELECT * FROM apply_verified_payment_event(
+            'mock_mobile_money', $1, $2, 1000, 'USD', true, 500, $3::jsonb
+        )`,
+        [eventId, providerReference, JSON.stringify(payload)],
+    );
+    return rows[0]!;
+}
+
+async function waitForPostgresLockWait(client: import('pg').PoolClient, timeoutMs = 3000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const processID = (client as unknown as { processID: number }).processID;
+        const { rows } = await adminPool.query<{ wait_event_type: string | null }>(
+            `SELECT wait_event_type FROM pg_stat_activity WHERE pid = $1`,
+            [processID],
+        );
+        if (rows[0]?.wait_event_type === 'Lock') return;
+        await new Promise((resolve) => setImmediate(resolve));
+    }
+    throw new Error(`PostgreSQL connection ${(client as unknown as { processID: number }).processID} did not reach a lock wait state`);
+}
 
 describe('payment lifecycle', () => {
     it('limits production mock payments to the configured tester email', async () => {
@@ -270,5 +351,527 @@ describe('payment lifecycle', () => {
             .set('Idempotency-Key', 'second-payment-attempt')
             .send({ provider: 'mock_mobile_money' });
         assert.equal(secondPayment.status, 409, JSON.stringify(secondPayment.body));
+    });
+
+    it('records a late success after customer cancellation without reopening the order', async () => {
+        const fixture = await createPhase4dPayment();
+        await adminPool.query(
+            `UPDATE orders SET order_status = 'cancelled', cancelled_at = now(),
+                              cancellation_reason = 'Customer cancelled'
+             WHERE order_id = $1`,
+            [fixture.orderId],
+        );
+        const result = await applyLateSuccess(fixture.providerReference, `late-customer-${phase4dSequence}`);
+        assert.equal(result.duplicate, false);
+        assert.equal(result.reconciliation_required, true);
+        const { rows } = await adminPool.query<{ order_status: string; payment_status: string; reconciliation_status: string; payment_status_reconciliation: string; event_outcome: string }>(
+            `SELECT o.order_status, o.payment_status,
+                    p.reconciliation_status, o.payment_reconciliation_status AS payment_status_reconciliation,
+                    e.outcome AS event_outcome
+               FROM orders o
+               JOIN payments p ON p.order_id = o.order_id
+               JOIN payment_webhook_events e ON e.payment_id = p.payment_id
+              WHERE o.order_id = $1`,
+            [fixture.orderId],
+        );
+        assert.equal(rows[0]!.order_status, 'cancelled');
+        assert.notEqual(rows[0]!.payment_status, 'paid');
+        assert.equal(rows[0]!.reconciliation_status, 'refund_review_required');
+        assert.equal(rows[0]!.payment_status_reconciliation, 'refund_review_required');
+        assert.equal(rows[0]!.event_outcome, 'succeeded_reconciliation_required');
+    });
+
+    it('records a late success after business cancellation', async () => {
+        const fixture = await createPhase4dPayment();
+        await adminPool.query(
+            `UPDATE orders SET order_status = 'cancelled', cancelled_at = now()
+             WHERE order_id = $1`,
+            [fixture.orderId],
+        );
+        await applyLateSuccess(fixture.providerReference, `late-business-cancel-${phase4dSequence}`);
+        const { rows } = await adminPool.query<{ order_status: string; status: string; reconciliation_status: string }>(
+            `SELECT o.order_status, p.status, p.reconciliation_status
+               FROM orders o JOIN payments p ON p.order_id = o.order_id
+              WHERE o.order_id = $1`,
+            [fixture.orderId],
+        );
+        assert.equal(rows[0]!.order_status, 'cancelled');
+        assert.equal(rows[0]!.status, 'succeeded');
+        assert.equal(rows[0]!.reconciliation_status, 'refund_review_required');
+    });
+
+    it('records a late success after business rejection', async () => {
+        const fixture = await createPhase4dPayment();
+        await adminPool.query(`UPDATE orders SET order_status = 'rejected' WHERE order_id = $1`, [fixture.orderId]);
+        const result = await applyLateSuccess(fixture.providerReference, `late-rejected-${phase4dSequence}`);
+        const { rows } = await adminPool.query<{ order_status: string; status: string; reconciliation_status: string }>(
+            `SELECT o.order_status, p.status, p.reconciliation_status
+               FROM orders o JOIN payments p ON p.order_id = o.order_id WHERE o.order_id = $1`,
+            [fixture.orderId],
+        );
+        assert.equal(result.reconciliation_required, true);
+        assert.equal(rows[0]!.order_status, 'rejected');
+        assert.equal(rows[0]!.status, 'succeeded');
+        assert.equal(rows[0]!.reconciliation_status, 'refund_review_required');
+    });
+
+    it('records a late success for a refunded order without reopening it', async () => {
+        const fixture = await createPhase4dPayment({ orderStatus: 'refunded', paymentStatus: 'refunded' });
+        const result = await applyLateSuccess(fixture.providerReference, `late-refunded-${phase4dSequence}`);
+        const { rows } = await adminPool.query<{ order_status: string; payment_status: string; status: string }>(
+            `SELECT o.order_status, o.payment_status, p.status
+               FROM orders o JOIN payments p ON p.order_id = o.order_id WHERE o.order_id = $1`,
+            [fixture.orderId],
+        );
+        assert.equal(result.reconciliation_required, true);
+        assert.equal(rows[0]!.order_status, 'refunded');
+        assert.equal(rows[0]!.payment_status, 'refunded');
+        assert.equal(rows[0]!.status, 'succeeded');
+    });
+
+    it('makes duplicate delivery of the same late-success event idempotent', async () => {
+        const fixture = await createPhase4dPayment({ orderStatus: 'cancelled' });
+        const eventId = `late-duplicate-${phase4dSequence}`;
+        const first = await applyLateSuccess(fixture.providerReference, eventId);
+        const second = await applyLateSuccess(fixture.providerReference, eventId);
+        assert.equal(first.duplicate, false);
+        assert.equal(second.duplicate, true);
+        assert.equal(second.reconciliation_required, true);
+        const { rows } = await adminPool.query<{ event_count: string; status: string }>(
+            `SELECT count(*)::text AS event_count, p.status
+               FROM payment_webhook_events e JOIN payments p ON p.payment_id = e.payment_id
+              WHERE p.order_id = $1 GROUP BY p.status`,
+            [fixture.orderId],
+        );
+        assert.equal(rows[0]!.event_count, '1');
+        assert.equal(rows[0]!.status, 'succeeded');
+    });
+
+    it('rejects reuse of a late-success event ID with different payload', async () => {
+        const fixture = await createPhase4dPayment({ orderStatus: 'rejected' });
+        const eventId = `late-payload-${phase4dSequence}`;
+        await applyLateSuccess(fixture.providerReference, eventId, { result: 'success', version: 1 });
+        await assert.rejects(
+            applyLateSuccess(fixture.providerReference, eventId, { result: 'success', version: 2 }),
+            /webhook event id was reused with different content/,
+        );
+    });
+
+    it('handles cancellation-first concurrency without deadlock and preserves late success', async () => {
+        const fixture = await createPhase4dPayment();
+        const cancellation = await adminPool.connect();
+        const webhook = await adminPool.connect();
+        let webhookSettled = false;
+        try {
+            await cancellation.query('BEGIN');
+            await cancellation.query(
+                `UPDATE orders SET order_status = 'cancelled', cancelled_at = now()
+                 WHERE order_id = $1`,
+                [fixture.orderId],
+            );
+
+            await webhook.query('BEGIN');
+            const webhookPromise = webhook.query(
+                `SELECT * FROM apply_verified_payment_event(
+                    'mock_mobile_money', $1, $2, 1000, 'USD', true, 500,
+                    '{"race":"cancellation-first"}'::jsonb
+                )`,
+                [`late-race-cancel-first-${phase4dSequence}`, fixture.providerReference],
+            ).then((result) => { webhookSettled = true; return result; });
+
+            await waitForPostgresLockWait(webhook);
+            await cancellation.query('COMMIT');
+            const webhookResult = await webhookPromise;
+            await webhook.query('COMMIT');
+
+            assert.equal(webhookResult.rows[0]!.reconciliation_required, true);
+        } finally {
+            await webhook.query('ROLLBACK').catch(() => undefined);
+            await cancellation.query('ROLLBACK').catch(() => undefined);
+            webhook.release();
+            cancellation.release();
+        }
+
+        const { rows } = await adminPool.query<{ order_status: string; status: string; reconciliation_status: string }>(
+            `SELECT o.order_status, p.status, p.reconciliation_status
+               FROM orders o JOIN payments p ON p.order_id = o.order_id WHERE o.order_id = $1`,
+            [fixture.orderId],
+        );
+        assert.equal(webhookSettled, true);
+        assert.equal(rows[0]!.order_status, 'cancelled');
+        assert.equal(rows[0]!.status, 'succeeded');
+        assert.equal(rows[0]!.reconciliation_status, 'refund_review_required');
+    });
+
+    it('handles webhook-first concurrency without deadlock or reopening the terminal order', async () => {
+        const fixture = await createPhase4dPayment();
+        const webhook = await adminPool.connect();
+        const cancellation = await adminPool.connect();
+        let cancellationSettled = false;
+        try {
+            await webhook.query('BEGIN');
+            const webhookResult = await webhook.query(
+                `SELECT * FROM apply_verified_payment_event(
+                    'mock_mobile_money', $1, $2, 1000, 'USD', true, 500,
+                    '{"race":"webhook-first"}'::jsonb
+                )`,
+                [`late-race-webhook-first-${phase4dSequence}`, fixture.providerReference],
+            );
+            assert.equal(webhookResult.rows[0]!.payment_status, 'paid');
+
+            await cancellation.query('BEGIN');
+            const cancellationPromise = cancellation.query(
+                `UPDATE orders SET order_status = 'cancelled', cancelled_at = now()
+                 WHERE order_id = $1`,
+                [fixture.orderId],
+            ).then((result) => { cancellationSettled = true; return result; });
+
+            await waitForPostgresLockWait(cancellation);
+            await webhook.query('COMMIT');
+            await cancellationPromise;
+            await cancellation.query('COMMIT');
+        } finally {
+            await cancellation.query('ROLLBACK').catch(() => undefined);
+            await webhook.query('ROLLBACK').catch(() => undefined);
+            cancellation.release();
+            webhook.release();
+        }
+
+        const { rows } = await adminPool.query<{
+            order_status: string;
+            payment_status: string;
+            status: string;
+            reconciliation_status: string;
+        }>(
+            `SELECT o.order_status, o.payment_status, p.status, p.reconciliation_status
+               FROM orders o JOIN payments p ON p.order_id = o.order_id WHERE o.order_id = $1`,
+            [fixture.orderId],
+        );
+        assert.equal(cancellationSettled, true);
+        assert.equal(rows[0]!.order_status, 'cancelled');
+        assert.equal(rows[0]!.payment_status, 'paid');
+        assert.equal(rows[0]!.status, 'succeeded');
+        assert.equal(rows[0]!.reconciliation_status, 'refund_review_required');
+    });
+
+    it('leaves normal successful payment behavior unchanged for an active order', async () => {
+        const fixture = await createPhase4dPayment();
+        const result = await applyLateSuccess(fixture.providerReference, `normal-success-${phase4dSequence}`);
+        assert.equal(result.payment_status, 'paid');
+        assert.equal(result.duplicate, false);
+        assert.equal(result.reconciliation_required, false);
+        const { rows } = await adminPool.query<{ order_status: string; payment_status: string; status: string }>(
+            `SELECT o.order_status, o.payment_status, p.status
+               FROM orders o JOIN payments p ON p.order_id = o.order_id WHERE o.order_id = $1`,
+            [fixture.orderId],
+        );
+        assert.equal(rows[0]!.order_status, 'pending');
+        assert.equal(rows[0]!.payment_status, 'paid');
+        assert.equal(rows[0]!.status, 'succeeded');
+    });
+
+    it('leaves failed webhook behavior unchanged', async () => {
+        const fixture = await createPhase4dPayment();
+        const { rows } = await adminPool.query<{
+            payment_status: string;
+            duplicate: boolean;
+        }>(
+            `SELECT * FROM apply_verified_payment_event(
+                'mock_mobile_money', $1, $2, 1000, 'USD', false, 500, '{"result":"failed"}'::jsonb
+            )`,
+            [`failed-${phase4dSequence}`, fixture.providerReference],
+        );
+        assert.equal(rows[0]!.payment_status, 'failed');
+        assert.equal(rows[0]!.duplicate, false);
+        const { rows: state } = await adminPool.query<{ payment_status: string; status: string }>(
+            `SELECT o.payment_status, p.status
+               FROM orders o JOIN payments p ON p.order_id = o.order_id WHERE o.order_id = $1`,
+            [fixture.orderId],
+        );
+        assert.equal(state[0]!.payment_status, 'failed');
+        assert.equal(state[0]!.status, 'failed');
+    });
+
+    it('identifies and idempotently backfills existing terminal successful records', async () => {
+        const fixture = await createPhase4dPayment({ orderStatus: 'refunded' });
+        await adminPool.query(
+            `UPDATE payments
+                SET status = 'succeeded',
+                    provider_event_id = 'historical-success-event',
+                    commission_minor = 50,
+                    merchant_amount_minor = 950,
+                    rate_used_bps = 500,
+                    reconciliation_status = 'none',
+                    reconciliation_reason = NULL,
+                    reconciliation_at = NULL,
+                    paid_at = now()
+              WHERE payment_id = $1`,
+            [fixture.paymentId],
+        );
+        await adminPool.query(
+            `UPDATE orders
+                SET payment_status = 'paid',
+                    payment_reconciliation_status = 'none',
+                    payment_reconciliation_reason = NULL,
+                    payment_reconciliation_at = NULL
+              WHERE order_id = $1`,
+            [fixture.orderId],
+        );
+
+        const { rows: candidates } = await adminPool.query<{ order_id: string }>(
+            `SELECT order_id::text FROM payment_late_reconciliation_candidates WHERE order_id = $1`,
+            [fixture.orderId],
+        );
+        assert.equal(candidates.length, 1);
+
+        const backfill = async () => adminPool.query(`
+            UPDATE payments p
+               SET reconciliation_status = 'refund_review_required',
+                   reconciliation_reason = format('Existing terminal/succeeded backfill: %s', o.order_status),
+                   reconciliation_at = now(),
+                   updated_at = now()
+              FROM orders o
+             WHERE p.order_id = o.order_id
+               AND o.order_status IN ('cancelled', 'rejected', 'refunded')
+               AND p.status = 'succeeded'
+               AND p.reconciliation_status <> 'refund_review_required'
+        `);
+        await backfill();
+        await backfill();
+
+        await adminPool.query(`
+            UPDATE orders o
+               SET payment_reconciliation_status = 'refund_review_required',
+                   payment_reconciliation_reason = 'Existing terminal/succeeded backfill',
+                   payment_reconciliation_at = now()
+              FROM payments p
+             WHERE p.order_id = o.order_id
+               AND o.order_status IN ('cancelled', 'rejected', 'refunded')
+               AND p.status = 'succeeded'
+               AND o.payment_reconciliation_status <> 'refund_review_required'
+        `);
+
+        const { rows } = await adminPool.query<{
+            order_status: string;
+            payment_status: string;
+            reconciliation_status: string;
+            payment_reconciliation_status: string;
+        }>(
+            `SELECT o.order_status, p.status AS payment_status, p.reconciliation_status,
+                    o.payment_reconciliation_status
+               FROM orders o JOIN payments p ON p.order_id = o.order_id
+              WHERE o.order_id = $1`,
+            [fixture.orderId],
+        );
+        assert.equal(rows[0]!.order_status, 'refunded');
+        assert.equal(rows[0]!.payment_status, 'succeeded');
+        assert.equal(rows[0]!.reconciliation_status, 'refund_review_required');
+        assert.equal(rows[0]!.payment_reconciliation_status, 'refund_review_required');
+        const { rows: remaining } = await adminPool.query<{ count: string }>(
+            `SELECT count(*)::text AS count FROM payment_late_reconciliation_candidates WHERE order_id = $1`,
+            [fixture.orderId],
+        );
+        assert.equal(remaining[0]!.count, '0');
+    });
+
+    it('reconciles a linked payment through hq_app with anonymous RLS context without touching another business', async () => {
+        const { rows: otherBusinesses } = await adminPool.query<{ business_id: string }>(
+            `INSERT INTO businesses
+                (business_name, business_slug, business_description, phone, email, city, district,
+                 status, verification_status, is_verified, verified_at)
+             VALUES ('App RLS Shop', 'app-rls-shop', 'Application role RLS test',
+                     '+252610000003', 'app-rls@hq.test', 'Mogadishu', 'Hodan',
+                     'active', 'verified', true, now())
+             RETURNING business_id`,
+        );
+        const otherBusinessId = Number(otherBusinesses[0]!.business_id);
+        const linked = await createPhase4dPayment({ orderStatus: 'cancelled' });
+        const unrelated = await createPhase4dPayment({ businessId: otherBusinessId, orderStatus: 'cancelled' });
+        const { rows: beforeUnrelated } = await adminPool.query<{
+            status: string;
+            reconciliation_status: string;
+            order_status: string;
+        }>(
+            `SELECT p.status, p.reconciliation_status, o.order_status
+               FROM payments p JOIN orders o ON o.order_id = p.order_id
+              WHERE p.payment_id = $1`,
+            [unrelated.paymentId],
+        );
+
+        const { withTenant, ANONYMOUS } = await import('../src/db/tenant.js');
+        try {
+            await withTenant(ANONYMOUS, async (client) => {
+                const role = await client.query<{ current_user: string }>('SELECT current_user');
+                assert.equal(role.rows[0]!.current_user, 'hq_app');
+
+                await client.query('SAVEPOINT cross_business_negative');
+                await assert.rejects(
+                    client.query(
+                        `SELECT * FROM apply_verified_payment_event(
+                            'mock_mobile_money', $1, $2, 9999, 'USD', true, 500,
+                            '{"source":"cross-business-negative"}'::jsonb
+                        )`,
+                        [`app-role-negative-${phase4dSequence}`, unrelated.providerReference],
+                    ),
+                    /payment amount, currency, or provider does not match/,
+                );
+                await client.query('ROLLBACK TO SAVEPOINT cross_business_negative');
+                await client.query('RELEASE SAVEPOINT cross_business_negative');
+
+                await client.query(
+                    `SELECT * FROM apply_verified_payment_event(
+                        'mock_mobile_money', $1, $2, 1000, 'USD', true, 500,
+                        '{"source":"hq_app_anonymous_test"}'::jsonb
+                    )`,
+                    [`app-role-late-${phase4dSequence}`, linked.providerReference],
+                );
+            });
+        } finally {
+            await appPool.query('RESET ROLE');
+        }
+
+        const { rows } = await adminPool.query<{
+            linked_status: string;
+            linked_reconciliation: string;
+            unrelated_status: string;
+            unrelated_reconciliation: string;
+        }>(
+            `SELECT lp.status AS linked_status, lp.reconciliation_status AS linked_reconciliation,
+                    up.status AS unrelated_status, up.reconciliation_status AS unrelated_reconciliation
+               FROM payments lp CROSS JOIN payments up
+              WHERE lp.payment_id = $1 AND up.payment_id = $2`,
+            [linked.paymentId, unrelated.paymentId],
+        );
+        assert.equal(rows[0]!.linked_status, 'succeeded');
+        assert.equal(rows[0]!.linked_reconciliation, 'refund_review_required');
+        assert.equal(rows[0]!.unrelated_status, 'pending');
+        assert.equal(rows[0]!.unrelated_reconciliation, 'none');
+        const { rows: afterUnrelated } = await adminPool.query<{
+            status: string;
+            reconciliation_status: string;
+            order_status: string;
+        }>(
+            `SELECT p.status, p.reconciliation_status, o.order_status
+               FROM payments p JOIN orders o ON o.order_id = p.order_id
+              WHERE p.payment_id = $1`,
+            [unrelated.paymentId],
+        );
+        assert.deepEqual(afterUnrelated[0], beforeUnrelated[0]);
+    });
+
+    it('keeps late-payment reconciliation isolated across businesses', async () => {
+        const { rows: otherBusinesses } = await adminPool.query<{ business_id: string }>(
+            `INSERT INTO businesses
+                (business_name, business_slug, business_description, phone, email, city, district,
+                 status, verification_status, is_verified, verified_at)
+             VALUES ('Payments Isolation Shop', 'payments-isolation-shop', 'Payments isolation test',
+                     '+252610000002', 'payments-isolation@hq.test', 'Mogadishu', 'Hodan',
+                     'active', 'verified', true, now())
+             RETURNING business_id`,
+        );
+        const otherBusinessId = Number(otherBusinesses[0]!.business_id);
+        const fixtureA = await createPhase4dPayment();
+        const fixtureB = await createPhase4dPayment({ businessId: otherBusinessId });
+        await adminPool.query(
+            `UPDATE orders SET order_status = 'cancelled', cancelled_at = now()
+             WHERE order_id IN ($1, $2)`,
+            [fixtureA.orderId, fixtureB.orderId],
+        );
+        await applyLateSuccess(fixtureA.providerReference, `cross-business-a-${phase4dSequence}`);
+        await applyLateSuccess(fixtureB.providerReference, `cross-business-b-${phase4dSequence}`);
+        const { rows } = await adminPool.query<{ order_id: string; business_id: string; status: string }>(
+            `SELECT o.order_id::text, o.business_id::text, p.status
+               FROM orders o JOIN payments p ON p.order_id = o.order_id
+              WHERE o.order_id IN ($1, $2)
+              ORDER BY o.order_id`,
+            [fixtureA.orderId, fixtureB.orderId],
+        );
+        assert.equal(rows.length, 2);
+        assert.deepEqual(
+            rows.map((row) => Number(row.business_id)).sort((left, right) => left - right),
+            [businessId, otherBusinessId].sort((left, right) => left - right),
+        );
+        assert.ok(rows.every((row) => row.status === 'succeeded'));
+    });
+
+    it('rolls migration 061 back to the original signature and reapplies it forward', async () => {
+        const { migrateDown, migrateUp } = await import('../src/db/migrator.js');
+        const signature = 'apply_verified_payment_event(text,text,text,bigint,text,boolean,integer,jsonb)';
+        const { rows: forwardPrivilegeBeforeDown } = await adminPool.query<{
+            hq_app_execute: boolean;
+            public_execute: boolean;
+        }>(
+            `SELECT
+                has_function_privilege('hq_app', $1, 'EXECUTE') AS hq_app_execute,
+                EXISTS (
+                    SELECT 1
+                      FROM pg_proc p
+                      JOIN pg_namespace n ON n.oid = p.pronamespace
+                      JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl ON true
+                     WHERE n.nspname = 'public'
+                       AND p.proname = 'apply_verified_payment_event'
+                       AND acl.grantee = 0
+                       AND acl.privilege_type = 'EXECUTE'
+                       AND acl.is_grantable = false
+                ) AS public_execute`,
+            [signature],
+        );
+        assert.equal(forwardPrivilegeBeforeDown[0]!.hq_app_execute, true);
+        assert.equal(forwardPrivilegeBeforeDown[0]!.public_execute, false);
+
+        const rolledBack = await migrateDown({ allowDataLoss: true });
+        assert.equal(rolledBack, '061_late_success_payment_reconciliation');
+
+        const { rows: downRows } = await adminPool.query<{ pronargs: number }>(
+            `SELECT p.pronargs
+               FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname = 'public'
+                AND p.proname = 'apply_verified_payment_event'`
+        );
+        assert.equal(downRows.length, 1);
+        assert.equal(downRows[0]!.pronargs, 8);
+        const { rows: downPrivileges } = await adminPool.query<{
+            hq_app_execute: boolean;
+            public_execute: boolean;
+        }>(
+            `SELECT
+                has_function_privilege('hq_app', $1, 'EXECUTE') AS hq_app_execute,
+                EXISTS (
+                    SELECT 1
+                      FROM pg_proc p
+                      JOIN pg_namespace n ON n.oid = p.pronamespace
+                      JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl ON true
+                     WHERE n.nspname = 'public'
+                       AND p.proname = 'apply_verified_payment_event'
+                       AND acl.grantee = 0
+                       AND acl.privilege_type = 'EXECUTE'
+                ) AS public_execute`,
+            [signature],
+        );
+        assert.equal(downPrivileges[0]!.hq_app_execute, true);
+        assert.equal(downPrivileges[0]!.public_execute, false);
+        const { rows: originalReturnRows } = await adminPool.query<{ columns: string }>(
+            `SELECT pg_get_function_result(p.oid) AS columns
+               FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname = 'public'
+                AND p.proname = 'apply_verified_payment_event'`
+        );
+        assert.doesNotMatch(originalReturnRows[0]!.columns, /reconciliation_required/i);
+
+        const reapplied = await migrateUp();
+        assert.ok(reapplied.includes('061_late_success_payment_reconciliation'));
+        const { rows: forwardRows } = await adminPool.query<{ columns: string }>(
+            `SELECT pg_get_function_result(p.oid) AS columns
+               FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname = 'public'
+                AND p.proname = 'apply_verified_payment_event'`
+        );
+        assert.match(forwardRows[0]!.columns, /reconciliation_required/i);
+        const { rows: grantRows } = await adminPool.query<{ can_execute: boolean }>(
+            `SELECT has_function_privilege('hq_app',
+                'apply_verified_payment_event(text,text,text,bigint,text,boolean,integer,jsonb)',
+                'EXECUTE') AS can_execute`
+        );
+        assert.equal(grantRows[0]!.can_execute, true);
     });
 });

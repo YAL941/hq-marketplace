@@ -1,7 +1,7 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
-import { unauthorized } from '../db/errors.js';
+import { forbidden, unauthorized } from '../db/errors.js';
 import { appPool } from '../db/pool.js';
 import { withTenant } from '../db/tenant.js';
 import type { TenantContext } from '../db/tenant.js';
@@ -127,6 +127,18 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
         next(error);
     }
 }
+
+export const requirePlatformAdmin: RequestHandler = (req, _res, next) => {
+    if (!req.user) {
+        next(unauthorized());
+        return;
+    }
+    if (!req.user.isPlatformAdmin) {
+        next(forbidden('Platform administration required'));
+        return;
+    }
+    next();
+};
 
 export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
     const header = req.header('authorization');

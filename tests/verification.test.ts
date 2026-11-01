@@ -294,6 +294,72 @@ describe('/api/admin: only a platform admin gets in', () => {
         );
     });
 
+    it('answers 401 to anonymous requests for every audited admin route', async () => {
+        const responses = await Promise.all([
+            request(app).get('/api/admin/users'),
+            request(app).get('/api/admin/stats'),
+            request(app).post(`/api/admin/businesses/${ownerA.businessId}/plan`).send({ tier: 'free' }),
+            request(app).post(`/api/admin/businesses/${ownerA.businessId}/featured`).send({ featured: true }),
+            request(app).get('/api/admin/wholesale/suppliers'),
+            request(app).patch('/api/admin/wholesale/suppliers/1').send({ status: 'approved' }),
+        ]);
+        assert.deepEqual(responses.map((res) => res.status), [401, 401, 401, 401, 401, 401]);
+    });
+
+    it('answers 403 to business owners on platform-only routes', async () => {
+        const responses = await Promise.all([
+            request(app).get('/api/admin/users').set('Authorization', `Bearer ${ownerA.token}`),
+            request(app).get('/api/admin/stats').set('Authorization', `Bearer ${ownerA.token}`),
+            request(app).post(`/api/admin/businesses/${ownerA.businessId}/plan`)
+                .set('Authorization', `Bearer ${ownerA.token}`)
+                .send({ tier: 'free' }),
+            request(app).post(`/api/admin/businesses/${ownerA.businessId}/featured`)
+                .set('Authorization', `Bearer ${ownerA.token}`)
+                .send({ featured: true }),
+            request(app).get('/api/admin/wholesale/suppliers').set('Authorization', `Bearer ${ownerA.token}`),
+        ]);
+        assert.deepEqual(responses.map((res) => res.status), [403, 403, 403, 403, 403]);
+    });
+
+    it('allows platform admins to use users, stats, featured and plan routes once each', async () => {
+        const users = await request(app).get('/api/admin/users').set('Authorization', `Bearer ${admin.token}`);
+        const stats = await request(app).get('/api/admin/stats').set('Authorization', `Bearer ${admin.token}`);
+        assert.equal(users.status, 200, JSON.stringify(users.body));
+        assert.equal(stats.status, 200, JSON.stringify(stats.body));
+
+        const plan = await request(app)
+            .post(`/api/admin/businesses/${ownerA.businessId}/plan`)
+            .set('Authorization', `Bearer ${admin.token}`)
+            .send({ tier: 'free' });
+        assert.equal(plan.status, 204, JSON.stringify(plan.body));
+
+        const featured = await request(app)
+            .post(`/api/admin/businesses/${ownerA.businessId}/featured`)
+            .set('Authorization', `Bearer ${admin.token}`)
+            .send({ featured: true, until: '2099-01-01T00:00:00.000Z' });
+        assert.equal(featured.status, 204, JSON.stringify(featured.body));
+        const row = await businessRow(ownerA.businessId!);
+        assert.equal(row['is_featured'], true);
+        assert.ok(row['featured_until']);
+
+        const { adminRoutes } = await import('../src/modules/admin/admin.routes.js');
+        const methodsByPath = new Map<string, number>();
+        const stack = (adminRoutes as unknown as {
+            stack: Array<{ route?: { path: string; methods: Record<string, boolean> } }>;
+        }).stack;
+        for (const layer of stack) {
+            const route = layer.route;
+            if (!route) continue;
+            const method = Object.keys(route.methods)[0];
+            const key = `${method} ${route.path}`;
+            methodsByPath.set(key, (methodsByPath.get(key) ?? 0) + 1);
+        }
+        assert.equal(methodsByPath.get('get /admin/users'), 1);
+        assert.equal(methodsByPath.get('get /admin/stats'), 1);
+        assert.equal(methodsByPath.get('post /admin/businesses/:businessId/plan'), 1);
+        assert.equal(methodsByPath.get('post /admin/businesses/:businessId/featured'), 1);
+    });
+
     it('answers 403 to an authenticated non-admin', async () => {
         const list = await request(app)
             .get('/api/admin/businesses')

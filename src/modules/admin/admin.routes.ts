@@ -23,34 +23,15 @@
 
 import { Router, type RequestHandler } from 'express';
 import { z } from 'zod';
-import { badRequest, conflict, forbidden, notFound, unauthorized } from '../../db/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../../db/errors.js';
 import { withTenant } from '../../db/tenant.js';
-import { authenticate, contextFor } from '../../middleware/auth.js';
+import { authenticate, contextFor, requirePlatformAdmin } from '../../middleware/auth.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import { sendBusinessDecisionEmail } from './mailer.js';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, pageMeta } from '../businesses/public-query.js';
 import { createBusinessApprovalNotifications } from '../notifications/in-app-notification.repository.js';
 
 export const adminRoutes: Router = Router();
-
-/**
- * 403 for anyone who is not a platform admin.
- *
- * `isPlatformAdmin` is resolved once at login from `user_platform_roles` and
- * travels in the verified token, so this is a claim check rather than a lookup —
- * the database check that actually matters happens in the handler.
- */
-const requirePlatformAdmin: RequestHandler = (req, _res, next) => {
-    if (!req.user) {
-        next(unauthorized());
-        return;
-    }
-    if (!req.user.isPlatformAdmin) {
-        next(forbidden('Platform administration required'));
-        return;
-    }
-    next();
-};
 
 /**
  * The states a business can be in that an admin has to act on or look at.
@@ -408,7 +389,12 @@ adminRoutes.patch(
 );
 
 // Phase 5: monetization admin endpoints
-adminRoutes.post('/admin/businesses/:businessId/plan', requirePlatformAdmin, async (req, res, next) => {
+adminRoutes.post(
+    '/admin/businesses/:businessId/plan',
+    authenticate,
+    requirePlatformAdmin,
+    rateLimiter('write'),
+    async (req, res, next) => {
     try {
         const businessId = Number(req.params['businessId']);
         const planTier = String(req.body?.tier ?? 'free');
@@ -426,14 +412,27 @@ adminRoutes.post('/admin/businesses/:businessId/plan', requirePlatformAdmin, asy
         });
         res.status(204).end();
     } catch (error) { next(error); }
-});
+    },
+);
 
 // Phase 6: admin user list + platform stats
-adminRoutes.get('/admin/users', requirePlatformAdmin, async (req, res, next) => {
+adminRoutes.get('/admin/users', authenticate, requirePlatformAdmin, rateLimiter('public'), async (req, res, next) => {
     try {
         const data = await withTenant(contextFor(req), async (client) => {
             const { rows } = await client.query(
-                'SELECT user_id, email, is_platform_admin, created_at FROM users ORDER BY created_at DESC LIMIT 100',
+                `SELECT u.user_id, u.email, u.status, u.created_at,
+                        EXISTS (
+                            SELECT 1
+                              FROM user_platform_roles upr
+                              JOIN roles r ON r.role_id = upr.role_id
+                             WHERE upr.user_id = u.user_id
+                               AND r.role_key = 'platform_admin'
+                               AND r.scope = 'platform'
+                               AND r.is_active
+                        ) AS is_platform_admin
+                   FROM users u
+                  ORDER BY u.created_at DESC
+                  LIMIT 100`,
             );
             return rows;
         });
@@ -441,16 +440,16 @@ adminRoutes.get('/admin/users', requirePlatformAdmin, async (req, res, next) => 
     } catch (error) { next(error); }
 });
 
-adminRoutes.get('/admin/stats', requirePlatformAdmin, async (req, res, next) => {
+adminRoutes.get('/admin/stats', authenticate, requirePlatformAdmin, rateLimiter('public'), async (req, res, next) => {
     try {
         const data = await withTenant(contextFor(req), async (client) => {
             const biz = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM businesses');
             const usr = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM users');
             const ord = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM orders');
             const rev = await client.query<{ gmv: string; comm: string }>(
-                `SELECT COALESCE(sum(payment_amount_minor),0)::text AS gmv,
+                `SELECT COALESCE(sum(amount_minor),0)::text AS gmv,
                         COALESCE(sum(commission_minor),0)::text AS comm
-                   FROM payments WHERE status = 'paid'`,
+                   FROM payments WHERE status = 'succeeded'`,
             );
             return {
                 businesses: Number(biz.rows[0]?.c ?? '0'),
@@ -464,7 +463,12 @@ adminRoutes.get('/admin/stats', requirePlatformAdmin, async (req, res, next) => 
     } catch (error) { next(error); }
 });
 
-adminRoutes.post('/admin/businesses/:businessId/featured', requirePlatformAdmin, async (req, res, next) => {
+adminRoutes.post(
+    '/admin/businesses/:businessId/featured',
+    authenticate,
+    requirePlatformAdmin,
+    rateLimiter('write'),
+    async (req, res, next) => {
     try {
         const businessId = Number(req.params['businessId']);
         const featured = Boolean(req.body?.featured);
@@ -477,43 +481,8 @@ adminRoutes.post('/admin/businesses/:businessId/featured', requirePlatformAdmin,
         });
         res.status(204).end();
     } catch (error) { next(error); }
-});
-
-// Phase 6: admin user list + platform stats
-adminRoutes.get('/admin/users', requirePlatformAdmin, async (req, res, next) => {
-    try {
-        const data = await withTenant(contextFor(req), async (client) => {
-            const { rows } = await client.query(
-                'SELECT user_id, email, is_platform_admin, created_at FROM users ORDER BY created_at DESC LIMIT 100',
-            );
-            return rows;
-        });
-        res.json({ data });
-    } catch (error) { next(error); }
-});
-
-adminRoutes.get('/admin/stats', requirePlatformAdmin, async (req, res, next) => {
-    try {
-        const data = await withTenant(contextFor(req), async (client) => {
-            const biz = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM businesses');
-            const usr = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM users');
-            const ord = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM orders');
-            const rev = await client.query<{ gmv: string; comm: string }>(
-                `SELECT COALESCE(sum(payment_amount_minor),0)::text AS gmv,
-                        COALESCE(sum(commission_minor),0)::text AS comm
-                   FROM payments WHERE status = 'paid'`,
-            );
-            return {
-                businesses: Number(biz.rows[0]?.c ?? '0'),
-                users: Number(usr.rows[0]?.c ?? '0'),
-                orders: Number(ord.rows[0]?.c ?? '0'),
-                total_gmv_minor: rev.rows[0]?.gmv ?? '0',
-                total_commission_minor: rev.rows[0]?.comm ?? '0',
-            };
-        });
-        res.json({ data });
-    } catch (error) { next(error); }
-});
+    },
+);
 
 adminRoutes.patch(
     '/admin/businesses/:businessId/verification',
@@ -522,111 +491,3 @@ adminRoutes.patch(
     rateLimiter('write'),
     reviewBusiness,
 );
-
-// Phase 5: monetization admin endpoints
-adminRoutes.post('/admin/businesses/:businessId/plan', requirePlatformAdmin, async (req, res, next) => {
-    try {
-        const businessId = Number(req.params['businessId']);
-        const planTier = String(req.body?.tier ?? 'free');
-        await withTenant(contextFor(req), async (client) => {
-            const { rows: planRows } = await client.query<{ id: number }>(
-                'SELECT id FROM subscription_plans WHERE tier = $1', [planTier],
-            );
-            if (!planRows[0]) throw badRequest('Unknown plan tier');
-            await client.query(
-                `INSERT INTO business_subscriptions (business_id, plan_id, status)
-                 VALUES ($1, $2, 'active')
-                 ON CONFLICT (business_id) DO UPDATE SET plan_id = $2, status = 'active', started_at = now()`,
-                [businessId, planRows[0].id],
-            );
-        });
-        res.status(204).end();
-    } catch (error) { next(error); }
-});
-
-// Phase 6: admin user list + platform stats
-adminRoutes.get('/admin/users', requirePlatformAdmin, async (req, res, next) => {
-    try {
-        const data = await withTenant(contextFor(req), async (client) => {
-            const { rows } = await client.query(
-                'SELECT user_id, email, is_platform_admin, created_at FROM users ORDER BY created_at DESC LIMIT 100',
-            );
-            return rows;
-        });
-        res.json({ data });
-    } catch (error) { next(error); }
-});
-
-adminRoutes.get('/admin/stats', requirePlatformAdmin, async (req, res, next) => {
-    try {
-        const data = await withTenant(contextFor(req), async (client) => {
-            const biz = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM businesses');
-            const usr = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM users');
-            const ord = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM orders');
-            const rev = await client.query<{ gmv: string; comm: string }>(
-                `SELECT COALESCE(sum(payment_amount_minor),0)::text AS gmv,
-                        COALESCE(sum(commission_minor),0)::text AS comm
-                   FROM payments WHERE status = 'paid'`,
-            );
-            return {
-                businesses: Number(biz.rows[0]?.c ?? '0'),
-                users: Number(usr.rows[0]?.c ?? '0'),
-                orders: Number(ord.rows[0]?.c ?? '0'),
-                total_gmv_minor: rev.rows[0]?.gmv ?? '0',
-                total_commission_minor: rev.rows[0]?.comm ?? '0',
-            };
-        });
-        res.json({ data });
-    } catch (error) { next(error); }
-});
-
-adminRoutes.post('/admin/businesses/:businessId/featured', requirePlatformAdmin, async (req, res, next) => {
-    try {
-        const businessId = Number(req.params['businessId']);
-        const featured = Boolean(req.body?.featured);
-        const until = req.body?.until ? new Date(req.body.until) : null;
-        await withTenant(contextFor(req), async (client) => {
-            await client.query(
-                'UPDATE businesses SET is_featured = $1, featured_until = $2 WHERE business_id = $3',
-                [featured, until, businessId],
-            );
-        });
-        res.status(204).end();
-    } catch (error) { next(error); }
-});
-
-// Phase 6: admin user list + platform stats
-adminRoutes.get('/admin/users', requirePlatformAdmin, async (req, res, next) => {
-    try {
-        const data = await withTenant(contextFor(req), async (client) => {
-            const { rows } = await client.query(
-                'SELECT user_id, email, is_platform_admin, created_at FROM users ORDER BY created_at DESC LIMIT 100',
-            );
-            return rows;
-        });
-        res.json({ data });
-    } catch (error) { next(error); }
-});
-
-adminRoutes.get('/admin/stats', requirePlatformAdmin, async (req, res, next) => {
-    try {
-        const data = await withTenant(contextFor(req), async (client) => {
-            const biz = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM businesses');
-            const usr = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM users');
-            const ord = await client.query<{ c: string }>('SELECT count(*)::text AS c FROM orders');
-            const rev = await client.query<{ gmv: string; comm: string }>(
-                `SELECT COALESCE(sum(payment_amount_minor),0)::text AS gmv,
-                        COALESCE(sum(commission_minor),0)::text AS comm
-                   FROM payments WHERE status = 'paid'`,
-            );
-            return {
-                businesses: Number(biz.rows[0]?.c ?? '0'),
-                users: Number(usr.rows[0]?.c ?? '0'),
-                orders: Number(ord.rows[0]?.c ?? '0'),
-                total_gmv_minor: rev.rows[0]?.gmv ?? '0',
-                total_commission_minor: rev.rows[0]?.comm ?? '0',
-            };
-        });
-        res.json({ data });
-    } catch (error) { next(error); }
-});
