@@ -90,7 +90,7 @@ Production (and Preview if previews should access the database):
 | `APP_DB_PASSWORD` | A strong password for the separate API database role |
 | `APP_DB_CONNECTION_USER` | `hq_app.<project-ref>` when using the Supabase transaction pooler; keep `APP_DB_USER` as the actual database role name `hq_app` |
 | `JWT_SECRET` | A newly generated random secret of at least 32 characters |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | Credentials and sender address from a verified SMTP provider; required for verification codes, password reset, and business-decision emails |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_TLS_MODE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | Credentials and sender address from a verified SMTP provider; required for verification codes, password reset, and business-decision emails when SMTP is enabled. Set `SMTP_TLS_MODE=starttls` with `SMTP_SECURE=false`, or `SMTP_TLS_MODE=implicit` with `SMTP_SECURE=true`; leaving `SMTP_HOST` unset disables SMTP. |
 | `CORS_ORIGIN` | `https://hq-marketplace.vercel.app` (replace with the production site origin if different) |
 | `PUBLIC_APP_URL` | `https://hq-marketplace.vercel.app` (replace with the production site origin if different) |
 | `TRUST_PROXY_HOPS` | `1` |

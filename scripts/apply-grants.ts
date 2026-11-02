@@ -1,6 +1,7 @@
 import { config } from '../src/config.js';
 import { applyGrants } from '../src/db/grants.js';
-import { adminPool, closePools } from '../src/db/pool.js';
+import { adminPool, closeAdminPool } from '../src/db/admin-pool.js';
+import { closePools } from '../src/db/pool.js';
 
 async function main(): Promise<void> {
     const result = await applyGrants(adminPool, config.APP_DB_USER, config.APP_DB_PASSWORD);
@@ -9,9 +10,10 @@ async function main(): Promise<void> {
 }
 
 main()
-    .then(closePools)
+    .then(async () => { await closeAdminPool(); await closePools(); })
     .catch(async (error) => {
         console.error('[grants]', error.message);
+        await closeAdminPool();
         await closePools();
         process.exit(1);
     });

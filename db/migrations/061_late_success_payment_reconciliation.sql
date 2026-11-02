@@ -283,6 +283,8 @@ WHERE o.order_status IN ('cancelled', 'rejected', 'refunded')
       OR o.payment_reconciliation_status <> 'refund_review_required'
   );
 
+GRANT SELECT ON payment_late_reconciliation_candidates TO hq_app;
+
 DO $$
 DECLARE
     v_candidate_count INTEGER;

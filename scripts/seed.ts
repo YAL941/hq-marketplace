@@ -25,7 +25,7 @@
  */
 
 import bcrypt from 'bcryptjs';
-import { adminPool, closePools } from '../src/db/pool.js';
+import { adminPool, closeAdminPool } from '../src/db/admin-pool.js';
 import {
     LEGACY_BUSINESS_SLUGS,
     LEGACY_USER_EMAILS,
@@ -377,9 +377,9 @@ async function insertOpeningHours(
 }
 
 main()
-    .then(closePools)
+    .then(closeAdminPool)
     .catch(async (error) => {
         console.error('[seed]', error);
-        await closePools();
+        await closeAdminPool();
         process.exit(1);
     });

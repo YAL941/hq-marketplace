@@ -80,7 +80,7 @@ before(async () => {
     uploadPolicy = csp.UPLOAD_CONTENT_SECURITY_POLICY;
 
     const poolModule = await import('../src/db/pool.js');
-    adminPool = poolModule.adminPool;
+    adminPool = (await import('../src/db/admin-pool.js')).adminPool;
     closePools = poolModule.closePools;
     createApp = (await import('../src/app.js')).createApp;
     uploadRoot = (await import('../src/modules/media/storage/local-disk.js')).uploadRoot;

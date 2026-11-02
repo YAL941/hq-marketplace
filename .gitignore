@@ -5,6 +5,7 @@ venv/
 .env.*
 !.env.example
 .env.test
+.secrets/
 test-output.txt
 *.log
 coverage/

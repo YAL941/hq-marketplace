@@ -26,6 +26,7 @@ import { after, before, describe, it } from 'node:test';
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
 import { createBusinessApprovalNotifications } from '../src/modules/notifications/in-app-notification.repository.js';
+import { assertNoRealSmtpTransport } from './helpers/no-network-email.js';
 
 const assert: typeof assertModule = assertModule;
 
@@ -92,7 +93,7 @@ async function businessRow(businessId: number): Promise<Record<string, unknown>>
 before(async () => {
     app = (await import('../src/app.js')).createApp();
     const poolModule = await import('../src/db/pool.js');
-    adminPool = poolModule.adminPool;
+    adminPool = (await import('../src/db/admin-pool.js')).adminPool;
     closePools = poolModule.closePools;
     const { prepareTestDatabase } = await import('./helpers/test-database.js');
     await prepareTestDatabase(adminPool);
@@ -130,6 +131,7 @@ before(async () => {
 
 after(async () => {
     await closePools?.();
+    assertNoRealSmtpTransport();
 });
 
 describe('POST /api/businesses/register: phone and WhatsApp', () => {
@@ -358,6 +360,66 @@ describe('/api/admin: only a platform admin gets in', () => {
         assert.equal(methodsByPath.get('get /admin/stats'), 1);
         assert.equal(methodsByPath.get('post /admin/businesses/:businessId/plan'), 1);
         assert.equal(methodsByPath.get('post /admin/businesses/:businessId/featured'), 1);
+    });
+
+    it('sums successful payment amounts once and excludes other payment states', async () => {
+        const paymentCases = [
+            { order: 1, amount: 2500, status: 'succeeded', commission: 125, eventId: 'stats-paid-1' },
+            { order: 1, amount: 2500, status: 'failed', commission: 999, eventId: null },
+            { order: 1, amount: 2500, status: 'pending', commission: 888, eventId: null },
+            { order: 2, amount: 4000, status: 'succeeded', commission: 200, eventId: 'stats-paid-2' },
+        ] as const;
+        const orderIds = new Map<number, string>();
+
+        for (const [index, payment] of paymentCases.entries()) {
+            let orderId = orderIds.get(payment.order);
+            if (!orderId) {
+                const { rows } = await adminPool.query<{ order_id: string }>(
+                    `INSERT INTO orders
+                        (order_number, business_id, customer_id, subtotal, total_amount, currency,
+                         payment_method, payment_status)
+                     VALUES ($1, $2, $3, $4, $4, 'USD', 'mock_mobile_money',
+                             CASE WHEN $5 = 'succeeded' THEN 'paid' ELSE 'pending' END)
+                     RETURNING order_id`,
+                    [
+                        `stats-payment-order-${payment.order}-${Date.now()}`,
+                        ownerA.businessId,
+                        ownerA.id,
+                        payment.amount / 100,
+                        payment.status,
+                    ],
+                );
+                orderId = rows[0]!.order_id;
+                orderIds.set(payment.order, orderId);
+            }
+            await adminPool.query(
+                `INSERT INTO payments
+                    (order_id, customer_id, provider, payment_method, status, amount_minor,
+                     currency, provider_reference, idempotency_key, provider_event_id,
+                     commission_minor, merchant_amount_minor, rate_used_bps, paid_at)
+                 VALUES ($1, $2, 'mock_mobile_money', 'mock_mobile_money', $3, $4, 'USD',
+                         $5, $6, $7, $8, $9, 500,
+                         CASE WHEN $3 = 'succeeded' THEN now() ELSE NULL END)`,
+                [
+                    orderId,
+                    ownerA.id,
+                    payment.status,
+                    payment.amount,
+                    `stats-payment-ref-${index}-${Date.now()}`,
+                    `stats-payment-key-${index}-${Date.now()}`,
+                    payment.eventId,
+                    payment.commission,
+                    payment.amount - payment.commission,
+                ],
+            );
+        }
+
+        const stats = await request(app)
+            .get('/api/admin/stats')
+            .set('Authorization', `Bearer ${admin.token}`);
+        assert.equal(stats.status, 200, JSON.stringify(stats.body));
+        assert.equal(stats.body.data.total_gmv_minor, '6500');
+        assert.equal(stats.body.data.total_commission_minor, '325');
     });
 
     it('answers 403 to an authenticated non-admin', async () => {

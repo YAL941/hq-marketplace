@@ -27,11 +27,18 @@ export const HQ_APP_FUNCTION_ALLOWLIST = [
     { signature: 'apply_verified_payment_event(TEXT, TEXT, TEXT, BIGINT, TEXT, BOOLEAN, INTEGER, JSONB)', description: 'Payment webhook processing' },
     { signature: 'create_wholesale_event_notifications(BIGINT, TEXT, BIGINT, TEXT, BIGINT, JSONB)', description: 'Wholesale notification creation' },
     { signature: 'wholesale_notification_recipients_for_event(BIGINT, BIGINT)', description: 'Wholesale notification replay' },
+    { signature: 'enqueue_notification_email(TEXT, TEXT, TEXT, BIGINT, TEXT, BIGINT, BIGINT, BIGINT, JSONB)', description: 'Validated notification outbox enqueue' },
+    { signature: 'enqueue_new_order_email(BIGINT)', description: 'Verified merchant recipient resolution for new orders' },
 ] as const;
 
 const HQ_APP_FUNCTION_SIGNATURES = HQ_APP_FUNCTION_ALLOWLIST.map(({ signature }) => signature);
 
 const SENSITIVE_FUNCTION_SIGNATURES = [
+    'app_is_business_member(BIGINT)',
+    'app_has_business_permission(BIGINT, TEXT)',
+    'app_business_ids()',
+    'app_business_is_public(BIGINT)',
+    'app_business_has_no_members(BIGINT)',
     'app_user_for_login(TEXT)',
     'refresh_business_statistics(BIGINT)',
     'increment_business_profile_views(BIGINT)',
@@ -44,6 +51,8 @@ const SENSITIVE_FUNCTION_SIGNATURES = [
     'user_email_is_verified(BIGINT)',
     'app_public_reviews(BIGINT, INTEGER, INTEGER)',
     'app_public_product_reviews(BIGINT, INTEGER, INTEGER)',
+    'enqueue_notification_email(TEXT, TEXT, TEXT, BIGINT, TEXT, BIGINT, BIGINT, BIGINT, JSONB)',
+    'enqueue_new_order_email(BIGINT)',
 ] as const;
 
 const TRIGGER_ONLY_FUNCTION_SIGNATURES = [
@@ -90,8 +99,36 @@ export async function applyGrants(
     await client.query(`GRANT USAGE ON SCHEMA public TO ${roleIdent}`);
     await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${roleIdent}`);
     await client.query(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${roleIdent}`);
+    // Restrict public-schema execution, then explicitly restore the hq_app API
+    // and extension operators it uses. This is based on the repository's only
+    // supported runtime database client; compatibility for undocumented SQL
+    // clients is an operational decision and is called out in the audit.
+    await client.query('REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC');
     await client.query('REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM ' + roleIdent);
     await client.query('REVOKE ALL ON ALL PROCEDURES IN SCHEMA public FROM ' + roleIdent);
+
+    // Operators supplied by extensions invoke their backing functions
+    // implicitly. Keep installed extension routines usable to hq_app after the
+    // explicit role revoke above. These are extension-owned, not project APIs.
+    await client.query(`
+        DO $extension_grants$
+        DECLARE function_signature TEXT;
+        BEGIN
+            FOR function_signature IN
+                SELECT p.oid::regprocedure::TEXT
+                  FROM pg_catalog.pg_proc p
+                  JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+                  JOIN pg_catalog.pg_depend d ON d.classid = 'pg_catalog.pg_proc'::pg_catalog.regclass
+                                             AND d.objid = p.oid
+                                             AND d.refclassid = 'pg_catalog.pg_extension'::pg_catalog.regclass
+                                             AND d.deptype = 'e'
+                  JOIN pg_catalog.pg_extension e ON e.oid = d.refobjid
+                 WHERE n.nspname = 'public' AND e.extname = 'citext'
+            LOOP
+                EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO %I', function_signature, ${roleLiteral});
+            END LOOP;
+        END $extension_grants$
+    `);
 
     // Remove any broad future-function grant from every role that owns
     // default privileges in public. Migrations run through the admin pool, so

@@ -6,6 +6,7 @@ import assertModule from 'node:assert/strict';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import request from 'supertest';
+import { assertNoRealSmtpTransport } from './helpers/no-network-email.js';
 
 const assert: typeof assertModule = assertModule;
 type App = import('express').Express;
@@ -16,7 +17,7 @@ let closePools: () => Promise<void>;
 before(async () => {
     app = (await import('../src/app.js')).createApp();
     const poolModule = await import('../src/db/pool.js');
-    adminPool = poolModule.adminPool;
+    adminPool = (await import('../src/db/admin-pool.js')).adminPool;
     closePools = poolModule.closePools;
     const { prepareTestDatabase } = await import('./helpers/test-database.js');
     await prepareTestDatabase(adminPool);
@@ -24,6 +25,7 @@ before(async () => {
 
 after(async () => {
     await closePools?.();
+    assertNoRealSmtpTransport();
 });
 
 describe('password recovery', () => {

@@ -20,6 +20,7 @@ import assertModule from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import request from 'supertest';
+import { assertNoRealSmtpTransport } from './helpers/no-network-email.js';
 import { normalisePhone, PhoneValidationError } from '../src/modules/auth/phone.js';
 
 const assert: typeof assertModule = assertModule;
@@ -63,7 +64,7 @@ async function verifyRegisteredEmail(email: string, code = '123456') {
 before(async () => {
     app = (await import('../src/app.js')).createApp();
     const poolModule = await import('../src/db/pool.js');
-    adminPool = poolModule.adminPool;
+    adminPool = (await import('../src/db/admin-pool.js')).adminPool;
     closePools = poolModule.closePools;
 
     const { prepareTestDatabase } = await import('./helpers/test-database.js');
@@ -72,22 +73,23 @@ before(async () => {
 
 after(async () => {
     await closePools?.();
+    assertNoRealSmtpTransport();
 });
 
 describe('Registration: email, phone, or both', () => {
-    it('reports unavailable email delivery when SMTP is not configured', async (t) => {
-        const { isEmailDeliveryConfigured } = await import('../src/modules/admin/mailer.js');
-        if (isEmailDeliveryConfigured()) {
-            t.skip('SMTP is configured in this environment');
-            return;
+    it('reports unavailable email delivery when SMTP is not configured', async () => {
+        const { disableAuthEmailTransport, restoreAuthEmailTransport } = await import('./helpers/no-network-email.js');
+        disableAuthEmailTransport();
+        try {
+            const res = await request(app)
+                .post('/api/auth/email-verification/resend')
+                .send({ email: nextEmail('resend-unconfigured') });
+
+            assert.equal(res.status, 503);
+            assert.equal(res.body.error.code, 'EMAIL_DELIVERY_UNAVAILABLE');
+        } finally {
+            restoreAuthEmailTransport();
         }
-
-        const res = await request(app)
-            .post('/api/auth/email-verification/resend')
-            .send({ email: nextEmail('resend-unconfigured') });
-
-        assert.equal(res.status, 503);
-        assert.equal(res.body.error.code, 'EMAIL_DELIVERY_UNAVAILABLE');
     });
 
     it('requires email verification before an email account can sign in', async () => {

@@ -21,21 +21,21 @@ import assertModule from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 const assert: typeof assertModule = assertModule;
 const run = promisify(execFile);
 
 const projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const typescriptLoader = './tests/helpers/register-typescript-loader.mjs';
+const configUrl = pathToFileURL(resolve(projectRoot, 'src/config.ts')).href;
 
 /** Everything a production boot needs to be allowed through the existing guards. */
 const VALID_PRODUCTION_ENV: Record<string, string> = {
     NODE_ENV: 'production',
     PGHOST: 'db.internal',
     PGDATABASE: 'hq_marketplace',
-    PGUSER: 'postgres',
-    PGPASSWORD: 'a-real-admin-password-8f2c41d7',
     APP_DB_USER: 'hq_app',
     APP_DB_PASSWORD: 'a-real-app-password-51ba9e30',
     JWT_SECRET: 'a-real-jwt-signing-secret-4d9e0c17b6a24f83',
@@ -70,14 +70,16 @@ async function bootProductionConfig(
     }
 
     try {
-        // `tsx` is what `npm run dev` uses, so this is the same loader the
-        // operator's boot would go through.
+        // The test-only loader runs this TypeScript config probe without tsx's
+        // Windows temporary-directory path, which calls os.userInfo().
         const { stdout, stderr } = await run(
             process.execPath,
             [
-                resolve(projectRoot, 'node_modules/tsx/dist/cli.mjs'),
-                '--eval',
-                "import('./src/config.ts').then(({ config }) => console.log('BOOTED ORDERS_ENABLED=' + config.ORDERS_ENABLED))",
+                '--import',
+                typescriptLoader,
+                '--input-type=module',
+                '-e',
+                `import(${JSON.stringify(configUrl)}).then(({ config }) => console.log('BOOTED ORDERS_ENABLED=' + config.ORDERS_ENABLED))`,
             ],
             { cwd: projectRoot, env, encoding: 'utf8' },
         );
@@ -111,32 +113,125 @@ describe('production guards', () => {
         assert.match(production.output, /ORDERS_ENABLED=true/);
     });
 
-    it('refuses a placeholder admin password', async () => {
+    it('allows development startup when SMTP is intentionally disabled', async () => {
+        const { ok, output } = await bootProductionConfig({
+            NODE_ENV: 'development',
+            SMTP_HOST: undefined,
+            SMTP_TLS_MODE: undefined,
+            SMTP_USER: undefined,
+            SMTP_PASSWORD: undefined,
+        });
+        assert.equal(ok, true, output);
+    });
+
+    it('rejects configured SMTP without an explicit TLS mode without printing credentials', async () => {
+        const smtpSecret = 'smtp-secret-must-not-appear-830f7ca1';
+        const { ok, output } = await bootProductionConfig({
+            SMTP_HOST: 'smtp.example.test',
+            SMTP_TLS_MODE: undefined,
+            SMTP_USER: 'test-user',
+            SMTP_PASSWORD: smtpSecret,
+        });
+        assert.equal(ok, false);
+        assert.match(output, /API SMTP requires SMTP_TLS_MODE/);
+        assert.doesNotMatch(output, new RegExp(smtpSecret));
+    });
+
+    it('lets the API boot without administrative database credentials', async () => {
+        const { ok, output } = await bootProductionConfig({ PGUSER: undefined, PGPASSWORD: undefined });
+        assert.equal(ok, true, output);
+    });
+
+    it('refuses administrative database credentials in API mode', async () => {
+        const { ok, output } = await bootProductionConfig({
+            PGUSER: 'postgres', PGPASSWORD: 'a-real-admin-password-8f2c41d7',
+        });
+        assert.equal(ok, false);
+        assert.match(output, /API must not receive administrative database credentials/);
+    });
+
+    it('refuses a placeholder migration password', async () => {
         // PGPASSWORD is the schema owner's password — the one role that
         // bypasses row level security. `change-me` is what .env.example ships.
-        const { ok, output } = await bootProductionConfig({ PGPASSWORD: 'change-me' });
+        const { ok, output } = await bootProductionConfig({
+            PROCESS_ROLE: 'migration', PGUSER: 'postgres', PGPASSWORD: 'change-me',
+        });
         assert.equal(ok, false);
         assert.match(output, /Refusing to start/);
         assert.match(output, /PGPASSWORD/);
         assert.match(output, /placeholder/i);
     });
 
-    it('refuses a short admin password', async () => {
-        const { ok, output } = await bootProductionConfig({ PGPASSWORD: 'short' });
+    it('refuses a short migration password', async () => {
+        const { ok, output } = await bootProductionConfig({
+            PROCESS_ROLE: 'migration', PGUSER: 'postgres', PGPASSWORD: 'short',
+        });
         assert.equal(ok, false);
         assert.match(output, /PGPASSWORD/);
         assert.match(output, /16/);
     });
 
-    it('refuses the API and the migrations sharing one database role', async () => {
+    it('refuses the runtime and migration roles sharing one database role in trusted migration mode', async () => {
         // The failure this prevents has no symptom: the API becomes the table
         // owner, policies are bypassed, and every request still returns 200.
-        const { ok, output } = await bootProductionConfig({ APP_DB_USER: 'postgres' });
+        const { ok, output } = await bootProductionConfig({
+            PROCESS_ROLE: 'migration', PGUSER: 'hq_app', PGPASSWORD: 'a-real-admin-password-8f2c41d7', APP_DB_USER: 'hq_app',
+        });
         assert.equal(ok, false);
         assert.match(output, /Refusing to start/);
         assert.match(output, /APP_DB_USER/);
         assert.match(output, /row level\s+security|row level security/);
         assert.match(output, /db:grants/, 'the message should say how to fix it');
+    });
+
+    it('allows the notification worker to start with delivery disabled when SMTP is absent', async () => {
+        const { ok, output } = await bootProductionConfig({
+            PROCESS_ROLE: 'notification_worker',
+            NOTIFICATION_WORKER_DB_USER: 'hq_notification_worker_login',
+            NOTIFICATION_WORKER_DB_PASSWORD: 'worker-database-secret-830f7ca1',
+            SMTP_HOST: undefined,
+            SMTP_TLS_MODE: undefined,
+            SMTP_USER: undefined,
+            SMTP_PASSWORD: undefined,
+        });
+        assert.equal(ok, true, output);
+    });
+
+    it('rejects worker SMTP without an explicit TLS policy', async () => {
+        const { ok, output } = await bootProductionConfig({
+            PROCESS_ROLE: 'notification_worker',
+            NOTIFICATION_WORKER_DB_USER: 'hq_notification_worker_login',
+            NOTIFICATION_WORKER_DB_PASSWORD: 'worker-database-secret-830f7ca1',
+            SMTP_HOST: 'smtp.example.test',
+            SMTP_TLS_MODE: undefined,
+            SMTP_USER: 'smtp-user', SMTP_PASSWORD: 'smtp-password',
+        });
+        assert.equal(ok, false);
+        assert.match(output, /SMTP_TLS_MODE/);
+        assert.ok(!output.includes('smtp-password'));
+    });
+
+    it('rejects STARTTLS transport configured as implicit TLS', async () => {
+        const { ok, output } = await bootProductionConfig({
+            PROCESS_ROLE: 'notification_worker',
+            NOTIFICATION_WORKER_DB_USER: 'hq_notification_worker_login',
+            NOTIFICATION_WORKER_DB_PASSWORD: 'worker-database-secret-830f7ca1',
+            SMTP_HOST: 'smtp.example.test', SMTP_TLS_MODE: 'starttls', SMTP_SECURE: 'true',
+            SMTP_USER: 'smtp-user', SMTP_PASSWORD: 'smtp-password',
+        });
+        assert.equal(ok, false);
+        assert.match(output, /SMTP_SECURE must be true for implicit TLS and false for required STARTTLS/);
+    });
+
+    it('accepts a complete explicit implicit-TLS worker configuration', async () => {
+        const { ok, output } = await bootProductionConfig({
+            PROCESS_ROLE: 'notification_worker',
+            NOTIFICATION_WORKER_DB_USER: 'hq_notification_worker_login',
+            NOTIFICATION_WORKER_DB_PASSWORD: 'worker-database-secret-830f7ca1',
+            SMTP_HOST: 'smtp.example.test', SMTP_TLS_MODE: 'implicit', SMTP_SECURE: 'true',
+            SMTP_USER: 'smtp-user', SMTP_PASSWORD: 'smtp-password',
+        });
+        assert.equal(ok, true, output);
     });
 
     it('refuses a relative upload directory', async () => {

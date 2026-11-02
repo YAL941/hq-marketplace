@@ -1,0 +1,13 @@
+REVOKE ALL ON FUNCTION public.enqueue_notification_email(TEXT, TEXT, TEXT, BIGINT, TEXT, BIGINT, BIGINT, BIGINT, JSONB) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.claim_notification_email_batch(INTEGER, INTEGER) FROM PUBLIC, hq_notification_worker;
+REVOKE ALL ON FUNCTION public.resolve_notification_email_recipient(BIGINT, UUID) FROM PUBLIC, hq_notification_worker;
+REVOKE ALL ON FUNCTION public.acknowledge_notification_email_sent(BIGINT, UUID) FROM PUBLIC, hq_notification_worker;
+REVOKE ALL ON FUNCTION public.fail_notification_email(BIGINT, UUID, BOOLEAN, TEXT) FROM PUBLIC, hq_notification_worker;
+DROP FUNCTION public.enqueue_notification_email(TEXT, TEXT, TEXT, BIGINT, TEXT, BIGINT, BIGINT, BIGINT, JSONB);
+DROP FUNCTION public.claim_notification_email_batch(INTEGER, INTEGER);
+DROP FUNCTION public.resolve_notification_email_recipient(BIGINT, UUID);
+DROP FUNCTION public.acknowledge_notification_email_sent(BIGINT, UUID);
+DROP FUNCTION public.fail_notification_email(BIGINT, UUID, BOOLEAN, TEXT);
+DROP SCHEMA notification_private CASCADE;
+REVOKE USAGE ON SCHEMA public FROM hq_notification_worker;
+DROP ROLE hq_notification_worker;

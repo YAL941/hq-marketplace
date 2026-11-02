@@ -1,18 +1,37 @@
 import 'dotenv/config';
+import { readFileSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 
+function loadSecretFile(targetName: string, pathName: string): void {
+    const secretPath = process.env[pathName];
+    if (process.env[targetName] || !secretPath) return;
+    try {
+        process.env[targetName] = readFileSync(secretPath, 'utf8').trim();
+    } catch {
+        throw new Error(`${pathName} could not be read`);
+    }
+}
+
+// Compose file secrets are read before schema validation. Existing local .env
+// configuration remains supported when no *_FILE path is provided.
+loadSecretFile('APP_DB_PASSWORD', 'APP_DB_PASSWORD_FILE');
+loadSecretFile('SMTP_USER', 'SMTP_USER_FILE');
+loadSecretFile('SMTP_PASSWORD', 'SMTP_PASSWORD_FILE');
+
 const envSchema = z.object({
+    PROCESS_ROLE: z.enum(['api', 'notification_worker', 'migration', 'preflight']).default('api'),
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
     PGHOST: z.string().default('localhost'),
     PGPORT: z.coerce.number().int().positive().default(5432),
     PGDATABASE: z.string().default('hq_marketplace'),
-    PGUSER: z.string().default('postgres'),
-    PGPASSWORD: z.string().default('postgres'),
+    PGUSER: z.string().optional(),
+    PGPASSWORD: z.string().optional(),
 
     APP_DB_USER: z.string().default('hq_app'),
     APP_DB_PASSWORD: z.string().default('hq_app'),
+    APP_DB_PASSWORD_FILE: z.string().optional(),
     APP_DB_CONNECTION_USER: z.string().optional(),
     PAYMENT_COMMISSION_BPS: z.coerce.number().int().min(0).max(10_000).default(500),
     PAYMENTS_MOCK_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
@@ -23,14 +42,25 @@ const envSchema = z.object({
     SMTP_HOST: z.string().min(1).optional(),
     SMTP_PORT: z.coerce.number().int().positive().default(587),
     SMTP_SECURE: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+    /** Marketplace notifications require an explicit TLS transport mode. */
+    SMTP_TLS_MODE: z.enum(['starttls', 'implicit']).optional(),
     SMTP_USER: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
+    SMTP_USER_FILE: z.string().optional(),
+    SMTP_PASSWORD_FILE: z.string().optional(),
     MAIL_FROM: z.string().min(1).default('OmniHQ <no-reply@omnihq.local>'),
     PUBLIC_APP_URL: z.string().url().default('http://localhost:3001'),
     ORDERS_ENABLED: z.enum(['true', 'false']).optional(),
     // The production floor is checked separately and is stricter (32 chars,
     // no placeholders); this is only the minimum for a runnable dev setup.
-    JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters (32 or more when NODE_ENV=production)'),
+    // Optional only for the notification worker, which does not issue or validate tokens.
+    JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters (32 or more when NODE_ENV=production)').optional(),
+    NOTIFICATION_WORKER_DB_USER: z.string().min(1).optional(),
+    NOTIFICATION_WORKER_DB_PASSWORD: z.string().min(1).optional(),
+    EMAIL_WORKER_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+    EMAIL_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(20).default(5),
+    EMAIL_WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(100).max(30_000).default(5_000),
+    EMAIL_WORKER_LEASE_SECONDS: z.coerce.number().int().min(5).max(900).default(120),
     JWT_EXPIRES_IN: z.string().default('2h'),
     /**
      * Comma separated list of browser origins allowed to call the API, e.g.
@@ -97,6 +127,27 @@ const envSchema = z.object({
 }).refine(
     (value) => Boolean(value.SMTP_USER) === Boolean(value.SMTP_PASSWORD),
     { message: 'SMTP_USER and SMTP_PASSWORD must both be set or both be empty' },
+).refine(
+    (value) => value.PROCESS_ROLE !== 'api' || !value.SMTP_HOST || value.NODE_ENV === 'test'
+        || (Boolean(value.SMTP_TLS_MODE)
+            && value.SMTP_SECURE === (value.SMTP_TLS_MODE === 'implicit')),
+    { message: 'API SMTP requires SMTP_TLS_MODE=starttls with SMTP_SECURE=false or SMTP_TLS_MODE=implicit with SMTP_SECURE=true' },
+).refine(
+    (value) => value.PROCESS_ROLE !== 'notification_worker'
+        || Math.ceil(value.EMAIL_WORKER_BATCH_SIZE / value.EMAIL_WORKER_CONCURRENCY) * 35 + 5
+            <= value.EMAIL_WORKER_LEASE_SECONDS,
+    { message: 'EMAIL_WORKER_LEASE_SECONDS must cover bounded batch processing time' },
+).refine(
+    (value) => value.PROCESS_ROLE !== 'notification_worker' || !value.SMTP_HOST || Boolean(value.SMTP_TLS_MODE),
+    { message: 'SMTP_TLS_MODE must be explicitly set to starttls or implicit for the email worker' },
+).refine(
+    (value) => value.PROCESS_ROLE !== 'notification_worker' || !value.SMTP_HOST
+        || value.SMTP_SECURE === (value.SMTP_TLS_MODE === 'implicit'),
+    { message: 'SMTP_SECURE must be true for implicit TLS and false for required STARTTLS' },
+).refine(
+    (value) => value.PROCESS_ROLE !== 'notification_worker' || value.NODE_ENV !== 'production'
+        || !value.SMTP_HOST || (Boolean(value.SMTP_USER) && Boolean(value.SMTP_PASSWORD)),
+    { message: 'SMTP_USER and SMTP_PASSWORD are required for production email worker delivery' },
 );
 
 /** The Vite dev server, used when CORS_ORIGIN is unset or unusable. */
@@ -341,24 +392,41 @@ if (
 }
 
 if (parsed.data.NODE_ENV === 'production') {
-    assertProductionSecret('JWT_SECRET', parsed.data.JWT_SECRET, 32);
-    assertProductionSecret('APP_DB_PASSWORD', parsed.data.APP_DB_PASSWORD, 16);
-    assertProductionAdminPassword(parsed.data.PGPASSWORD);
-    assertSeparateDbRoles(parsed.data.APP_DB_USER, parsed.data.PGUSER);
-    if (parsed.data.STORAGE_DRIVER === 'local') {
-        assertAbsoluteUploadDir(parsed.data.UPLOAD_DIR);
+    if (parsed.data.PROCESS_ROLE === 'notification_worker') {
+        if (parsed.data.PGUSER || parsed.data.PGPASSWORD) {
+            throw new Error('Refusing to start: notification worker must not receive administrative database credentials.');
+        }
+        assertProductionSecret('NOTIFICATION_WORKER_DB_PASSWORD', parsed.data.NOTIFICATION_WORKER_DB_PASSWORD, 16);
+        if (!parsed.data.NOTIFICATION_WORKER_DB_USER) {
+            throw new Error('Refusing to start: NOTIFICATION_WORKER_DB_USER is not set.');
+        }
+        if ([parsed.data.PGUSER, parsed.data.APP_DB_USER].includes(parsed.data.NOTIFICATION_WORKER_DB_USER)) {
+            throw new Error('Refusing to start: notification worker must use its dedicated database login.');
+        }
+    } else if (parsed.data.PROCESS_ROLE === 'api' || parsed.data.PROCESS_ROLE === 'preflight') {
+        if (parsed.data.PROCESS_ROLE === 'api' && (parsed.data.PGUSER || parsed.data.PGPASSWORD)) {
+            throw new Error('Refusing to start: API must not receive administrative database credentials.');
+        }
+        assertProductionSecret('JWT_SECRET', parsed.data.JWT_SECRET, 32);
+        assertProductionSecret('APP_DB_PASSWORD', parsed.data.APP_DB_PASSWORD, 16);
+        if (parsed.data.STORAGE_DRIVER === 'local') assertAbsoluteUploadDir(parsed.data.UPLOAD_DIR);
+        assertExplicitTrustProxyHops(parsed.data.TRUST_PROXY_HOPS);
+        if (parsed.data.PAYMENTS_MOCK_ENABLED && !parsed.data.PAYMENTS_MOCK_TESTER_EMAIL) {
+            throw new Error('Refusing to start: PAYMENTS_MOCK_TESTER_EMAIL is required when PAYMENTS_MOCK_ENABLED=true in production.');
+        }
     }
-    assertExplicitTrustProxyHops(parsed.data.TRUST_PROXY_HOPS);
-    if (parsed.data.PAYMENTS_MOCK_ENABLED && !parsed.data.PAYMENTS_MOCK_TESTER_EMAIL) {
-        throw new Error(
-            'Refusing to start: PAYMENTS_MOCK_TESTER_EMAIL is required when '
-            + 'PAYMENTS_MOCK_ENABLED=true in production.',
-        );
+    if (parsed.data.PROCESS_ROLE === 'migration' || parsed.data.PROCESS_ROLE === 'preflight') {
+        if (!parsed.data.PGUSER) throw new Error('Refusing to start: PGUSER is required for trusted database tooling.');
+        assertProductionAdminPassword(parsed.data.PGPASSWORD);
+        assertSeparateDbRoles(parsed.data.APP_DB_USER, parsed.data.PGUSER);
     }
 }
 
 const configBase = {
     ...parsed.data,
+    // Worker code never uses JWT. This placeholder stays process-local and is
+    // not accepted in API mode, where the existing production checks remain.
+    JWT_SECRET: parsed.data.JWT_SECRET ?? 'notification-worker-unused-secret',
     // Internal orders are enabled unless a deployment explicitly pauses them.
     ORDERS_ENABLED:
         parsed.data.ORDERS_ENABLED === undefined
@@ -370,7 +438,9 @@ const configBase = {
         && Boolean(parsed.data.MOCK_MOBILE_MONEY_WEBHOOK_SECRET),
     isProduction: parsed.data.NODE_ENV === 'production',
     isTest: parsed.data.NODE_ENV === 'test',
-    corsOrigins: parseCorsOrigins(parsed.data.CORS_ORIGIN, parsed.data.NODE_ENV === 'production'),
+    corsOrigins: parsed.data.PROCESS_ROLE === 'api'
+        ? parseCorsOrigins(parsed.data.CORS_ORIGIN, parsed.data.NODE_ENV === 'production')
+        : [],
     /**
      * The schema intentionally has no default: production startup requires an
      * explicit trust-proxy count, while non-production can safely use zero.
@@ -381,7 +451,7 @@ const configBase = {
     trustProxyHops: parsed.data.TRUST_PROXY_HOPS ?? (parsed.data.NODE_ENV === 'production' ? 1 : 0),
 } as const;
 
-assertS3Config(configBase);
+if (parsed.data.PROCESS_ROLE === 'api') assertS3Config(configBase);
 
 export const config = configBase;
 

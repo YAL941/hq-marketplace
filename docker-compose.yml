@@ -1,53 +1,104 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: hq-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${PGDATABASE:-hq_marketplace}
-      POSTGRES_USER: ${PGUSER:-postgres}
-      POSTGRES_PASSWORD: ${PGPASSWORD:-postgres}
-    ports:
-      # Loopback only. "5432:5432" would publish the database on every network
-      # interface of the host, with a known default password.
-      - "127.0.0.1:5433:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-postgres} -d ${PGDATABASE:-hq_marketplace}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   app:
     build:
       context: .
+    image: hq-marketplace:local
     container_name: hq-marketplace
     restart: unless-stopped
     env_file:
       - .env
     environment:
       NODE_ENV: production
-      PGHOST: postgres
-      PGPORT: 5432
-      PGDATABASE: ${PGDATABASE:-hq_marketplace}
-      PGUSER: ${PGUSER:-postgres}
-      PGPASSWORD: ${PGPASSWORD:?set PGPASSWORD in .env}
+      PGHOST: ${PGHOST:?set the staging PostgreSQL host}
+      PGPORT: ${PGPORT:?set the staging PostgreSQL port}
+      PGDATABASE: ${PGDATABASE:?set the staging PostgreSQL database}
+      # Admin credentials are deliberately blank in the API container. Run
+      # migrations and grants from a separate trusted operator/CI context.
+      PGUSER: ""
+      PGPASSWORD: ""
+      PGPASSWORD_FILE: ""
+      NOTIFICATION_WORKER_DB_USER: ""
+      NOTIFICATION_WORKER_DB_PASSWORD: ""
+      NOTIFICATION_WORKER_DB_PASSWORD_FILE: ""
+      APP_DB_PASSWORD: ""
+      APP_DB_PASSWORD_FILE: /run/secrets/app_db_password
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      SMTP_USER_FILE: /run/secrets/smtp_user
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
       APP_DB_USER: ${APP_DB_USER:-hq_app}
-      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       CORS_ORIGIN: ${CORS_ORIGIN:?set CORS_ORIGIN (https origin of the site) in .env}
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       # Production refuses a relative upload directory.
       UPLOAD_DIR: /app/uploads
-    depends_on:
-      postgres:
-        condition: service_healthy
     ports:
       - "4000:4000"
     volumes:
       - uploads-data:/app/uploads
+    secrets:
+      - app_db_password
+      - smtp_user
+      - smtp_password
+
+  email-worker:
+    build:
+      context: .
+    image: hq-marketplace:local
+    container_name: hq-email-worker
+    profiles: ["email-worker"]
+    command: ["node", "dist/email-worker.js"]
+    # Docker does not restart a running container merely because it is unhealthy.
+    # Monitor this health state and alert; restart policy only covers process exit.
+    restart: unless-stopped
+    stop_grace_period: 15m
+    environment:
+      NODE_ENV: production
+      PROCESS_ROLE: notification_worker
+      PGHOST: ${PGHOST:?set the staging PostgreSQL host}
+      PGPORT: ${PGPORT:?set the staging PostgreSQL port}
+      PGDATABASE: ${PGDATABASE:?set the staging PostgreSQL database}
+      NOTIFICATION_WORKER_DB_USER: ${NOTIFICATION_WORKER_DB_USER:?set a dedicated worker login}
+      NOTIFICATION_WORKER_DB_PASSWORD_FILE: /run/secrets/notification_worker_db_password
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_TLS_MODE: ${SMTP_TLS_MODE:-}
+      SMTP_USER_FILE: /run/secrets/notification_smtp_user
+      SMTP_PASSWORD_FILE: /run/secrets/notification_smtp_password
+      MAIL_FROM: ${MAIL_FROM:-OmniHQ <no-reply@example.com>}
+      EMAIL_WORKER_HEARTBEAT_FILE: /tmp/hq-email-worker-heartbeat
+      EMAIL_WORKER_READINESS_FILE: /tmp/hq-email-worker-readiness
+      EMAIL_WORKER_BATCH_SIZE: ${EMAIL_WORKER_BATCH_SIZE:-10}
+      EMAIL_WORKER_CONCURRENCY: ${EMAIL_WORKER_CONCURRENCY:-5}
+      EMAIL_WORKER_POLL_INTERVAL_MS: ${EMAIL_WORKER_POLL_INTERVAL_MS:-5000}
+      EMAIL_WORKER_LEASE_SECONDS: ${EMAIL_WORKER_LEASE_SECONDS:-120}
+    secrets:
+      - notification_worker_db_password
+      - notification_smtp_user
+      - notification_smtp_password
+    healthcheck:
+      # Process and database health only. SMTP configuration and delivery
+      # verification remain separate operational signals in the DB summary.
+      test: ["CMD", "node", "-e", "const fs=require('fs');try{const now=Date.now();const alive=Number(fs.readFileSync('/tmp/hq-email-worker-heartbeat','utf8'));const readiness=/^(database_ready|database_unavailable) (\\d+)$/.exec(fs.readFileSync('/tmp/hq-email-worker-readiness','utf8').trim());const dbAt=readiness?Number(readiness[2]):NaN;if(!Number.isFinite(alive)||!Number.isFinite(dbAt)||now<alive||now<dbAt||now-alive>90000||now-dbAt>90000||readiness[1]!=='database_ready')process.exit(1)}catch{process.exit(1)}"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+secrets:
+  app_db_password:
+    file: ${APP_DB_PASSWORD_SECRET_FILE:?set path to the API database password secret file}
+  smtp_user:
+    file: ${SMTP_USER_SECRET_FILE:?set path to the SMTP username secret file}
+  smtp_password:
+    file: ${SMTP_PASSWORD_SECRET_FILE:?set path to the SMTP password secret file}
+  notification_worker_db_password:
+    file: ${NOTIFICATION_WORKER_DB_PASSWORD_SECRET_FILE:?set path to the worker database password secret file}
+  notification_smtp_user:
+    file: ${SMTP_USER_SECRET_FILE:?set path to the SMTP username secret file}
+  notification_smtp_password:
+    file: ${SMTP_PASSWORD_SECRET_FILE:?set path to the SMTP password secret file}
 
 volumes:
-  postgres-data:
   uploads-data:

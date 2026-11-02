@@ -10,7 +10,7 @@ let closePools: () => Promise<void>;
 before(async () => {
     process.env['PGDATABASE'] = process.env['TEST_PGDATABASE'] ?? 'hq_marketplace_test';
     const poolModule = await import('../src/db/pool.js');
-    adminPool = poolModule.adminPool;
+    adminPool = (await import('../src/db/admin-pool.js')).adminPool;
     appPool = poolModule.appPool;
     closePools = poolModule.closePools;
     const { prepareTestDatabase } = await import('./helpers/test-database.js');
@@ -64,6 +64,13 @@ describe('least-privilege public function grants', () => {
 
     it('removes PUBLIC execute from sensitive project functions', async () => {
         const sensitive = [
+            'app_is_business_member(bigint)',
+            'app_has_business_permission(bigint, text)',
+            'app_business_ids()',
+            'app_business_is_public(bigint)',
+            'app_business_has_no_members(bigint)',
+            'enqueue_notification_email(text, text, text, bigint, text, bigint, bigint, bigint, jsonb)',
+            'enqueue_new_order_email(bigint)',
             'app_user_for_login(text)',
             'refresh_business_statistics(bigint)',
             'increment_business_profile_views(bigint)',

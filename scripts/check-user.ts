@@ -2,7 +2,7 @@
  * Check a specific user's status.
  * Run with: npx tsx scripts/check-user.ts <email>
  */
-import { adminPool, closePools } from '../src/db/pool.js';
+import { adminPool, closeAdminPool } from '../src/db/admin-pool.js';
 
 const email = process.argv[2]!;
 if (!email) {
@@ -61,4 +61,4 @@ async function main(): Promise<void> {
 main().catch((error) => {
     console.error(error);
     process.exit(1);
-}).finally(() => closePools().catch(() => undefined));
+}).finally(() => closeAdminPool().catch(() => undefined));

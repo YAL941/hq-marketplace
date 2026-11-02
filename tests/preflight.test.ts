@@ -34,7 +34,9 @@ const run = promisify(execFile);
 
 const projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const script = resolve(projectRoot, 'scripts/preflight.ts');
-const tsxCli = resolve(projectRoot, 'node_modules/tsx/dist/cli.mjs');
+// A relative loader specifier is required on Windows; Node otherwise parses
+// `C:\...` as a URL scheme in child processes.
+const typescriptLoader = './tests/helpers/register-typescript-loader.mjs';
 
 /** Outcome of one preflight invocation. */
 interface PreflightResult {
@@ -63,6 +65,9 @@ async function preflight(overrides: Record<string, string | undefined> = {}): Pr
     const env: Record<string, string> = {
         ...readTestEnv(),
         ...process.env,
+        // The command needs both runtime and admin probes, and is launched
+        // directly here rather than through the npm script that sets this role.
+        PROCESS_ROLE: 'preflight',
         DOTENV_CONFIG_PATH: resolve(projectRoot, '.env.test'),
         PGDATABASE: process.env['TEST_PGDATABASE'] ?? 'hq_marketplace_test',
         // Overridable per case; the busy-port case needs to name its own.
@@ -74,7 +79,7 @@ async function preflight(overrides: Record<string, string | undefined> = {}): Pr
     }
 
     try {
-        const { stdout, stderr } = await run(process.execPath, [tsxCli, script], {
+        const { stdout, stderr } = await run(process.execPath, ['--import', typescriptLoader, script], {
             cwd: projectRoot,
             env,
             encoding: 'utf8',

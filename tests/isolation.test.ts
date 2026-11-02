@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Phase 1 acceptance tests - the eight scenarios required by the brief.
  *
  * These run against a REAL PostgreSQL database (hq_marketplace_test),
@@ -76,7 +76,7 @@ let fixtures: Fixtures;
 before(async () => {
     app = (await import('../src/app.js')).createApp();
     const poolModule = await import('../src/db/pool.js');
-    adminPool = poolModule.adminPool;
+    adminPool = (await import('../src/db/admin-pool.js')).adminPool;
     closePools = poolModule.closePools;
     // migrate + grants + truncate, serialised across test processes
     const { prepareTestDatabase } = await import('./helpers/test-database.js');

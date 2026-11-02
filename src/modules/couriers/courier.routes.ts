@@ -8,6 +8,7 @@ import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import { normalisePhone, PhoneValidationError } from '../auth/phone.js';
 import { notifyOrderEventSafely } from '../notifications/notification.service.js';
+import { enqueueOnTheWayEmail } from '../notifications/email-outbox.repository.js';
 import { assertPermission } from '../services/service.repository.js';
 
 export const courierRoutes: Router = Router();
@@ -278,6 +279,9 @@ courierRoutes.patch('/courier/deliveries/:orderId/status', courierAccess, authen
                 [orderId, courierUserId, deliveryStatus, expected, confirmationCode ?? null],
             );
             if (!rows[0]) throw conflict('Delivery status changed or this delivery is not assigned to you');
+            if (deliveryStatus === 'on_the_way') {
+                await enqueueOnTheWayEmail(client, String(rows[0].order_id));
+            }
             return rows[0];
         });
         if (deliveryStatus === 'picked_up' || deliveryStatus === 'delivered') {

@@ -8,6 +8,7 @@ import { resolveBusiness } from '../../middleware/error.js';
 import { rateLimiter } from '../../middleware/rate-limit.js';
 import { config } from '../../config.js';
 import { notifyOrderEventSafely } from '../notifications/notification.service.js';
+import { enqueueNewOrderEmail, enqueueOrderStatusEmail } from '../notifications/email-outbox.repository.js';
 import { isMockMobileMoneyAllowedFor, listPaymentMethods } from '../payments/payment.providers.js';
 import {
     cancelOwnOrder,
@@ -90,7 +91,11 @@ orderRoutes.post(
                 throw new AppError(503, 'PAYMENT_PROVIDER_UNAVAILABLE', 'Online payment is not configured.');
             }
             const ctx = contextFor(req);
-            const order = await withTenant(ctx, (client) => createOrder(client, req.user!.id, input));
+            const order = await withTenant(ctx, async (client) => {
+                const created = await createOrder(client, req.user!.id, input);
+                await enqueueNewOrderEmail(client, created.order_id);
+                return created;
+            });
             await notifyOrderEventSafely('new_order', order.order_id, req.user!.id);
             res.status(201).json({ data: order });
         } catch (error) {
@@ -303,9 +308,11 @@ orderRoutes.patch('/business/:businessId/orders/:orderId/status', authenticate, 
                 ]),
             })
             .parse(req.body);
-        const order = await withTenant(contextFor(req, businessId), (client) =>
-            updateOrderStatus(client, businessId, orderId, orderStatus),
-        );
+        const order = await withTenant(contextFor(req, businessId), async (client) => {
+            const updated = await updateOrderStatus(client, businessId, orderId, orderStatus);
+            await enqueueOrderStatusEmail(client, String(businessId), String(orderId));
+            return updated;
+        });
         await notifyOrderEventSafely('order_status_changed', order.order_id, Number(order.customer_id));
         const {
             delivery_confirmation_code: _code,

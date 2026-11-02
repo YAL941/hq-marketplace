@@ -20,6 +20,7 @@ let adminPool: import('pg').Pool;
 let appPool: import('pg').Pool;
 let closePools: () => Promise<void>;
 let customerToken: string;
+let ownerId: number;
 let businessId: number;
 let mockSmsProvider: import('../src/modules/notifications/mock-sms.provider.js').MockSmsProvider;
 let mockWhatsAppProvider: import('../src/modules/notifications/mock-whatsapp.provider.js').MockWhatsAppProvider;
@@ -46,13 +47,13 @@ before(async () => {
     mockWhatsAppProvider = notificationService.mockWhatsAppProvider;
     app = (await import('../src/app.js')).createApp();
     const poolModule = await import('../src/db/pool.js');
-    adminPool = poolModule.adminPool;
+    adminPool = (await import('../src/db/admin-pool.js')).adminPool;
     appPool = poolModule.appPool;
     closePools = poolModule.closePools;
     const { prepareTestDatabase } = await import('./helpers/test-database.js');
     await prepareTestDatabase(adminPool);
 
-    const ownerId = await createUser('payments-owner@hq.test', 'Payments Owner', '+252610000008');
+    ownerId = await createUser('payments-owner@hq.test', 'Payments Owner', '+252610000008');
     await createUser('payments-customer@hq.test', 'Payments Customer', '+252610000017');
     customerToken = await login('payments-customer@hq.test');
 
@@ -231,6 +232,20 @@ describe('payment lifecycle', () => {
         }
         assert.equal(orderResponse.status, 201, JSON.stringify(orderResponse.body));
         const orderId = Number(orderResponse.body.data.order_id);
+        const { rows: newOrderEmails } = await adminPool.query<{
+            recipient_user_id: string; locale: string; payload: Record<string, unknown>;
+        }>(`SELECT recipient_user_id, locale, payload
+              FROM notification_private.notification_outbox
+             WHERE order_id = $1 AND event_type = 'order.created'`, [orderId]);
+        assert.equal(newOrderEmails.length, 1);
+        assert.equal(Number(newOrderEmails[0]!.recipient_user_id), ownerId);
+        assert.equal(newOrderEmails[0]!.locale, 'en');
+        const { rows: createdOrderNumbers } = await adminPool.query<{ order_number: string }>(
+            'SELECT order_number FROM public.orders WHERE order_id = $1', [orderId],
+        );
+        assert.equal(newOrderEmails[0]!.payload.order_number, createdOrderNumbers[0]!.order_number);
+        assert.equal(newOrderEmails[0]!.payload.business_name, 'Payments Shop');
+        assert.equal(JSON.stringify(newOrderEmails[0]!.payload).includes('customer'), false);
         assert.equal(mockSmsProvider.delivered.length, 0);
         assert.equal(mockWhatsAppProvider.delivered.length, 1);
         assert.equal(mockWhatsAppProvider.delivered[0]!.eventType, 'new_order');
@@ -273,6 +288,15 @@ describe('payment lifecycle', () => {
         assert.equal(mockSmsProvider.delivered[0]!.to, '+252610000017');
         assert.match(mockSmsProvider.delivered[0]!.body, /تم التأكيد/);
         assert.equal(mockWhatsAppProvider.delivered.length, 2);
+        const { rows: statusEmails } = await adminPool.query<{
+            recipient_user_id: string; locale: string; payload: Record<string, unknown>;
+        }>(`SELECT recipient_user_id, locale, payload
+              FROM notification_private.notification_outbox
+             WHERE order_id = $1 AND event_type = 'order.status_changed'`, [orderId]);
+        assert.equal(statusEmails.length, 1);
+        assert.equal(Number(statusEmails[0]!.recipient_user_id), Number(orderResponse.body.data.customer_id));
+        assert.equal(statusEmails[0]!.locale, 'ar');
+        assert.equal(statusEmails[0]!.payload.status, 'confirmed');
 
         const signed = mockProvider.createSignedSuccessEvent({
             paymentId: payment.payment_id,
@@ -305,6 +329,15 @@ describe('payment lifecycle', () => {
         assert.equal(simulatedCompletion.status, 200, JSON.stringify(simulatedCompletion.body));
         assert.equal(simulatedCompletion.body.data.payment_status, 'paid');
         assert.equal(simulatedCompletion.body.data.duplicate, false);
+        const paymentOutbox = await adminPool.query<{ count: string; recipient_user_id: string; locale: string }>(
+            `SELECT count(*)::text AS count, min(recipient_user_id)::text AS recipient_user_id,
+                    min(locale) AS locale
+               FROM notification_private.notification_outbox
+              WHERE payment_id = $1 AND event_type = 'payment.succeeded'`, [payment.payment_id],
+        );
+        assert.equal(paymentOutbox.rows[0]!.count, '1');
+        assert.equal(Number(paymentOutbox.rows[0]!.recipient_user_id), Number(orderResponse.body.data.customer_id));
+        assert.equal(paymentOutbox.rows[0]!.locale, 'ar');
 
         const accepted = await webhook();
         assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
@@ -314,6 +347,11 @@ describe('payment lifecycle', () => {
         const duplicate = await webhook();
         assert.equal(duplicate.status, 200, JSON.stringify(duplicate.body));
         assert.equal(duplicate.body.data.duplicate, true);
+        const { rows: paymentDedupe } = await adminPool.query<{ count: string }>(
+            `SELECT count(*)::text AS count FROM notification_private.notification_outbox
+              WHERE payment_id = $1 AND event_type = 'payment.succeeded'`, [payment.payment_id],
+        );
+        assert.equal(paymentDedupe[0]!.count, '1');
         assert.equal(mockSmsProvider.delivered.filter((message) => message.eventType === 'payment_confirmed').length, 1);
         assert.equal(mockWhatsAppProvider.delivered.filter((message) => message.eventType === 'payment_confirmed').length, 1);
 
@@ -819,6 +857,12 @@ describe('payment lifecycle', () => {
         assert.equal(forwardPrivilegeBeforeDown[0]!.hq_app_execute, true);
         assert.equal(forwardPrivilegeBeforeDown[0]!.public_execute, false);
 
+        assert.equal(await migrateDown({ allowDataLoss: true }), '066_notification_tls_health_code');
+        assert.deepEqual(await migrateUp(), ['066_notification_tls_health_code']);
+        assert.equal(await migrateDown({ allowDataLoss: true }), '065_notification_operations');
+        assert.equal(await migrateDown({ allowDataLoss: true }), '064_notification_owner_security');
+        assert.equal(await migrateDown({ allowDataLoss: true }), '063_enqueue_new_order_email');
+        assert.equal(await migrateDown({ allowDataLoss: true }), '062_notification_outbox');
         const rolledBack = await migrateDown({ allowDataLoss: true });
         assert.equal(rolledBack, '061_late_success_payment_reconciliation');
 
@@ -860,6 +904,11 @@ describe('payment lifecycle', () => {
 
         const reapplied = await migrateUp();
         assert.ok(reapplied.includes('061_late_success_payment_reconciliation'));
+        assert.ok(reapplied.includes('062_notification_outbox'));
+        assert.ok(reapplied.includes('063_enqueue_new_order_email'));
+        assert.ok(reapplied.includes('064_notification_owner_security'));
+        assert.ok(reapplied.includes('065_notification_operations'));
+        assert.ok(reapplied.includes('066_notification_tls_health_code'));
         const { rows: forwardRows } = await adminPool.query<{ columns: string }>(
             `SELECT pg_get_function_result(p.oid) AS columns
                FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace

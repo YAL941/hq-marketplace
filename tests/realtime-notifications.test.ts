@@ -1,4 +1,4 @@
-﻿process.env['NODE_ENV'] = 'test';
+process.env['NODE_ENV'] = 'test';
 process.env['PGDATABASE'] = process.env['TEST_PGDATABASE'] ?? 'hq_marketplace_test';
 process.env['JWT_SECRET'] = process.env['JWT_SECRET'] ?? '979cd78027cc4346a75f453799aea1590e8a9d4b7fb84612bd6f35f6db3f14da';
 
@@ -40,7 +40,7 @@ interface SseConnection {
 before(async () => {
     app = (await import('../src/app.js')).createApp({ trustProxyHops: 0 });
     const poolModule = await import('../src/db/pool.js');
-    adminPool = poolModule.adminPool;
+    adminPool = (await import('../src/db/admin-pool.js')).adminPool;
     closePools = poolModule.closePools;
     const { prepareTestDatabase } = await import('./helpers/test-database.js');
     await prepareTestDatabase(adminPool);

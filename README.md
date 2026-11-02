@@ -437,16 +437,21 @@ succeeds and the API returns `email.sent: false` for the admin toast. Configure:
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_SECURE=false
+SMTP_TLS_MODE=starttls
 SMTP_USER=mailer@example.com
 SMTP_PASSWORD=replace-with-provider-password
 MAIL_FROM=OmniHQ <mailer@example.com>
 ```
 
-Use `SMTP_SECURE=true` for implicit TLS on port 465; port 587 normally uses
-`SMTP_SECURE=false` and STARTTLS. If messages do not arrive, check the API log
-and provider SMTP credentials, verify that outbound SMTP is allowed, and publish
-the provider's SPF and DKIM DNS records (plus DMARC where available). Do not
-disable certificate verification to work around TLS errors.
+Port 587 normally uses `SMTP_TLS_MODE=starttls` with `SMTP_SECURE=false`; the
+mailer requires STARTTLS and will fail instead of falling back to plaintext.
+Use `SMTP_TLS_MODE=implicit` with `SMTP_SECURE=true` for implicit TLS (normally
+port 465). A configured SMTP host requires an explicit matching TLS mode. If
+SMTP is intentionally disabled in development or test, leave `SMTP_HOST` empty.
+If messages do not arrive, check the API log and provider SMTP credentials,
+verify that outbound SMTP is allowed, and publish the provider's SPF and DKIM
+DNS records (plus DMARC where available). Do not disable certificate
+verification to work around TLS errors.
 
 ## Account recovery and navigation
 

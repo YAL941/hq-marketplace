@@ -2,11 +2,9 @@ import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg
 import { config } from '../config.js';
 
 /**
- * Two pools on purpose:
+ * The API pool uses only `hq_app`. Privileged migration access lives in
+ * `admin-pool.ts`, which is imported by trusted scripts and never by the API.
  *
- *  - `adminPool`   : the schema owner. Used ONLY by migrations, seeds and
- *                    grant scripts. It bypasses RLS, so it must never be
- *                    reachable from a request handler.
  *  - `appPool`     : the `hq_app` role. RLS applies, so a missing
  *                    `WHERE business_id = ...` returns nothing instead of
  *                    another business's rows.
@@ -25,13 +23,6 @@ const common = {
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: process.env['VERCEL'] === '1' ? 2_000 : 5_000,
 };
-
-export const adminPool = new Pool({
-    ...common,
-    user: config.PGUSER,
-    password: config.PGPASSWORD,
-    application_name: 'hq-admin',
-});
 
 export const appPool = new Pool({
     ...common,
@@ -64,7 +55,7 @@ export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>)
 }
 
 export async function closePools(): Promise<void> {
-    await Promise.all([adminPool.end(), appPool.end()]);
+    await appPool.end();
 }
 
 export interface AppRoleFinding {

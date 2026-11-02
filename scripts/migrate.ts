@@ -1,4 +1,5 @@
 import { closePools } from '../src/db/pool.js';
+import { closeAdminPool } from '../src/db/admin-pool.js';
 import { migrateDown, migrateUp, migrationStatus } from '../src/db/migrator.js';
 
 async function main(): Promise<void> {
@@ -32,9 +33,10 @@ async function main(): Promise<void> {
 }
 
 main()
-    .then(closePools)
+    .then(async () => { await closeAdminPool(); await closePools(); })
     .catch(async (error) => {
         console.error('[migrate]', error.message);
+        await closeAdminPool();
         await closePools();
         process.exit(1);
     });

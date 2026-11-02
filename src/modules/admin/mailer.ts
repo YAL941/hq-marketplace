@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import type { SendMailOptions } from 'nodemailer';
 import { config } from '../../config.js';
 
 export interface BusinessDecisionEmail {
@@ -8,22 +9,110 @@ export interface BusinessDecisionEmail {
     reason?: string | null;
 }
 
-const transporter = config.SMTP_HOST
-    ? nodemailer.createTransport({
-        host: config.SMTP_HOST,
-        port: config.SMTP_PORT,
-        secure: config.SMTP_SECURE,
+export interface AuthMailerTransport {
+    sendMail(message: SendMailOptions): Promise<unknown>;
+}
+
+export interface AuthMailerSmtpSettings {
+    SMTP_HOST?: string;
+    SMTP_PORT: number;
+    SMTP_SECURE: boolean;
+    SMTP_TLS_MODE?: 'starttls' | 'implicit';
+    SMTP_USER?: string;
+    SMTP_PASSWORD?: string;
+    MAIL_FROM: string;
+}
+
+export interface AuthMailerTransportOptions {
+    host: string;
+    port: number;
+    secure: boolean;
+    requireTLS: boolean;
+    connectionTimeout: number;
+    greetingTimeout: number;
+    socketTimeout: number;
+    tls: { rejectUnauthorized: true };
+    auth?: { user: string; pass: string };
+}
+
+let testTransport: AuthMailerTransport | null | undefined;
+let productionTransport: AuthMailerTransport | null = config.NODE_ENV === 'test'
+    ? null
+    : createProductionTransport();
+const testGlobals = globalThis as typeof globalThis & { __hqTestMailerTransport?: AuthMailerTransport | null };
+
+/** Test-only seam; production always uses the original config-backed SMTP transport. */
+export function installMailerTestTransport(transport: AuthMailerTransport | null): void {
+    if (config.NODE_ENV !== 'test') throw new Error('Mailer test transport is available only in test mode');
+    testTransport = transport;
+}
+
+function getTransport(): AuthMailerTransport | null {
+    if (config.NODE_ENV === 'test') {
+        return testTransport !== undefined ? testTransport : testGlobals.__hqTestMailerTransport ?? null;
+    }
+    return productionTransport;
+}
+
+function createProductionTransport(): AuthMailerTransport | null {
+    return createAuthMailerTransport(config, (options) => nodemailer.createTransport(options));
+}
+
+/** Build the auth transport with an explicit TLS policy; injectable for tests. */
+export function createAuthMailerTransport(
+    settings: AuthMailerSmtpSettings,
+    createTransport: (options: AuthMailerTransportOptions) => AuthMailerTransport =
+        (options) => nodemailer.createTransport(options),
+): AuthMailerTransport | null {
+    if (!settings.SMTP_HOST) return null;
+    if (!settings.SMTP_TLS_MODE || settings.SMTP_SECURE !== (settings.SMTP_TLS_MODE === 'implicit')) {
+        throw new Error('SMTP TLS configuration is invalid');
+    }
+    return createTransport({
+        host: settings.SMTP_HOST,
+        port: settings.SMTP_PORT,
+        secure: settings.SMTP_TLS_MODE === 'implicit',
+        requireTLS: settings.SMTP_TLS_MODE === 'starttls',
         connectionTimeout: 10_000,
         greetingTimeout: 10_000,
         socketTimeout: 15_000,
-        ...(config.SMTP_USER && config.SMTP_PASSWORD
-            ? { auth: { user: config.SMTP_USER, pass: config.SMTP_PASSWORD } }
+        tls: { rejectUnauthorized: true },
+        ...(settings.SMTP_USER && settings.SMTP_PASSWORD
+            ? { auth: { user: settings.SMTP_USER, pass: settings.SMTP_PASSWORD } }
             : {}),
-    })
-    : null;
+    });
+}
+
+async function sendSafely(transport: AuthMailerTransport, message: SendMailOptions): Promise<void> {
+    try {
+        await transport.sendMail(message);
+    } catch (error) {
+        throw new Error(`SMTP delivery failed (${safeSmtpFailureCode(error)})`);
+    }
+}
+
+function safeSmtpFailureCode(error: unknown): string {
+    const candidate = error !== null && typeof error === 'object'
+        ? error as { code?: unknown; responseCode?: unknown }
+        : {};
+    const code = typeof candidate.code === 'string' ? candidate.code.toUpperCase() : '';
+    if (['ETIMEDOUT', 'ESOCKETTIMEDOUT'].includes(code)) return 'smtp_timeout';
+    if (['ETLS', 'ERR_TLS_CERT_ALTNAME_INVALID', 'CERT_HAS_EXPIRED', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'].includes(code)) {
+        return 'smtp_tls_failed';
+    }
+    if (['ECONNECTION', 'ECONNRESET', 'ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'EAI_AGAIN'].includes(code)) {
+        return 'smtp_connection_failed';
+    }
+    if (code === 'EAUTH') return 'smtp_authentication_failed';
+    if (typeof candidate.responseCode === 'number') {
+        return candidate.responseCode >= 500 ? 'smtp_permanent_rejection'
+            : candidate.responseCode >= 400 ? 'smtp_temporary_rejection' : 'smtp_send_failed';
+    }
+    return 'smtp_send_failed';
+}
 
 export function isEmailDeliveryConfigured(): boolean {
-    return transporter !== null;
+    return getTransport() !== null;
 }
 
 export async function sendPasswordResetEmail(input: {
@@ -31,10 +120,11 @@ export async function sendPasswordResetEmail(input: {
     fullName: string;
     resetUrl: string;
 }): Promise<void> {
+    const transporter = getTransport();
     if (!transporter) throw new Error('SMTP is not configured');
     const safeName = escapeHtml(input.fullName);
     const safeUrl = escapeHtml(input.resetUrl);
-    await transporter.sendMail({
+    await sendSafely(transporter, {
         from: config.MAIL_FROM,
         to: input.recipient,
         subject: 'Reset your password',
@@ -53,10 +143,11 @@ export async function sendEmailVerificationCode(input: {
     fullName: string;
     code: string;
 }): Promise<{ sent: boolean; reason?: string }> {
+    const transporter = getTransport();
     if (!transporter) return { sent: false, reason: 'SMTP is not configured' };
     const safeName = escapeHtml(input.fullName);
     const safeCode = escapeHtml(input.code);
-    await transporter.sendMail({
+    await sendSafely(transporter, {
         from: config.MAIL_FROM,
         to: input.recipient,
         subject: 'رمز تأكيد بريدك | Verify your email',
@@ -118,9 +209,10 @@ export async function sendBusinessDecisionEmail(
     decision: BusinessDecisionEmail,
 ): Promise<{ sent: boolean; reason?: string }> {
     if (!decision.recipient) return { sent: false, reason: 'No recipient email address' };
+    const transporter = getTransport();
     if (!transporter) return { sent: false, reason: 'SMTP is not configured' };
 
-    await transporter.sendMail({
+    await sendSafely(transporter, {
         from: config.MAIL_FROM,
         to: decision.recipient,
         subject: decision.status === 'active'

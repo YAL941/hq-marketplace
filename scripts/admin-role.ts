@@ -34,7 +34,7 @@
  * row level security policies this role sits outside of.
  */
 
-import { adminPool, closePools } from '../src/db/pool.js';
+import { adminPool, closeAdminPool } from '../src/db/admin-pool.js';
 
 /** The role this script grants. Fixed: the point is not to parameterise it. */
 const ROLE_KEY = 'platform_admin';
@@ -309,10 +309,10 @@ const isDirectRun = process.argv[1] !== undefined
 
 if (isDirectRun) {
     run(process.argv.slice(2))
-        .then((code) => closePools().then(() => { process.exitCode = code; }))
+        .then((code) => closeAdminPool().then(() => { process.exitCode = code; }))
         .catch(async (error: unknown) => {
             console.error('[admin]', error instanceof Error ? error.message : error);
-            await closePools();
+            await closeAdminPool();
             process.exit(1);
         });
 }

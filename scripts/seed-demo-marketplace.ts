@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { adminPool, closePools } from '../src/db/pool.js';
+import { adminPool, closeAdminPool } from '../src/db/admin-pool.js';
 import { processImage } from '../src/modules/media/image-processing.js';
 import { buildImageKey, getStorage } from '../src/modules/media/storage/index.js';
 
@@ -304,7 +304,7 @@ async function main(): Promise<void> {
         throw error;
     } finally {
         client.release();
-        await closePools();
+        await closeAdminPool();
     }
 }
 

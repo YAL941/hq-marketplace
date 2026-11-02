@@ -34,7 +34,8 @@ import { resolve } from 'node:path';
 
 import { config } from '../src/config.js';
 import { inspectAppRole } from '../src/db/pool.js';
-import { adminPool, appPool, closePools } from '../src/db/pool.js';
+import { adminPool, closeAdminPool } from '../src/db/admin-pool.js';
+import { appPool, closePools } from '../src/db/pool.js';
 import { migrationStatus } from '../src/db/migrator.js';
 
 /** The outcome of one check. `detail` is printed indented under the line. */
@@ -320,4 +321,4 @@ main()
         process.exitCode = 1;
     })
     // `closePools` last, and never allowed to mask a failure above it.
-    .finally(() => closePools().catch(() => undefined));
+    .finally(() => Promise.all([closeAdminPool(), closePools()]).then(() => undefined).catch(() => undefined));

@@ -2,7 +2,7 @@
  * Quick count of registered users.
  * Run with: npx tsx scripts/count-users.ts
  */
-import { adminPool, closePools } from '../src/db/pool.js';
+import { adminPool, closeAdminPool } from '../src/db/admin-pool.js';
 
 async function main(): Promise<void> {
     const { rows } = await adminPool.query(`
@@ -27,4 +27,4 @@ async function main(): Promise<void> {
 main().catch((error) => {
     console.error(error);
     process.exit(1);
-}).finally(() => closePools().catch(() => undefined));
+}).finally(() => closeAdminPool().catch(() => undefined));

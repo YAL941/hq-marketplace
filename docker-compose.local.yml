@@ -1,0 +1,29 @@
+# Local development database only. Staging/production use docker-compose.yml
+# with an externally managed PostgreSQL service.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hq-marketplace-local-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PGDATABASE:-hq_marketplace}
+      POSTGRES_USER: ${PGUSER:-postgres}
+      POSTGRES_PASSWORD_FILE: /run/secrets/local_postgres_password
+    ports:
+      - "127.0.0.1:${LOCAL_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - local-postgres-data:/var/lib/postgresql/data
+    secrets:
+      - local_postgres_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-postgres} -d ${PGDATABASE:-hq_marketplace}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+secrets:
+  local_postgres_password:
+    file: ${LOCAL_POSTGRES_PASSWORD_FILE:-.secrets/postgres-admin-password}
+
+volumes:
+  local-postgres-data:

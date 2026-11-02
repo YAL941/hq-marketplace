@@ -13,6 +13,7 @@ let closePools: () => Promise<void>;
 let customerToken: string;
 let courierToken: string;
 let orderId: string;
+let customerId: string;
 let mockSmsProvider: import('../src/modules/notifications/mock-sms.provider.js').MockSmsProvider;
 let mockWhatsAppProvider: import('../src/modules/notifications/mock-whatsapp.provider.js').MockWhatsAppProvider;
 
@@ -22,15 +23,15 @@ before(async () => {
     mockWhatsAppProvider = notifications.mockWhatsAppProvider;
     app = (await import('../src/app.js')).createApp();
     const poolModule = await import('../src/db/pool.js');
-    adminPool = poolModule.adminPool;
+    adminPool = (await import('../src/db/admin-pool.js')).adminPool;
     closePools = poolModule.closePools;
     const { prepareTestDatabase } = await import('./helpers/test-database.js');
     await prepareTestDatabase(adminPool);
 
     const { rows: users } = await adminPool.query<{ user_id: string }>(
-        `INSERT INTO users (email, password_hash, full_name, status)
-         VALUES ('delivery-offer-customer@hq.test', 'unused', 'Offer Customer', 'active'),
-                ('delivery-offer-courier@hq.test', 'unused', 'Offer Courier', 'active')
+        `INSERT INTO users (email, password_hash, full_name, status, email_verified_at)
+         VALUES ('delivery-offer-customer@hq.test', 'unused', 'Offer Customer', 'active', now()),
+                ('delivery-offer-courier@hq.test', 'unused', 'Offer Courier', 'active', now())
          RETURNING user_id`,
     );
     const courierId = users[1]!.user_id;
@@ -38,7 +39,7 @@ before(async () => {
         `UPDATE users SET phone = '+252611111222' WHERE user_id = $1`,
         [courierId],
     );
-    const customerId = users[0]!.user_id;
+    customerId = users[0]!.user_id;
     const [{ signAccessToken }, { rows: businesses }] = await Promise.all([
         import('../src/middleware/auth.js'),
         adminPool.query<{ business_id: string }>(
@@ -185,6 +186,16 @@ describe('courier delivery price offers', () => {
             .set('Authorization', `Bearer ${courierToken}`)
             .send({ deliveryStatus: 'on_the_way' });
         assert.equal(onTheWay.status, 200, JSON.stringify(onTheWay.body));
+        const { rows: deliveryEmails } = await adminPool.query<{
+            recipient_user_id: string; locale: string; payload: Record<string, unknown>;
+        }>(`SELECT recipient_user_id, locale, payload
+              FROM notification_private.notification_outbox
+             WHERE order_id = $1 AND event_type = 'delivery.status_changed'`, [orderId]);
+        assert.equal(deliveryEmails.length, 1);
+        assert.equal(Number(deliveryEmails[0]!.recipient_user_id), Number(customerId));
+        assert.equal(deliveryEmails[0]!.locale, 'en');
+        assert.equal(deliveryEmails[0]!.payload.delivery_status, 'on_the_way');
+        assert.equal(JSON.stringify(deliveryEmails[0]!.payload).includes('confirmation'), false);
 
         const wrongCode = await request(app)
             .patch(`/api/courier/deliveries/${orderId}/status`)

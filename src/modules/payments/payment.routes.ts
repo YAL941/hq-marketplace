@@ -9,6 +9,7 @@ import { getPaymentProvider, isMockMobileMoneyAllowedFor, listPaymentMethods } f
 import { PAYMENT_PROVIDERS, type PaymentProviderName } from './payment.types.js';
 import { MockMobileMoneyProvider } from './mock-mobile-money.provider.js';
 import { notifyPaidPaymentSafely } from '../notifications/notification.service.js';
+import { enqueueSuccessfulPaymentEmail } from '../notifications/email-outbox.repository.js';
 
 const createPaymentSchema = z.object({
     provider: z.enum(PAYMENT_PROVIDERS),
@@ -63,7 +64,13 @@ async function processWebhook(
     if (!provider) throw notFound('Payment provider is not available');
     const event = provider.verifyWebhook(headers, rawBody);
     if (!event) throw unauthorized('Webhook signature or payload is invalid');
-    return withTenant(ANONYMOUS, (client) => applyVerifiedPaymentEvent(client, providerName, event));
+    return withTenant(ANONYMOUS, async (client) => {
+        const result = await applyVerifiedPaymentEvent(client, providerName, event);
+        if (result.payment_status === 'paid' && !result.duplicate && !result.reconciliation_required) {
+            await enqueueSuccessfulPaymentEmail(client, String(result.payment_id));
+        }
+        return result;
+    });
 }
 
 paymentRoutes.post('/payments/webhooks/:provider', webhookLimiter, async (req, res, next) => {
@@ -115,9 +122,13 @@ paymentRoutes.post(
                 if (!event) throw unauthorized('Generated mock webhook could not be verified');
                 return event;
             });
-            const result = await withTenant(ANONYMOUS, (client) =>
-                applyVerifiedPaymentEvent(client, 'mock_mobile_money', event),
-            );
+            const result = await withTenant(ANONYMOUS, async (client) => {
+                const applied = await applyVerifiedPaymentEvent(client, 'mock_mobile_money', event);
+                if (applied.payment_status === 'paid' && !applied.duplicate && !applied.reconciliation_required) {
+                    await enqueueSuccessfulPaymentEmail(client, String(applied.payment_id));
+                }
+                return applied;
+            });
             if (result.payment_status === 'paid' && !result.duplicate) {
                 await notifyPaidPaymentSafely(String(result.payment_id));
             }
