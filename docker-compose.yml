@@ -12,6 +12,8 @@ services:
       PGHOST: ${PGHOST:?set the staging PostgreSQL host}
       PGPORT: ${PGPORT:?set the staging PostgreSQL port}
       PGDATABASE: ${PGDATABASE:?set the staging PostgreSQL database}
+      PG_TLS_MODE: ${PG_TLS_MODE:?set PG_TLS_MODE=verify-full for production}
+      PG_SSL_CA_FILE: ${PG_SSL_CA_FILE:-}
       # Admin credentials are deliberately blank in the API container. Run
       # migrations and grants from a separate trusted operator/CI context.
       PGUSER: ""
@@ -58,6 +60,8 @@ services:
       PGHOST: ${PGHOST:?set the staging PostgreSQL host}
       PGPORT: ${PGPORT:?set the staging PostgreSQL port}
       PGDATABASE: ${PGDATABASE:?set the staging PostgreSQL database}
+      PG_TLS_MODE: ${PG_TLS_MODE:?set PG_TLS_MODE=verify-full for production}
+      PG_SSL_CA_FILE: ${PG_SSL_CA_FILE:-}
       NOTIFICATION_WORKER_DB_USER: ${NOTIFICATION_WORKER_DB_USER:?set a dedicated worker login}
       NOTIFICATION_WORKER_DB_PASSWORD_FILE: /run/secrets/notification_worker_db_password
       SMTP_HOST: ${SMTP_HOST:-}

@@ -24,8 +24,37 @@ REVOKE EXECUTE ON FUNCTION public.app_user_id(), public.app_current_business_id(
     public.app_has_business_permission(BIGINT, TEXT), public.app_business_ids(),
     public.app_business_is_public(BIGINT), public.app_business_has_no_members(BIGINT)
     FROM hq_notification_definer;
-DROP OWNED BY hq_notification_definer;
-DROP ROLE hq_notification_definer;
+DO $citext_cleanup$
+BEGIN
+    IF pg_catalog.to_regprocedure('public.citext_eq(public.citext, public.citext)') IS NOT NULL THEN
+        REVOKE EXECUTE ON FUNCTION public.citext_eq(public.citext, public.citext)
+            FROM hq_notification_definer;
+    END IF;
+END
+$citext_cleanup$;
+REVOKE USAGE ON SCHEMA public, notification_private FROM hq_notification_definer;
+REVOKE ALL ON TABLE notification_private.notification_outbox FROM hq_notification_definer;
+REVOKE SELECT ON TABLE public.orders, public.payments, public.businesses,
+    public.business_users, public.roles, public.users, public.business_couriers
+    FROM hq_notification_definer;
+
+DO $role_cleanup$
+DECLARE
+    v_definer_oid OID;
+BEGIN
+    SELECT oid INTO v_definer_oid
+      FROM pg_catalog.pg_roles
+     WHERE rolname = 'hq_notification_definer';
+
+    IF EXISTS (
+        SELECT 1 FROM pg_catalog.pg_shdepend
+         WHERE refobjid = v_definer_oid
+           AND deptype IN ('a', 'o')
+    ) THEN
+        RAISE EXCEPTION 'hq_notification_definer retains unintended owned objects or privileges';
+    END IF;
+END
+$role_cleanup$;
 GRANT USAGE ON SCHEMA public TO hq_notification_worker;
 GRANT EXECUTE ON FUNCTION public.claim_notification_email_batch(INTEGER, INTEGER),
     public.resolve_notification_email_recipient(BIGINT, UUID),

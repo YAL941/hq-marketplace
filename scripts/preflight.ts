@@ -72,6 +72,10 @@ function describeTarget(): string {
     return `${config.PGHOST}:${config.PGPORT}/${config.PGDATABASE}`;
 }
 
+function describeAdminTarget(): string {
+    return `${config.PG_DIRECT_HOST}:${config.PGPORT}/${config.PGDATABASE}`;
+}
+
 /**
  * The environment, as `src/config.ts` resolved it.
  *
@@ -121,11 +125,11 @@ async function checkAppDatabaseReachable(): Promise<void> {
 async function checkAdminDatabaseReachable(): Promise<void> {
     try {
         await adminPool.query('SELECT 1');
-        pass('admin database is reachable', `as ${config.PGUSER} on ${describeTarget()}`);
+        pass('admin database is reachable', `as ${config.PGUSER} on ${describeAdminTarget()}`);
     } catch (error) {
         fail(
             'admin database is reachable',
-            `as ${config.PGUSER} on ${describeTarget()}: ${describeError(error)}\n`
+            `as ${config.PGUSER} on ${describeAdminTarget()}: ${describeError(error)}\n`
             + '  `npm run db:migrate` and `npm run db:grants` cannot run against this database.',
         );
     }

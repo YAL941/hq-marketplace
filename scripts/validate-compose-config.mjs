@@ -24,6 +24,17 @@ export function compareComposeVersions(actual, minimum = MIN_COMPOSE) {
 
 export async function validateComposeEnvironment(env, readSecret = async (path) => (await readFile(path, 'utf8')).trim()) {
     const errors = [];
+    if (env.PG_MANAGED_MODE === 'managed') {
+        const directHost = env.PG_DIRECT_HOST?.trim();
+        if (!directHost) {
+            errors.push('PG_DIRECT_HOST is required when PG_MANAGED_MODE=managed');
+        } else if (
+            /(^|\.)[^.]*-pooler(?:\.|$)/i.test(directHost)
+            || /\.pooler\.[^.]+\.[^.]+(?:\.[^.]+)?$/i.test(directHost)
+        ) {
+            errors.push('PG_DIRECT_HOST must not be a known pooled hostname');
+        }
+    }
     const required = (name) => {
         const value = env[name]?.trim();
         if (!value) errors.push(`${name} is required`);

@@ -14,6 +14,8 @@ DROP FUNCTION IF EXISTS notification_api.worker_heartbeat(BOOLEAN);
 ALTER TABLE notification_private.notification_admin_audit OWNER TO current_user;
 ALTER TABLE notification_private.notification_worker_state OWNER TO current_user;
 ALTER TABLE notification_private.notification_outbox_dedupe_tombstones OWNER TO current_user;
+REVOKE USAGE, SELECT ON SEQUENCE notification_private.notification_admin_audit_audit_id_seq
+    FROM hq_notification_definer;
 DROP TABLE notification_private.notification_admin_audit;
 DROP TABLE notification_private.notification_worker_state;
 DROP TABLE notification_private.notification_outbox_dedupe_tombstones;

@@ -1,5 +1,6 @@
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
 import { config } from '../config.js';
+import { createPostgresTlsOptions } from './postgres-tls.js';
 
 /**
  * The API pool uses only `hq_app`. Privileged migration access lives in
@@ -14,6 +15,7 @@ const common = {
     host: config.PGHOST,
     port: config.PGPORT,
     database: config.PGDATABASE,
+    ssl: createPostgresTlsOptions(config.PG_TLS_MODE, config.PG_SSL_CA_FILE),
     // On Vercel each function instance owns its pool, so `max: 1` serializes every
     // concurrent request and the frontend's mount-time burst (categories, cities,
     // businesses ×2) queues and timeouts. Four concurrent connections per instance

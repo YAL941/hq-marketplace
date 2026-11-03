@@ -88,6 +88,61 @@ async function workerQuery<T extends Record<string, unknown>>(query: (client: Po
 }
 
 describe('notification outbox database foundation', () => {
+    it('leaves no temporary definer membership and preserves notification object ownership', async () => {
+        const { rows } = await adminPool.query<{
+            migration_membership: boolean;
+            app_membership: boolean;
+            worker_membership: boolean;
+            worker_login_membership: boolean;
+            table_owner: string;
+            unsafe_function_count: string;
+        }>(`
+            SELECT
+              EXISTS (
+                SELECT 1 FROM pg_catalog.pg_auth_members am
+                JOIN pg_catalog.pg_roles member ON member.oid = am.member
+                JOIN pg_catalog.pg_roles target ON target.oid = am.roleid
+                WHERE member.rolname = current_user::text
+                  AND target.rolname = 'hq_notification_definer'
+              ) AS migration_membership,
+              pg_catalog.pg_has_role('hq_app', 'hq_notification_definer', 'MEMBER') AS app_membership,
+              pg_catalog.pg_has_role('hq_notification_worker', 'hq_notification_definer', 'MEMBER') AS worker_membership,
+              EXISTS (
+                SELECT 1 FROM pg_catalog.pg_roles login_role
+                 JOIN pg_catalog.pg_auth_members am ON am.member = login_role.oid
+                 JOIN pg_catalog.pg_roles target ON target.oid = am.roleid
+                WHERE login_role.rolcanlogin
+                  AND login_role.rolname LIKE 'hq_notification_worker%'
+                  AND target.rolname = 'hq_notification_definer'
+              ) AS worker_login_membership,
+              table_owner.rolname AS table_owner,
+              (SELECT count(*)::text FROM pg_catalog.pg_proc p
+                JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+                JOIN pg_catalog.pg_roles owner_role ON owner_role.oid = p.proowner
+               WHERE n.nspname IN ('notification_private', 'notification_api', 'notification_admin', 'public')
+                 AND p.proname IN (
+                   'enqueue_notification_email', 'enqueue_new_order_email',
+                   'claim_notification_email_batch', 'resolve_notification_email_recipient',
+                   'acknowledge_notification_email_sent', 'fail_notification_email',
+                   'prevent_archived_notification_duplicate', 'worker_heartbeat',
+                   'worker_delivery_state', 'health_summary', 'inspect_dead_letter',
+                   'review_dead_letter', 'retry_dead_letter', 'prune_terminal_batch'
+                 )
+                 AND owner_role.rolname <> 'hq_notification_definer') AS unsafe_function_count
+             FROM pg_catalog.pg_roles table_owner
+             JOIN pg_catalog.pg_class c ON c.relname = 'notification_outbox'
+             JOIN pg_catalog.pg_namespace ns ON ns.oid = c.relnamespace
+             WHERE ns.nspname = 'notification_private'
+               AND table_owner.oid = c.relowner
+        `);
+        assert.equal(rows[0]!.migration_membership, false);
+        assert.equal(rows[0]!.app_membership, false);
+        assert.equal(rows[0]!.worker_membership, false);
+        assert.equal(rows[0]!.worker_login_membership, false);
+        assert.equal(rows[0]!.table_owner, 'hq_notification_definer');
+        assert.equal(rows[0]!.unsafe_function_count, '0');
+    });
+
     it('uses the next migration version and installs a private RLS-enabled table', async () => {
         const { rows } = await adminPool.query<{ current_database: string; row_security: boolean }>(`
             SELECT pg_catalog.current_database() AS current_database, c.relrowsecurity AS row_security
@@ -448,8 +503,8 @@ describe('notification outbox database foundation', () => {
         assert.equal(rows[0]!.count, '0');
     });
 
-    it('rolls notification migrations 062-065 down and up again with the same grants and RLS protection', async () => {
-        const { migrateDown, migrateUp } = await import('../src/db/migrator.js');
+    it('rolls notification migrations 062-066 down and up again with the same grants and RLS protection', async () => {
+        const { executeOwnershipDownMigration, loadMigrations, migrateDown, migrateUp } = await import('../src/db/migrator.js');
         const { applyGrants } = await import('../src/db/grants.js');
         const { config } = await import('../src/config.js');
         const { rows: outboxBefore } = await adminPool.query<{ count: string }>(
@@ -457,6 +512,63 @@ describe('notification outbox database foundation', () => {
         );
         assert.equal(await migrateDown({ allowDataLoss: true }), '066_notification_tls_health_code');
         assert.deepEqual(await migrateUp(), ['066_notification_tls_health_code']);
+        assert.equal(await migrateDown({ allowDataLoss: true }), '066_notification_tls_health_code');
+        const interruptionClient = await adminPool.connect();
+        try {
+            await interruptionClient.query('BEGIN');
+            const { rows: role } = await interruptionClient.query<{ role_name: string }>(
+                'SELECT current_user::text AS role_name',
+            );
+            await interruptionClient.query(
+                `GRANT hq_notification_definer TO "${role[0]!.role_name.replace(/"/g, '""')}"`,
+            );
+            const { rows: backend } = await interruptionClient.query<{ pid: number }>(
+                'SELECT pg_backend_pid()::integer AS pid',
+            );
+            await adminPool.query('SELECT pg_catalog.pg_terminate_backend($1::integer)', [backend[0]!.pid]);
+            await assert.rejects(() => interruptionClient.query('COMMIT'));
+        } finally {
+            interruptionClient.release(true);
+        }
+        const { rows: interruptedState } = await adminPool.query<{
+            registry: boolean; membership: boolean;
+        }>(`
+            SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version='065') AS registry,
+                   EXISTS (
+                     SELECT 1 FROM pg_catalog.pg_auth_members am
+                     JOIN pg_catalog.pg_roles member ON member.oid=am.member
+                     JOIN pg_catalog.pg_roles granted ON granted.oid=am.roleid
+                     WHERE member.rolname=current_user::text AND granted.rolname='hq_notification_definer'
+                   ) AS membership
+        `);
+        assert.deepEqual(interruptedState[0], { registry: true, membership: false });
+        const migrationsForFailure = await loadMigrations();
+        const migration065 = migrationsForFailure.find((migration) => migration.version === '065')!;
+        const failure065Client = await adminPool.connect();
+        try {
+            await assert.rejects(
+                () => executeOwnershipDownMigration(failure065Client, {
+                    ...migration065,
+                    downSql: 'SELECT 1 / 0 AS injected_down_065_failure',
+                }),
+                /division by zero/,
+            );
+        } finally {
+            failure065Client.release();
+        }
+        const { rows: failed065State } = await adminPool.query<{
+            registry: boolean; tombstones: boolean; membership: boolean;
+        }>(`
+            SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version='065') AS registry,
+                   pg_catalog.to_regclass('notification_private.notification_outbox_dedupe_tombstones') IS NOT NULL AS tombstones,
+                   EXISTS (
+                     SELECT 1 FROM pg_catalog.pg_auth_members am
+                     JOIN pg_catalog.pg_roles member ON member.oid=am.member
+                     JOIN pg_catalog.pg_roles granted ON granted.oid=am.roleid
+                     WHERE member.rolname=current_user::text AND granted.rolname='hq_notification_definer'
+                   ) AS membership
+        `);
+        assert.deepEqual(failed065State[0], { registry: true, tombstones: true, membership: false });
         assert.equal(await migrateDown({ allowDataLoss: true }), '065_notification_operations');
         const { rows: down065 } = await adminPool.query<{ count: string; admin_schema: boolean; tombstones: boolean }>(`
             SELECT (SELECT count(*)::text FROM notification_private.notification_outbox) AS count,
@@ -466,12 +578,49 @@ describe('notification outbox database foundation', () => {
         assert.equal(down065[0]!.count, outboxBefore[0]!.count);
         assert.equal(down065[0]!.admin_schema, false);
         assert.equal(down065[0]!.tombstones, false);
+        const { rows: membership065 } = await adminPool.query<{ active: boolean }>(`
+            SELECT EXISTS (
+                SELECT 1 FROM pg_catalog.pg_auth_members am
+                JOIN pg_catalog.pg_roles member ON member.oid = am.member
+                JOIN pg_catalog.pg_roles granted ON granted.oid = am.roleid
+                WHERE member.rolname = current_user::text
+                  AND granted.rolname = 'hq_notification_definer'
+            ) AS active
+        `);
+        assert.equal(membership065[0]!.active, false);
         assert.deepEqual(await migrateUp(), ['065_notification_operations', '066_notification_tls_health_code']);
         await applyGrants(adminPool, config.APP_DB_USER, config.APP_DB_PASSWORD);
 
         assert.equal(await migrateDown({ allowDataLoss: true }), '066_notification_tls_health_code');
         assert.deepEqual(await migrateUp(), ['066_notification_tls_health_code']);
+        assert.equal(await migrateDown({ allowDataLoss: true }), '066_notification_tls_health_code');
         assert.equal(await migrateDown({ allowDataLoss: true }), '065_notification_operations');
+        const migration064 = migrationsForFailure.find((migration) => migration.version === '064')!;
+        const failure064Client = await adminPool.connect();
+        try {
+            await assert.rejects(
+                () => executeOwnershipDownMigration(failure064Client, {
+                    ...migration064,
+                    downSql: 'SELECT 1 / 0 AS injected_down_064_failure',
+                }),
+                /division by zero/,
+            );
+        } finally {
+            failure064Client.release();
+        }
+        const { rows: failed064State } = await adminPool.query<{
+            registry: boolean; api_schema: boolean; membership: boolean;
+        }>(`
+            SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version='064') AS registry,
+                   pg_catalog.to_regnamespace('notification_api') IS NOT NULL AS api_schema,
+                   EXISTS (
+                     SELECT 1 FROM pg_catalog.pg_auth_members am
+                     JOIN pg_catalog.pg_roles member ON member.oid=am.member
+                     JOIN pg_catalog.pg_roles granted ON granted.oid=am.roleid
+                     WHERE member.rolname=current_user::text AND granted.rolname='hq_notification_definer'
+                   ) AS membership
+        `);
+        assert.deepEqual(failed064State[0], { registry: true, api_schema: true, membership: false });
         assert.equal(await migrateDown({ allowDataLoss: true }), '064_notification_owner_security');
         const { rows: down064 } = await adminPool.query<{ count: string; owner_role: boolean; api_schema: boolean }>(`
             SELECT (SELECT count(*)::text FROM notification_private.notification_outbox) AS count,
@@ -481,6 +630,16 @@ describe('notification outbox database foundation', () => {
         assert.equal(down064[0]!.count, outboxBefore[0]!.count);
         assert.equal(down064[0]!.owner_role, false);
         assert.equal(down064[0]!.api_schema, false);
+        const { rows: membership064 } = await adminPool.query<{ active: boolean }>(`
+            SELECT EXISTS (
+                SELECT 1 FROM pg_catalog.pg_auth_members am
+                JOIN pg_catalog.pg_roles member ON member.oid = am.member
+                JOIN pg_catalog.pg_roles granted ON granted.oid = am.roleid
+                WHERE member.rolname = current_user::text
+                  AND granted.rolname = 'hq_notification_definer'
+            ) AS active
+        `);
+        assert.equal(membership064[0]!.active, false);
         assert.deepEqual(await migrateUp(), ['064_notification_owner_security', '065_notification_operations', '066_notification_tls_health_code']);
         await applyGrants(adminPool, config.APP_DB_USER, config.APP_DB_PASSWORD);
         const { rows: up064 } = await adminPool.query<{
@@ -508,6 +667,7 @@ describe('notification outbox database foundation', () => {
 
         assert.equal(await migrateDown({ allowDataLoss: true }), '066_notification_tls_health_code');
         assert.deepEqual(await migrateUp(), ['066_notification_tls_health_code']);
+        assert.equal(await migrateDown({ allowDataLoss: true }), '066_notification_tls_health_code');
         assert.equal(await migrateDown({ allowDataLoss: true }), '065_notification_operations');
         assert.equal(await migrateDown({ allowDataLoss: true }), '064_notification_owner_security');
         assert.equal(await migrateDown({ allowDataLoss: true }), '063_enqueue_new_order_email');

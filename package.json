@@ -9,6 +9,7 @@
   },
   "scripts": {
     "db:create": "cross-env PROCESS_ROLE=migration tsx scripts/create-database.ts",
+    "db:bootstrap": "cross-env PROCESS_ROLE=migration tsx scripts/bootstrap-database.ts",
     "db:migrate": "cross-env PROCESS_ROLE=migration tsx scripts/migrate.ts up",
     "db:rollback": "cross-env PROCESS_ROLE=migration tsx scripts/migrate.ts down",
     "db:status": "cross-env PROCESS_ROLE=migration tsx scripts/migrate.ts status",
@@ -16,7 +17,7 @@
     "db:seed:demo": "cross-env PROCESS_ROLE=migration tsx scripts/seed-demo-marketplace.ts",
     "db:promote-admin": "cross-env PROCESS_ROLE=migration tsx scripts/admin-role.ts promote",
     "db:revoke-admin": "cross-env PROCESS_ROLE=migration tsx scripts/admin-role.ts revoke",
-    "db:setup": "npm run db:create && npm run db:migrate && npm run db:grants && npm run db:seed",
+    "db:setup": "npm run db:create && npm run db:bootstrap && npm run db:migrate && npm run db:grants && npm run db:seed",
     "db:seed": "cross-env PROCESS_ROLE=migration tsx scripts/seed.ts",
     "preflight": "cross-env PROCESS_ROLE=preflight tsx scripts/preflight.ts",
     "compose:validate": "node scripts/validate-compose-config.mjs",

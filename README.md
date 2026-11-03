@@ -54,9 +54,10 @@ npm.cmd run dev
 | Step | Command | What it does |
 | --- | --- | --- |
 | 1 | `db:create` | creates `hq_marketplace` and `hq_marketplace_test` |
-| 2 | `db:migrate` | applies `db/migrations/*.sql` in order, each in a transaction |
-| 3 | `db:grants` | creates the `hq_app` role and grants it **non-owner** privileges |
-| 4 | `db:seed` | categories and local admin; fictional listings are opt-in |
+| 2 | `db:bootstrap` | creates/repairs the least-privilege `hq_app` and `hq_notification_definer` roles |
+| 3 | `db:migrate` | applies `db/migrations/*.sql` in order, each in a transaction |
+| 4 | `db:grants` | grants `hq_app` only its runtime **non-owner** privileges |
+| 5 | `db:seed` | categories and local admin; fictional listings are opt-in |
 
 Step 3 matters: the API must connect as `hq_app`, not as the table owner. Only a
 non-owner role is subject to RLS.

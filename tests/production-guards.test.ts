@@ -36,6 +36,7 @@ const VALID_PRODUCTION_ENV: Record<string, string> = {
     NODE_ENV: 'production',
     PGHOST: 'db.internal',
     PGDATABASE: 'hq_marketplace',
+    PG_TLS_MODE: 'verify-full',
     APP_DB_USER: 'hq_app',
     APP_DB_PASSWORD: 'a-real-app-password-51ba9e30',
     JWT_SECRET: 'a-real-jwt-signing-secret-4d9e0c17b6a24f83',
@@ -98,6 +99,26 @@ describe('production guards', () => {
         const { ok, output } = await bootProductionConfig({});
         assert.equal(ok, true, `a valid production environment should boot, but:\n${output}`);
         assert.match(output, /ORDERS_ENABLED=true/);
+    });
+
+    it('requires verified PostgreSQL TLS in production', async () => {
+        const { ok, output } = await bootProductionConfig({ PG_TLS_MODE: undefined });
+        assert.equal(ok, false);
+        assert.match(output, /PG_TLS_MODE=verify-full is required/);
+    });
+
+    it('rejects a CA path unless verified TLS is enabled', async () => {
+        const { ok, output } = await bootProductionConfig({
+            PG_TLS_MODE: 'disable',
+            PG_SSL_CA_FILE: '/run/secrets/db-ca.pem',
+        });
+        assert.equal(ok, false);
+        assert.match(output, /PG_SSL_CA_FILE requires PG_TLS_MODE=verify-full/);
+    });
+
+    it('allows explicit plaintext PostgreSQL for local development', async () => {
+        const { ok, output } = await bootProductionConfig({ NODE_ENV: 'development', PG_TLS_MODE: 'disable' });
+        assert.equal(ok, true, output);
     });
 
     it('defaults internal order creation on in every environment', async () => {

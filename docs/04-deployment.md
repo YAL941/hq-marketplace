@@ -34,10 +34,72 @@ startup:
 2. **The API must not run as the table owner**, or row level security stops
    being consulted and every tenant can see every other tenant's rows.
 
+## Direct migration endpoint separation
+
+Runtime pools and migration/admin pools intentionally have different endpoint
+rules:
+
+- `PGHOST` is the runtime API and worker endpoint. It may be a Neon or other
+  provider transaction-pooled hostname.
+- `PG_DIRECT_HOST` is the migration/admin-only endpoint. It must be the
+  provider's actual direct endpoint, even though `PGPORT`, `PGDATABASE`,
+  `PG_TLS_MODE`, and `PG_SSL_CA_FILE` remain shared.
+- `PG_MANAGED_MODE=managed` requires `PG_DIRECT_HOST`; managed migrations never
+  fall back to `PGHOST`.
+- `PG_MANAGED_MODE=local` preserves local PostgreSQL compatibility, but
+  migration/admin tooling still requires an explicit `PG_DIRECT_HOST`.
+- Hostnames containing known pool markers are rejected, but this is a guard,
+  not proof that an arbitrary provider hostname is direct. The operator must
+  copy the provider's direct endpoint from the provider console or secret
+  manager.
+- Migration and preflight tooling use the direct host only. API and worker pools
+  continue to use `PGHOST`.
+
+Example local configuration:
+
+```text
+PGHOST=localhost
+PG_DIRECT_HOST=localhost
+PG_MANAGED_MODE=local
+```
+
+Example managed configuration:
+
+```text
+PGHOST=<runtime pooled or application endpoint>
+PG_DIRECT_HOST=<provider direct endpoint>
+PG_MANAGED_MODE=managed
+PG_TLS_MODE=verify-full
+```
+
+## Migration ownership transitions
+
+The following transitions are defined in migrations 062, 064, and 065 and are
+not changed by this preparation phase.
+
+| Object | Transition | Membership requirement |
+|---|---|---|
+| `hq_notification_worker` group role | Created with `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS`, and no administration flags | Migration/admin role needs `CREATEROLE` or Neon equivalent capability |
+| `hq_notification_definer` role | Created `NOLOGIN`, `NOINHERIT`, non-superuser | Migration/admin role needs target-role membership or provider capability before ownership is transferred |
+| `notification_private.notification_outbox` table | Owner becomes `hq_notification_definer` in migration 064 | Migration role must own the table currently and be a member of the target owner role |
+| Notification outbox sequence | Privileges grant to `hq_notification_definer`; sequence owner is not changed by the inspected migration | Migration role still needs sequence access for grants |
+| Notification private state, audit, and tombstone tables | Owners become `hq_notification_definer` in migration 065 | Migration role must meet PostgreSQL ownership-transfer rules for each table and role |
+| Notification private audit sequence | Usage/select privileges granted to `hq_notification_definer`; sequence owner is unchanged | No ownership transfer identified |
+| Public notification SECURITY DEFINER functions | Owners become `hq_notification_definer` | Migration role must be a member of the target role for each `ALTER FUNCTION OWNER TO` operation |
+| `notification_api.*` SECURITY DEFINER functions | Created or altered by migration 064/065 and owned by `hq_notification_definer` | Migration role must own or have target-role membership before owner reassignment |
+| `notification_admin.*` SECURITY DEFINER functions | Owners become `hq_notification_definer` | Migration role must own the functions and be a member of the target role |
+
+Standard PostgreSQL ownership rules apply: `ALTER OWNER` requires the current
+role to own the object (or be a superuser), and membership in the target owner
+role where the target is not the current role. Neon compatibility is therefore
+NOT VERIFIED until migration 064/065 are executed against an isolated test
+branch with a provider-provisioned migration role.
+
 ## Before you deploy
 
 ```bash
 npm ci
+npm run db:bootstrap # create/verify controlled bootstrap roles
 npm run db:migrate     # apply pending migrations, as the migration role
 npm run db:grants      # create/refresh the application role and its privileges
 npm run preflight      # everything that can be checked without starting the API
@@ -85,7 +147,10 @@ Production (and Preview if previews should access the database):
 | Variable | Value |
 | --- | --- |
 | `NODE_ENV` | `production` |
-| `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` | Supabase PostgreSQL transaction-pooler details from **Connect**; `PGUSER` is usually `postgres.<project-ref>` |
+| `PGHOST`, `PGPORT`, `PGDATABASE` | PostgreSQL endpoint details from the provider's **Connect** page |
+| `PG_TLS_MODE` | `verify-full` for production; certificate verification is mandatory |
+| `PG_SSL_CA_FILE` | Optional absolute path to a mounted PEM CA bundle when the provider uses a private CA |
+| `PGUSER`, `PGPASSWORD` | Leave unset in the API; administrative credentials belong only in the trusted migration/preflight context |
 | `APP_DB_USER` | `hq_app` |
 | `APP_DB_PASSWORD` | A strong password for the separate API database role |
 | `APP_DB_CONNECTION_USER` | `hq_app.<project-ref>` when using the Supabase transaction pooler; keep `APP_DB_USER` as the actual database role name `hq_app` |

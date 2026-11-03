@@ -87,6 +87,51 @@ SMTP responses remain `smtp_permanent_rejection`; they are not assumed to be
 authentication failures. Error responses are reduced to these codes before
 logging or persisting.
 
+## Worker login provisioning — operator procedure
+
+Status: **NOT VERIFIED on Neon**. The repository intentionally does not create
+the runtime login or a password during application startup.
+
+Migration 062 creates only the `hq_notification_worker` NOLOGIN group role.
+Migration 064 grants that group access to the restricted `notification_api`
+schema and wrappers. Migration 065 adds the worker heartbeat and delivery-state
+functions. The worker login must therefore be a separate LOGIN role and be
+granted membership in `hq_notification_worker`; it must not inherit any
+administrator, application, migration, or notification-definer role.
+
+Operator-only provisioning sequence:
+
+1. Use the provider's secret manager and least-privilege administrator identity.
+2. Generate a unique worker database password outside shell history and source
+   control.
+3. Create the LOGIN role with the provider's interactive SQL/editor mechanism
+   or a provider CLI that does not persist the password in terminal history.
+   Disable login on the group role and preserve `NOINHERIT`,
+   `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOREPLICATION`,
+   `NOBYPASSRLS`, and `NOINHERIT`.
+4. Grant exactly `hq_notification_worker` membership to the LOGIN role. Do not
+   grant `hq_notification_definer`, `hq_app`, or any migration/admin role.
+5. Store the password only in the worker deployment secret source. Rotate it
+   only by changing that role's password through an authenticated operator
+   path, then updating the secret atomically, restarting the worker, and
+   verifying it reaches database-ready state.
+6. Verify effective privileges from the migration/admin connection:
+   login/role flags, exact group membership, notification API function
+   execution, absence of private/public/direct table privileges, absence of
+   extra schema usage, and absence of extra role memberships.
+7. To revoke incident access: revoke the login membership, then rotate or
+   lock/disable the login according to provider-supported controls. Confirm
+   the worker cannot authenticate or execute notification API functions
+   before restoring service.
+
+Do not place the worker password in `.sql`, Docker environment values, Git,
+logs, migration files, or command-line arguments. The runtime startup guard
+only verifies an already-provisioned role; it cannot safely provision Neon
+role objects itself.
+
+The exact Neon login creation, role membership, password rotation, and pooled
+`SET LOCAL ROLE` behavior remain NOT VERIFIED without an isolated Neon branch.
+
 ## Compose and secret provisioning
 
 The supported deployment baseline is Docker Compose v2.32.0 or newer. Run
@@ -96,6 +141,13 @@ secret files, and SMTP TLS mode without printing secret values. The staging and
 production `docker-compose.yml` expects an externally managed PostgreSQL host;
 the local-only PostgreSQL service is in `docker-compose.local.yml` and binds to
 127.0.0.1. It uses a separate named volume.
+
+Both runtime pools and the trusted migration pool use `PG_TLS_MODE`. Production
+requires `verify-full`, which enables certificate-chain and server-name
+validation and never falls back to plaintext. Local PostgreSQL can explicitly
+use `disable`. For a provider with a private CA, mount its PEM bundle read-only
+into each process that needs it and set `PG_SSL_CA_FILE` to that absolute
+in-container path; do not pass certificate contents through environment values.
 
 Compose secrets in these files use the `file` source and are mounted under
 `/run/secrets`. Provision files from the staging secret manager before running

@@ -1,11 +1,13 @@
 import { Pool } from 'pg';
 import { config } from '../config.js';
+import { createPostgresTlsOptions } from './postgres-tls.js';
 
 /** Dedicated pool: it never reads or creates the migration/admin or API pools. */
 export const notificationWorkerPool = new Pool({
     host: config.PGHOST,
     port: config.PGPORT,
     database: config.PGDATABASE,
+    ssl: createPostgresTlsOptions(config.PG_TLS_MODE, config.PG_SSL_CA_FILE),
     user: config.NOTIFICATION_WORKER_DB_USER,
     password: config.NOTIFICATION_WORKER_DB_PASSWORD,
     max: 5,

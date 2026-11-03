@@ -24,8 +24,17 @@ const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
     PGHOST: z.string().default('localhost'),
+    PG_DIRECT_HOST: z.string().min(1).optional(),
+    PG_MANAGED_MODE: z.enum(['local', 'managed']).default('local'),
     PGPORT: z.coerce.number().int().positive().default(5432),
     PGDATABASE: z.string().default('hq_marketplace'),
+    /** PostgreSQL transport policy; absent is tolerated only outside production. */
+    PG_TLS_MODE: z.enum(['disable', 'verify-full']).optional(),
+    /** Optional PEM CA bundle path, mounted/readable by the process. */
+    PG_SSL_CA_FILE: z.preprocess(
+        (value) => value === '' ? undefined : value,
+        z.string().min(1).optional(),
+    ),
     PGUSER: z.string().optional(),
     PGPASSWORD: z.string().optional(),
 
@@ -127,6 +136,15 @@ const envSchema = z.object({
 }).refine(
     (value) => Boolean(value.SMTP_USER) === Boolean(value.SMTP_PASSWORD),
     { message: 'SMTP_USER and SMTP_PASSWORD must both be set or both be empty' },
+).refine(
+    (value) => value.NODE_ENV !== 'production' || value.PG_TLS_MODE === 'verify-full',
+    { message: 'PG_TLS_MODE=verify-full is required when NODE_ENV=production' },
+).refine(
+    (value) => !value.PG_SSL_CA_FILE || value.PG_TLS_MODE === 'verify-full',
+    { message: 'PG_SSL_CA_FILE requires PG_TLS_MODE=verify-full' },
+).refine(
+    (value) => !value.PG_SSL_CA_FILE || isAbsolute(value.PG_SSL_CA_FILE),
+    { message: 'PG_SSL_CA_FILE must be an absolute path' },
 ).refine(
     (value) => value.PROCESS_ROLE !== 'api' || !value.SMTP_HOST || value.NODE_ENV === 'test'
         || (Boolean(value.SMTP_TLS_MODE)

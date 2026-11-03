@@ -1,10 +1,18 @@
 -- Phase 6.6B: isolate notification SECURITY DEFINER functions from postgres.
 DO $role$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'hq_notification_definer') THEN
-        RAISE EXCEPTION 'hq_notification_definer already exists; refusing to adopt an external role';
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'hq_notification_definer') THEN
+        RAISE EXCEPTION 'hq_notification_definer is missing; run the controlled database bootstrap before migrations';
     END IF;
-    CREATE ROLE hq_notification_definer NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+    IF EXISTS (
+        SELECT 1 FROM pg_catalog.pg_roles
+         WHERE rolname = 'hq_notification_definer'
+           AND NOT (rolsuper = false AND rolcreatedb = false AND rolcreaterole = false
+                    AND rolreplication = false AND rolbypassrls = false AND rolcanlogin = false
+                    AND rolinherit = false)
+    ) THEN
+        RAISE EXCEPTION 'hq_notification_definer has unsafe login or administrative attributes';
+    END IF;
 END
 $role$;
 
